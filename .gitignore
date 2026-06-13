@@ -1,0 +1,16 @@
+# Build output
+bin/
+obj/
+publish/
+out/
+
+# Visual Studio / Rider / VS Code
+.vs/
+.idea/
+*.user
+*.suo
+*.userprefs
+
+# OS
+Thumbs.db
+desktop.ini
