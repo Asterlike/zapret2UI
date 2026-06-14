@@ -23,6 +23,9 @@ public sealed class Preset
     /// <summary>Built-in presets cannot be deleted (only duplicated/edited into a copy).</summary>
     public bool IsBuiltIn { get; set; }
 
+    /// <summary>The single preset the Simple mode applies with its one-click button.</summary>
+    public bool IsRecommended { get; set; }
+
     public Preset Clone() => new()
     {
         Name = Name,

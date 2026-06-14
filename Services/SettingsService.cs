@@ -12,6 +12,12 @@ public sealed class AppSettings
     public bool AutostartEngine { get; set; }   // also start the engine on launch
     public bool MinimizeToTray { get; set; } = true;
     public bool StartMinimized { get; set; }
+
+    /// <summary>Simple (one-click) vs Advanced (full tabs) interface. Simple by default.</summary>
+    public bool SimpleMode { get; set; } = true;
+
+    /// <summary>Background watchdog: silently re-pick a strategy if the bypass stops working.</summary>
+    public bool AutoHeal { get; set; }
 }
 
 /// <summary>Loads/saves <see cref="AppSettings"/> as settings.json.</summary>

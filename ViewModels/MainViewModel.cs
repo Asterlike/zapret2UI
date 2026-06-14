@@ -16,8 +16,15 @@ public sealed class MainViewModel : ObservableObject
     private readonly HostlistService _hostlists = new();
     private readonly SettingsService _settingsSvc = new();
     private readonly AutostartService _autostart = new();
-    private readonly StrategyTesterService _tester = new();
-    private CancellationTokenSource? _testCts;
+    private readonly DiagnosticsService _diag = new();
+    private readonly AutoSelectService _autoSelect = new();
+    private readonly IpsetService _ipset = new();
+    private readonly MonitorService _monitor = new();
+    private CancellationTokenSource? _diagCts;
+    private CancellationTokenSource? _autoCts;
+
+    /// <summary>Raised to show a soft tray notification (title, message).</summary>
+    public event Action<string, string>? Notify;
 
     public AppSettings Settings => _settingsSvc.Settings;
 
@@ -45,13 +52,29 @@ public sealed class MainViewModel : ObservableObject
         SavePresetCommand = new RelayCommand(_ => SavePreset(),
                                              _ => SelectedPreset is { IsBuiltIn: false });
 
-        RunTestCommand = new RelayCommand(async _ => await RunTestAsync(), _ => !IsTesting);
-        StopTestCommand = new RelayCommand(_ => _testCts?.Cancel(), _ => IsTesting);
-        ApplyResultCommand = new RelayCommand(_ => ApplyResult(),
-            _ => SelectedResult is { Works: true } && !IsTesting);
+        SimpleToggleCommand = new RelayCommand(_ => SimpleToggle(),
+            _ => !IsUpdating && !IsAutoSelecting && (IsRunning || CanStart));
+        SmartPickCommand = new RelayCommand(async _ => await RunAutoSelectAsync(),
+            _ => !IsAutoSelecting && !IsUpdating && _updater.IsEngineInstalled);
+        SetSimpleModeCommand = new RelayCommand(_ => IsSimpleMode = true);
+        SetAdvancedModeCommand = new RelayCommand(_ => IsSimpleMode = false);
 
-        _tester.Status += s => OnUi(() => TestStatus = s);
-        _tester.ResultReady += r => OnUi(() => TestResults.Add(r));
+        RunDiagnosticsCommand = new RelayCommand(async _ => await RunDiagnosticsAsync(), _ => !IsDiagnosing);
+        StopDiagnosticsCommand = new RelayCommand(_ => _diagCts?.Cancel(), _ => IsDiagnosing);
+        RunAutoSelectCommand = new RelayCommand(async _ => await RunAutoSelectAsync(),
+            _ => !IsAutoSelecting && !IsDiagnosing && !IsUpdating && _updater.IsEngineInstalled);
+        StopAutoSelectCommand = new RelayCommand(_ => _autoCts?.Cancel(), _ => IsAutoSelecting);
+        ApplyScoreCommand = new RelayCommand(p => ApplyScore(p as AutoScore),
+            p => (p as AutoScore)?.CanApply == true);
+        BuildDiscordIpsetCommand = new RelayCommand(async _ => await BuildIpsetAsync(),
+            _ => !IsBuildingIpset && _updater.IsEngineInstalled);
+
+        foreach (var r in DiagnosticsService.BuildRows()) DiagRows.Add(r);
+
+        _diag.Status += s => OnUi(() => DiagStatusText = s);
+        _autoSelect.Status += s => OnUi(() => SetAutoStatus(s));
+        _autoSelect.ScoreReady += sc => OnUi(() => AutoScores.Add(sc));
+        _monitor.ConnectivityLost += () => OnUi(() => _ = AutoHealAsync());
     }
 
     // ---- collections -------------------------------------------------------
@@ -59,7 +82,8 @@ public sealed class MainViewModel : ObservableObject
     public ObservableCollection<Preset> Presets { get; } = new();
     public ObservableCollection<string> Hostlists { get; } = new();
     public ObservableCollection<string> LogLines { get; } = new();
-    public ObservableCollection<StrategyTestResult> TestResults { get; } = new();
+    public ObservableCollection<DiagRow> DiagRows { get; } = new();
+    public ObservableCollection<AutoScore> AutoScores { get; } = new();
 
     // ---- commands ----------------------------------------------------------
 
@@ -75,9 +99,16 @@ public sealed class MainViewModel : ObservableObject
     public RelayCommand DuplicatePresetCommand { get; }
     public RelayCommand DeletePresetCommand { get; }
     public RelayCommand SavePresetCommand { get; }
-    public RelayCommand RunTestCommand { get; }
-    public RelayCommand StopTestCommand { get; }
-    public RelayCommand ApplyResultCommand { get; }
+    public RelayCommand SimpleToggleCommand { get; }
+    public RelayCommand SmartPickCommand { get; }
+    public RelayCommand SetSimpleModeCommand { get; }
+    public RelayCommand SetAdvancedModeCommand { get; }
+    public RelayCommand RunDiagnosticsCommand { get; }
+    public RelayCommand StopDiagnosticsCommand { get; }
+    public RelayCommand RunAutoSelectCommand { get; }
+    public RelayCommand StopAutoSelectCommand { get; }
+    public RelayCommand ApplyScoreCommand { get; }
+    public RelayCommand BuildDiscordIpsetCommand { get; }
 
     // ---- engine state ------------------------------------------------------
 
@@ -92,6 +123,8 @@ public sealed class MainViewModel : ObservableObject
                 OnPropertyChanged(nameof(IsRunning));
                 OnPropertyChanged(nameof(CanStart));
                 OnPropertyChanged(nameof(CanStop));
+                OnPropertyChanged(nameof(DiagEngineNote));
+                UpdateMonitor();
                 RaiseCommandStates();
             }
         }
@@ -116,6 +149,7 @@ public sealed class MainViewModel : ObservableObject
                 OnPropertyChanged(nameof(PresetArgsText));
                 OnPropertyChanged(nameof(CommandPreview));
                 OnPropertyChanged(nameof(SelectedPresetEditable));
+                OnPropertyChanged(nameof(DiagEngineNote));
                 RaiseCommandStates();
             }
         }
@@ -202,105 +236,36 @@ public sealed class MainViewModel : ObservableObject
     private string _engineVersion = "—";
     public string EngineVersion { get => _engineVersion; private set => SetField(ref _engineVersion, value); }
 
-    // ---- strategy tester ---------------------------------------------------
+    // ---- auto-select scope -------------------------------------------------
 
-    public string[] TestKinds { get; } = { "HTTPS (TLS)", "HTTP", "QUIC (HTTP/3)" };
-
-    private int _selectedTestKindIndex;
-    public int SelectedTestKindIndex { get => _selectedTestKindIndex; set => SetField(ref _selectedTestKindIndex, value); }
-
-    private string _testDomain = "youtube.com";
-    public string TestDomain { get => _testDomain; set => SetField(ref _testDomain, value); }
-
-    private bool _isTesting;
-    public bool IsTesting
+    private AutoScope _scope = AutoScope.Both;
+    public AutoScope SelectedScope
     {
-        get => _isTesting;
-        private set { if (SetField(ref _isTesting, value)) RaiseCommandStates(); }
+        get => _scope;
+        private set
+        {
+            if (SetField(ref _scope, value))
+            {
+                OnPropertyChanged(nameof(ScopeBoth));
+                OnPropertyChanged(nameof(ScopeDiscord));
+                OnPropertyChanged(nameof(ScopeYouTube));
+                OnPropertyChanged(nameof(ScopeTitle));
+                OnPropertyChanged(nameof(SimpleGoalHint));
+            }
+        }
     }
 
-    private string _testStatus = "Укажите домен и нажмите «Проверить».";
-    public string TestStatus { get => _testStatus; private set => SetField(ref _testStatus, value); }
+    public bool ScopeBoth { get => _scope == AutoScope.Both; set { if (value) SelectedScope = AutoScope.Both; } }
+    public bool ScopeDiscord { get => _scope == AutoScope.Discord; set { if (value) SelectedScope = AutoScope.Discord; } }
+    public bool ScopeYouTube { get => _scope == AutoScope.YouTube; set { if (value) SelectedScope = AutoScope.YouTube; } }
+    public string ScopeTitle => SelectedScope.Title();
 
-    private StrategyTestResult? _selectedResult;
-    public StrategyTestResult? SelectedResult
+    public string SimpleGoalHint => SelectedScope switch
     {
-        get => _selectedResult;
-        set { if (SetField(ref _selectedResult, value)) RaiseCommandStates(); }
-    }
-
-    private TestKind CurrentTestKind => SelectedTestKindIndex switch
-    {
-        1 => TestKind.Http,
-        2 => TestKind.Quic,
-        _ => TestKind.Tls,
+        AutoScope.Discord => "Подбор оптимизируется под Discord.",
+        AutoScope.YouTube => "Подбор оптимизируется под YouTube.",
+        _ => "Подбор ищет одну стратегию, рабочую сразу для Discord и YouTube.",
     };
-
-    private async Task RunTestAsync()
-    {
-        if (IsTesting) return;
-        if (string.IsNullOrWhiteSpace(TestDomain))
-        {
-            TestStatus = "Укажите домен.";
-            return;
-        }
-
-        // Only one winws2 can own the capture — stop the main engine first.
-        if (IsRunning)
-        {
-            AppendLog("Остановка движка для проверки стратегий…");
-            _engine.Stop();
-            await Task.Delay(700);
-        }
-
-        TestResults.Clear();
-        SelectedResult = null;
-        IsTesting = true;
-        _testCts = new CancellationTokenSource();
-        try
-        {
-            await _tester.RunAsync(TestDomain, CurrentTestKind, _testCts.Token);
-        }
-        catch (OperationCanceledException)
-        {
-            TestStatus = "Проверка остановлена.";
-        }
-        catch (Exception ex)
-        {
-            TestStatus = "Ошибка: " + ex.Message;
-        }
-        finally
-        {
-            IsTesting = false;
-            _testCts?.Dispose();
-            _testCts = null;
-        }
-    }
-
-    private void ApplyResult()
-    {
-        if (SelectedResult is not { Works: true } res) return;
-
-        var kind = CurrentTestKind;
-        var candidate = _tester.CandidatesFor(kind).FirstOrDefault(c => c.Name == res.Name);
-        if (candidate is null)
-        {
-            TestStatus = "Не удалось сопоставить стратегию.";
-            return;
-        }
-
-        string kindName = kind switch { TestKind.Http => "http", TestKind.Quic => "quic", _ => "tls" };
-        var preset = new Preset
-        {
-            Name = $"Подобрано: {TestDomain} [{kindName}]",
-            Description = $"Стратегия «{res.Name}», подобранная авто-тестером для {TestDomain}.",
-            Args = StrategyTesterService.BuildPresetArgs(kind, candidate),
-        };
-        _presets.AddUser(preset);
-        ReloadPresets();
-        SelectedPreset = Presets.FirstOrDefault(p => p.Name == preset.Name);
-        TestStatus = $"Сохранено как пресет «{preset.Name}» и сделано активным.";
-    }
 
     // ---- settings toggles (bound to checkboxes) ----------------------------
 
@@ -334,6 +299,231 @@ public sealed class MainViewModel : ObservableObject
         set { Settings.MinimizeToTray = value; _settingsSvc.Save(); OnPropertyChanged(); }
     }
 
+    public bool AutoHeal
+    {
+        get => Settings.AutoHeal;
+        set { Settings.AutoHeal = value; _settingsSvc.Save(); OnPropertyChanged(); UpdateMonitor(); }
+    }
+
+    /// <summary>Run the watchdog only while the engine is up and auto-heal is on.</summary>
+    private void UpdateMonitor()
+    {
+        if (IsRunning && Settings.AutoHeal) { if (!_monitor.IsRunning) _monitor.Start(); }
+        else _monitor.Stop();
+    }
+
+    /// <summary>Watchdog tripped: silently re-pick the best strategy and restart.</summary>
+    private async Task AutoHealAsync()
+    {
+        if (IsAutoSelecting || IsUpdating) return;
+        Notify?.Invoke("Zapret UI", "Обход перестал работать — подбираю заново…");
+        AppendLog("Авто-починка: обход перестал отвечать, перезапускаю подбор.");
+        await RunAutoSelectAsync();
+        if (IsRunning)
+            Notify?.Invoke("Zapret UI", "Обход восстановлен автоматически.");
+    }
+
+    // ---- simple / advanced mode -------------------------------------------
+
+    public bool IsSimpleMode
+    {
+        get => Settings.SimpleMode;
+        set
+        {
+            if (Settings.SimpleMode == value) return;
+            Settings.SimpleMode = value;
+            _settingsSvc.Save();
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(IsAdvancedMode));
+        }
+    }
+
+    public bool IsAdvancedMode => !IsSimpleMode;
+
+    /// <summary>The preset the Simple-mode one-click button applies (combined Discord+YouTube).</summary>
+    public Preset? RecommendedPreset =>
+        Presets.FirstOrDefault(p => p.IsRecommended) ?? Presets.FirstOrDefault();
+
+    private string _simpleStatus = "Нажмите «Включить обход» — приложение применит рекомендуемый набор и запустит DPI-обход.";
+    public string SimpleStatus { get => _simpleStatus; private set => SetField(ref _simpleStatus, value); }
+
+    private void SimpleToggle()
+    {
+        if (IsRunning) { _engine.Stop(); SimpleStatus = "Обход остановлен."; return; }
+
+        var preset = RecommendedPreset;
+        if (preset is null) { SimpleStatus = "Движок ещё не установлен — дождитесь загрузки."; return; }
+        SelectedPreset = preset;
+        SimpleStatus = $"Запускаю обход: «{preset.Name}».";
+        Start();
+    }
+
+    // ---- diagnostics (endpoint matrix) ------------------------------------
+
+    private bool _isDiagnosing;
+    public bool IsDiagnosing
+    {
+        get => _isDiagnosing;
+        private set { if (SetField(ref _isDiagnosing, value)) RaiseCommandStates(); }
+    }
+
+    private string _diagStatusText = "Запустите диагностику, чтобы увидеть, что открывается, а что режется.";
+    public string DiagStatusText { get => _diagStatusText; private set => SetField(ref _diagStatusText, value); }
+
+    private string _diagSummary = "";
+    public string DiagSummary { get => _diagSummary; private set => SetField(ref _diagSummary, value); }
+
+    /// <summary>Reminds the user that the matrix reflects whatever is on the wire right now.</summary>
+    public string DiagEngineNote => IsRunning
+        ? $"Тест идёт с активным обходом: «{SelectedPreset?.Name}». Сравните с выключенным."
+        : "Обход выключен — это базовая проверка. Включите обход и перезапустите, чтобы увидеть разницу.";
+
+    private async Task RunDiagnosticsAsync()
+    {
+        if (IsDiagnosing) return;
+        IsDiagnosing = true;
+        DiagSummary = "";
+        _diagCts = new CancellationTokenSource();
+        try
+        {
+            await _diag.RunAsync(DiagRows.ToList(), _diagCts.Token);
+            ComputeDiagSummary();
+        }
+        catch (OperationCanceledException) { DiagStatusText = "Диагностика остановлена."; }
+        catch (Exception ex) { DiagStatusText = "Ошибка диагностики: " + ex.Message; }
+        finally
+        {
+            IsDiagnosing = false;
+            _diagCts?.Dispose();
+            _diagCts = null;
+        }
+    }
+
+    private void ComputeDiagSummary()
+    {
+        int ok = 0, bad = 0, to = 0;
+        foreach (var r in DiagRows)
+        {
+            if (r.PingOnly) continue;
+            foreach (var s in new[] { r.Http, r.Tls12, r.Tls13 })
+            {
+                if (s == DiagStatus.Ok) ok++;
+                else if (s == DiagStatus.Fail) bad++;
+                else if (s == DiagStatus.Timeout) to++;
+            }
+        }
+        DiagSummary = $"OK: {ok}   ·   Ошибки: {bad}   ·   Таймауты: {to}";
+    }
+
+    // ---- auto-select (best strategy for the chosen scope) -----------------
+
+    private bool _isAutoSelecting;
+    public bool IsAutoSelecting
+    {
+        get => _isAutoSelecting;
+        private set { if (SetField(ref _isAutoSelecting, value)) RaiseCommandStates(); }
+    }
+
+    private string _autoStatusText = "Выберите цель и нажмите «Подобрать лучшую» — найдём стратегию с наименьшим числом ошибок.";
+    public string AutoStatusText { get => _autoStatusText; private set => SetField(ref _autoStatusText, value); }
+
+    private void SetAutoStatus(string s) { AutoStatusText = s; SimpleStatus = s; }
+
+    /// <summary>
+    /// Try each combined strategy, score it against the chosen scope's endpoints,
+    /// keep the best, save it as a preset and start it. Used by both the Проверка
+    /// tab and the Simple-mode «Переподобрать» button.
+    /// </summary>
+    private async Task RunAutoSelectAsync()
+    {
+        if (IsAutoSelecting) return;
+        if (!_updater.IsEngineInstalled) { SetAutoStatus("Движок ещё не установлен — дождитесь загрузки."); return; }
+
+        if (IsRunning)
+        {
+            AppendLog("Остановка движка для авто-подбора…");
+            _engine.Stop();
+            await Task.Delay(700);
+        }
+
+        AutoScores.Clear();
+        IsAutoSelecting = true;
+        _autoCts = new CancellationTokenSource();
+        try
+        {
+            SetAutoStatus($"Подбираю лучшую стратегию для «{ScopeTitle}»…");
+            var result = await _autoSelect.RunAsync(SelectedScope.GoalHosts(), _autoCts.Token);
+            if (result is null)
+            {
+                SetAutoStatus("Не удалось подобрать стратегию.");
+                return;
+            }
+
+            var (strategy, score) = result.Value;
+            var preset = AutoSelectService.ToPreset(strategy, SelectedScope);
+            _presets.AddUser(preset);
+            ReloadPresets();
+            SelectedPreset = Presets.FirstOrDefault(p => p.Name == preset.Name) ?? Presets.LastOrDefault();
+            SetAutoStatus($"Лучшая: «{strategy.Name}» — {score.Detail}. Применил и запускаю обход.");
+            if (CanStart) Start();
+        }
+        catch (OperationCanceledException) { SetAutoStatus("Подбор остановлен."); }
+        catch (Exception ex) { SetAutoStatus("Ошибка подбора: " + ex.Message); }
+        finally
+        {
+            IsAutoSelecting = false;
+            _autoCts?.Dispose();
+            _autoCts = null;
+        }
+    }
+
+    // ---- ipset (IP-based bypass) ------------------------------------------
+
+    private bool _isBuildingIpset;
+    public bool IsBuildingIpset
+    {
+        get => _isBuildingIpset;
+        private set { if (SetField(ref _isBuildingIpset, value)) RaiseCommandStates(); }
+    }
+
+    private string _ipsetStatus = "Соберите список IP Discord, чтобы включить обход по IP (для жёстких блоков).";
+    public string IpsetStatus { get => _ipsetStatus; private set => SetField(ref _ipsetStatus, value); }
+
+    private async Task BuildIpsetAsync()
+    {
+        if (IsBuildingIpset) return;
+        IsBuildingIpset = true;
+        try
+        {
+            IpsetStatus = "Резолвлю домены Discord и собираю IP-подсети…";
+            var domains = _hostlists.Exists("discord")
+                ? _hostlists.ReadDomains("discord")
+                : new List<string> { "discord.com", "gateway.discord.gg", "cdn.discordapp.com", "discord.media", "discordapp.net" };
+            var res = await _ipset.BuildDiscordIpsetAsync(domains, CancellationToken.None);
+            IpsetStatus = $"Готово: собрано {res.Subnets} подсетей. Теперь работает пресет «Discord — по IP (ipset)».";
+            OnPropertyChanged(nameof(CommandPreview));
+        }
+        catch (Exception ex)
+        {
+            IpsetStatus = "Не удалось собрать IP-список: " + ex.Message;
+        }
+        finally
+        {
+            IsBuildingIpset = false;
+        }
+    }
+
+    /// <summary>Save a specific tried candidate as a preset and make it active.</summary>
+    private void ApplyScore(AutoScore? score)
+    {
+        if (score?.Strategy is null) return;
+        var preset = AutoSelectService.ToPreset(score.Strategy, SelectedScope);
+        _presets.AddUser(preset);
+        ReloadPresets();
+        SelectedPreset = Presets.FirstOrDefault(p => p.Name == preset.Name) ?? Presets.LastOrDefault();
+        SetAutoStatus($"Сохранено как пресет «{preset.Name}» и выбрано активным. Нажмите «Запустить».");
+    }
+
     // ---- lifecycle ---------------------------------------------------------
 
     public async Task InitializeAsync()
@@ -362,6 +552,7 @@ public sealed class MainViewModel : ObservableObject
     {
         Presets.Clear();
         foreach (var p in _presets.All) Presets.Add(p);
+        OnPropertyChanged(nameof(RecommendedPreset));
     }
 
     private void ReloadHostlists()
@@ -521,8 +712,10 @@ public sealed class MainViewModel : ObservableObject
     /// <summary>Stop everything and release resources on application exit.</summary>
     public void Shutdown()
     {
-        try { _testCts?.Cancel(); } catch { }
-        try { _tester.Dispose(); } catch { }
+        try { _diagCts?.Cancel(); } catch { }
+        try { _autoCts?.Cancel(); } catch { }
+        try { _monitor.Stop(); } catch { }
+        try { _autoSelect.Dispose(); } catch { }
         try { _engine.Dispose(); } catch { }
     }
 
@@ -549,9 +742,13 @@ public sealed class MainViewModel : ObservableObject
         DuplicatePresetCommand.RaiseCanExecuteChanged();
         DeletePresetCommand.RaiseCanExecuteChanged();
         SavePresetCommand.RaiseCanExecuteChanged();
-        RunTestCommand.RaiseCanExecuteChanged();
-        StopTestCommand.RaiseCanExecuteChanged();
-        ApplyResultCommand.RaiseCanExecuteChanged();
+        SimpleToggleCommand.RaiseCanExecuteChanged();
+        SmartPickCommand.RaiseCanExecuteChanged();
+        RunDiagnosticsCommand.RaiseCanExecuteChanged();
+        StopDiagnosticsCommand.RaiseCanExecuteChanged();
+        RunAutoSelectCommand.RaiseCanExecuteChanged();
+        StopAutoSelectCommand.RaiseCanExecuteChanged();
+        BuildDiscordIpsetCommand.RaiseCanExecuteChanged();
     }
 
     private static void OnUi(Action a)

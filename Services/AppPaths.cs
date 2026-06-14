@@ -16,9 +16,14 @@ public static class AppPaths
     public static string EngineDir => Path.Combine(Root, "engine");
     public static string EngineVersionFile => Path.Combine(EngineDir, "installed_version.txt");
     public static string WinwsExe => Path.Combine(EngineDir, "winws2.exe");
+    public static string MdigExe => Path.Combine(EngineDir, "mdig.exe");
+    public static string Ip2NetExe => Path.Combine(EngineDir, "ip2net.exe");
     public static string LuaDir => Path.Combine(EngineDir, "lua");
     public static string FilesDir => Path.Combine(EngineDir, "files");
     public static string WinDivertFilterDir => Path.Combine(EngineDir, "windivert.filter");
+
+    /// <summary>Aggregated CIDR ipset for Discord (built from the discord hostlist).</summary>
+    public static string IpsetDiscordFile => Path.Combine(ListsDir, "ipset-discord.txt");
 
     // User data
     public static string ListsDir => Path.Combine(Root, "lists");

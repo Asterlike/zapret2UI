@@ -131,22 +131,80 @@ public sealed class PresetService
         new Preset
         {
             Name = "Discord (чат + голос)",
-            Description = "TLS-обход + фейки для голосового трафика Discord: STUN, IP discovery, WireGuard. " +
-                          "Захват медиапотоков фильтрами windivert в режиме ядра.",
+            Description = "Три профиля в одной команде: TLS для веба/логина/гейтвея/медиа-доменов + " +
+                          "отдельная обработка голоса — STUN-хендшейк и Discord IP-discovery штатными " +
+                          "фейк-блобами движка (stun.bin / discord-ip-discovery). Захват медиа/голоса — " +
+                          "фильтрами windivert в режиме ядра.",
             IsBuiltIn = true,
             Args = new()
             {
                 "--wf-tcp-out=443",
                 "--wf-raw-part=@{WF}\\windivert_part.discord_media.txt",
                 "--wf-raw-part=@{WF}\\windivert_part.stun.txt",
-                "--wf-raw-part=@{WF}\\windivert_part.wireguard.txt",
+                "--blob=disc_stun:@{FILES}\\fake\\stun.bin",
+                "--blob=disc_ipd:@{FILES}\\fake\\discord-ip-discovery-with-port.bin",
+                // Веб / логин / гейтвей / медиа-домены Discord (TLS).
                 "--filter-tcp=443", "--filter-l7=tls", "--out-range=-d10", "--payload=tls_client_hello",
                   "--lua-desync=fake:blob=fake_default_tls:tcp_md5:tcp_seq=-10000:repeats=6",
                   "--lua-desync=multidisorder:pos=midsld",
+                // Голос: STUN (установление UDP-сессии).
                 "--new",
-                "--filter-l7=wireguard,stun,discord",
-                  "--payload=wireguard_initiation,wireguard_cookie,stun,discord_ip_discovery",
-                  "--lua-desync=fake:blob=0x00000000000000000000000000000000:repeats=2",
+                "--filter-l7=stun", "--payload=stun",
+                  "--lua-desync=fake:blob=disc_stun:repeats=6",
+                // Голос: Discord IP discovery.
+                "--new",
+                "--filter-l7=discord", "--payload=discord_ip_discovery",
+                  "--lua-desync=fake:blob=disc_ipd:repeats=6",
+            }
+        },
+        new Preset
+        {
+            Name = "Discord — окно (wssize)",
+            Description = "Для упрямого блока входа/логина Discord: метод wssize (zapret2) заставляет " +
+                          "сервер дробить ответ, чтобы DPI не смог его собрать. Плюс голос. Пробуйте, если " +
+                          "обычный Discord-пресет не пробивает вход.",
+            IsBuiltIn = true,
+            Args = new()
+            {
+                "--wf-tcp-out=443",
+                "--wf-raw-part=@{WF}\\windivert_part.discord_media.txt",
+                "--wf-raw-part=@{WF}\\windivert_part.stun.txt",
+                "--blob=disc_stun:@{FILES}\\fake\\stun.bin",
+                "--blob=disc_ipd:@{FILES}\\fake\\discord-ip-discovery-with-port.bin",
+                "--filter-tcp=443", "--filter-l7=tls", "--out-range=-d10", "--payload=tls_client_hello",
+                  "--lua-desync=fake:blob=fake_default_tls:tcp_md5:repeats=6",
+                  "--lua-desync=wssize:wsize=1:scale=6",
+                "--new",
+                "--filter-l7=stun", "--payload=stun",
+                  "--lua-desync=fake:blob=disc_stun:repeats=6",
+                "--new",
+                "--filter-l7=discord", "--payload=discord_ip_discovery",
+                  "--lua-desync=fake:blob=disc_ipd:repeats=6",
+            }
+        },
+        new Preset
+        {
+            Name = "Discord — по IP (ipset)",
+            Description = "Для жёсткого блока по IP (когда обход по доменам/SNI не помогает): обход " +
+                          "применяется к диапазонам IP Discord. Сначала соберите IP-список Discord в " +
+                          "«Настройках» (резолв доменов в подсети). Плюс голос и окно wssize.",
+            IsBuiltIn = true,
+            Args = new()
+            {
+                "--wf-tcp-out=443",
+                "--wf-raw-part=@{WF}\\windivert_part.discord_media.txt",
+                "--wf-raw-part=@{WF}\\windivert_part.stun.txt",
+                "--blob=disc_stun:@{FILES}\\fake\\stun.bin",
+                "--blob=disc_ipd:@{FILES}\\fake\\discord-ip-discovery-with-port.bin",
+                "--filter-tcp=443", "--filter-l7=tls", "{IPSET}", "--out-range=-d10", "--payload=tls_client_hello",
+                  "--lua-desync=fake:blob=fake_default_tls:tcp_md5:repeats=6",
+                  "--lua-desync=wssize:wsize=1:scale=6",
+                "--new",
+                "--filter-l7=stun", "--payload=stun",
+                  "--lua-desync=fake:blob=disc_stun:ip_autottl=-2,3-20:repeats=6",
+                "--new",
+                "--filter-l7=discord", "--payload=discord_ip_discovery",
+                  "--lua-desync=fake:blob=disc_ipd:ip_autottl=-2,3-20:repeats=6",
             }
         },
         new Preset
@@ -166,15 +224,19 @@ public sealed class PresetService
         {
             Name = "Эталон bol-van (всё сразу)",
             Description = "Полная официальная стратегия preset2_example: HTTP, TLS (общий + YouTube), " +
-                          "QUIC (общий + YouTube), Discord/STUN/WireGuard. Для YouTube-профилей выберите " +
-                          "хостлист «youtube».",
+                          "QUIC (общий + YouTube), Discord (веб + голос STUN/IP-discovery), WireGuard. " +
+                          "Это и есть рекомендуемый «всё сразу» режим для Discord и YouTube.",
             IsBuiltIn = true,
             UsesHostlist = true,
+            IsRecommended = true,
             Args = new()
             {
                 "--wf-tcp-out=80,443",
                 "--lua-init=fake_default_tls = tls_mod(fake_default_tls,'rnd,rndsni')",
                 "--blob=quic_google:@{FILES}\\fake\\quic_initial_www_google_com.bin",
+                "--blob=disc_stun:@{FILES}\\fake\\stun.bin",
+                "--blob=disc_ipd:@{FILES}\\fake\\discord-ip-discovery-with-port.bin",
+                "--blob=wg_init:@{FILES}\\fake\\wireguard_initiation.bin",
                 "--wf-raw-part=@{WF}\\windivert_part.discord_media.txt",
                 "--wf-raw-part=@{WF}\\windivert_part.stun.txt",
                 "--wf-raw-part=@{WF}\\windivert_part.wireguard.txt",
@@ -197,9 +259,14 @@ public sealed class PresetService
                 "--filter-udp=443", "--filter-l7=quic", "--payload=quic_initial",
                   "--lua-desync=fake:blob=fake_default_quic:repeats=11",
                 "--new",
-                "--filter-l7=wireguard,stun,discord",
-                  "--payload=wireguard_initiation,wireguard_cookie,stun,discord_ip_discovery",
-                  "--lua-desync=fake:blob=0x00000000000000000000000000000000:repeats=2",
+                "--filter-l7=stun", "--payload=stun",
+                  "--lua-desync=fake:blob=disc_stun:repeats=6",
+                "--new",
+                "--filter-l7=discord", "--payload=discord_ip_discovery",
+                  "--lua-desync=fake:blob=disc_ipd:repeats=6",
+                "--new",
+                "--filter-l7=wireguard", "--payload=wireguard_initiation,wireguard_cookie",
+                  "--lua-desync=fake:blob=wg_init:repeats=2",
             }
         },
     };

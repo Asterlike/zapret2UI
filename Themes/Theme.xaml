@@ -7,6 +7,8 @@
     <mvvm:BoolToVisibilityConverter x:Key="BoolToVis"/>
     <mvvm:StateToBrushConverter x:Key="StateToBrush"/>
     <mvvm:StateToTextConverter x:Key="StateToText"/>
+    <mvvm:DiagStatusToTextConverter x:Key="DiagText"/>
+    <mvvm:DiagStatusToBrushConverter x:Key="DiagBrush"/>
 
     <!-- ====================== Palette ====================== -->
     <Color x:Key="C.Bg">#FF0F1115</Color>
@@ -82,12 +84,34 @@
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
                     <Border x:Name="b" Background="{TemplateBinding Background}"
-                            CornerRadius="9" Padding="{TemplateBinding Padding}">
+                            CornerRadius="9" Padding="{TemplateBinding Padding}"
+                            RenderTransformOrigin="0.5,0.5">
+                        <Border.RenderTransform><ScaleTransform x:Name="bs" ScaleX="1" ScaleY="1"/></Border.RenderTransform>
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="b" Property="Background" Value="{StaticResource AccentHoverBrush}"/>
+                            <Trigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="bs" Storyboard.TargetProperty="ScaleX"
+                                                         To="1.03" Duration="0:0:0.12"/>
+                                        <DoubleAnimation Storyboard.TargetName="bs" Storyboard.TargetProperty="ScaleY"
+                                                         To="1.03" Duration="0:0:0.12"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.EnterActions>
+                            <Trigger.ExitActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="bs" Storyboard.TargetProperty="ScaleX"
+                                                         To="1" Duration="0:0:0.12"/>
+                                        <DoubleAnimation Storyboard.TargetName="bs" Storyboard.TargetProperty="ScaleY"
+                                                         To="1" Duration="0:0:0.12"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.ExitActions>
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="b" Property="Opacity" Value="0.4"/>
@@ -302,12 +326,34 @@
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
                     <Border x:Name="b" Background="{TemplateBinding Background}"
-                            CornerRadius="10" Padding="{TemplateBinding Padding}">
+                            CornerRadius="10" Padding="{TemplateBinding Padding}"
+                            RenderTransformOrigin="0.5,0.5">
+                        <Border.RenderTransform><ScaleTransform x:Name="bs" ScaleX="1" ScaleY="1"/></Border.RenderTransform>
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="b" Property="Opacity" Value="0.9"/>
+                            <Setter TargetName="b" Property="Opacity" Value="0.92"/>
+                            <Trigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="bs" Storyboard.TargetProperty="ScaleX"
+                                                         To="1.015" Duration="0:0:0.12"/>
+                                        <DoubleAnimation Storyboard.TargetName="bs" Storyboard.TargetProperty="ScaleY"
+                                                         To="1.015" Duration="0:0:0.12"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.EnterActions>
+                            <Trigger.ExitActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="bs" Storyboard.TargetProperty="ScaleX"
+                                                         To="1" Duration="0:0:0.12"/>
+                                        <DoubleAnimation Storyboard.TargetName="bs" Storyboard.TargetProperty="ScaleY"
+                                                         To="1" Duration="0:0:0.12"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.ExitActions>
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="b" Property="Opacity" Value="0.4"/>

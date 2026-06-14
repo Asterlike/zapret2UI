@@ -26,9 +26,11 @@ public partial class MainWindow : Window
 
         _vm.LogLines.CollectionChanged += OnLogChanged;
         _vm.PropertyChanged += OnVmPropertyChanged;
+        _vm.Notify += (title, msg) => _tray?.ShowBalloonTip(3500, title, msg, Forms.ToolTipIcon.Info);
         Loaded += OnLoaded;
         Closing += OnClosing;
         StateChanged += OnWindowStateChanged;
+        SourceInitialized += OnSourceInitialized; // constrain borderless maximize to work area
 
         // OS logoff/shutdown: tear down even though minimize-to-tray would normally
         // cancel a close, so winws2 is never left running.
@@ -64,7 +66,7 @@ public partial class MainWindow : Window
 
     private void OnVmPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(MainViewModel.State))
+        if (e.PropertyName is nameof(MainViewModel.State) or nameof(MainViewModel.SelectedPreset))
             UpdateTrayForState(_vm.State);
     }
 
@@ -79,8 +81,9 @@ public partial class MainWindow : Window
 
     private void OnWindowStateChanged(object? sender, EventArgs e)
     {
-        // Compensate for the borderless-maximize overflow so content isn't clipped.
-        RootBorder.Margin = WindowState == WindowState.Maximized ? new Thickness(7) : new Thickness(0);
+        // WM_GETMINMAXINFO now clamps the maximized window to the monitor work area,
+        // so there is no overflow to compensate — just drop the border when maximized.
+        RootBorder.Margin = new Thickness(0);
         RootBorder.BorderThickness = WindowState == WindowState.Maximized
             ? new Thickness(0) : new Thickness(1);
         UpdateMaxButtonGlyph();
@@ -122,13 +125,18 @@ public partial class MainWindow : Window
 
         bool running = state == EngineState.Running;
         _tray.Icon = running ? (_iconRunning ?? _iconIdle) : _iconIdle;
-        _tray.Text = "Zapret UI — " + state switch
+        string status = state switch
         {
             EngineState.Running => "работает",
             EngineState.Starting => "запуск…",
             EngineState.Stopping => "остановка…",
             _ => "остановлен",
         };
+        string? preset = _vm.SelectedPreset?.Name;
+        string text = $"Zapret UI — {status}";
+        if (running && !string.IsNullOrEmpty(preset)) text += $"\n{preset}";
+        // NotifyIcon tooltip is capped at 127 chars.
+        _tray.Text = text.Length > 127 ? text[..127] : text;
         if (_trayToggle is not null)
             _trayToggle.Text = running ? "Остановить обход" : "Запустить обход";
 

@@ -80,10 +80,17 @@ public sealed class HostlistService
             "youtube.com", "youtu.be", "googlevideo.com", "ytimg.com", "ggpht.com",
             "yt3.ggpht.com", "youtubei.googleapis.com", "jnn-pa.googleapis.com", "gstatic.com",
         }));
+        // Full Discord domain set (Flowseal list-general.txt, ветка main, июнь 2026).
+        // zapret сам матчит поддомены, поэтому достаточно базовых доменов.
         Write("discord", string.Join('\n', new[]
         {
-            "discord.com", "discord.gg", "discordapp.com", "discordapp.net",
-            "discord.media", "discordcdn.com", "stun.discord.com",
+            "discord.com", "discord.gg", "discord.media", "discord.app", "discord.co",
+            "discord.dev", "discord.design", "discord.gift", "discord.gifts",
+            "discord.new", "discord.store", "discord.status",
+            "discordapp.com", "discordapp.net", "discordcdn.com", "discordstatus.com",
+            "discordmerch.com", "discord-activities.com", "discordactivities.com",
+            "discordsays.com", "discordsez.com", "discordpartygames.com",
+            "discord-attachments-uploads-prd.storage.googleapis.com",
         }));
     }
 

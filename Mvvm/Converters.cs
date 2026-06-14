@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Windows;
 using System.Windows.Data;
 using System.Windows.Media;
+using ZapretUI.Models;
 using ZapretUI.Services;
 
 namespace ZapretUI.Mvvm;
@@ -47,6 +48,40 @@ public sealed class StateToTextConverter : IValueConverter
         EngineState.Starting => "Запуск…",
         EngineState.Stopping => "Остановка…",
         _ => "Остановлен",
+    };
+    public object ConvertBack(object? v, Type t, object? p, CultureInfo c) => Binding.DoNothing;
+}
+
+/// <summary>DiagStatus -> short cell label.</summary>
+public sealed class DiagStatusToTextConverter : IValueConverter
+{
+    public object Convert(object? v, Type t, object? p, CultureInfo c) => v switch
+    {
+        DiagStatus.Ok => "OK",
+        DiagStatus.Fail => "ОШИБКА",
+        DiagStatus.Timeout => "таймаут",
+        DiagStatus.NotSupported => "н/д",
+        DiagStatus.Running => "…",
+        DiagStatus.Skip => "—",
+        _ => "·",
+    };
+    public object ConvertBack(object? v, Type t, object? p, CultureInfo c) => Binding.DoNothing;
+}
+
+/// <summary>DiagStatus -> cell foreground colour.</summary>
+public sealed class DiagStatusToBrushConverter : IValueConverter
+{
+    private static readonly SolidColorBrush Ok = new(Color.FromRgb(0x34, 0xD3, 0x99));
+    private static readonly SolidColorBrush Bad = new(Color.FromRgb(0xEF, 0x44, 0x44));
+    private static readonly SolidColorBrush Warn = new(Color.FromRgb(0xF5, 0xA6, 0x23));
+    private static readonly SolidColorBrush Muted = new(Color.FromRgb(0x6B, 0x72, 0x80));
+
+    public object Convert(object? v, Type t, object? p, CultureInfo c) => v switch
+    {
+        DiagStatus.Ok => Ok,
+        DiagStatus.Fail => Bad,
+        DiagStatus.Timeout => Warn,
+        _ => Muted,
     };
     public object ConvertBack(object? v, Type t, object? p, CultureInfo c) => Binding.DoNothing;
 }

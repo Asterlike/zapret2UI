@@ -9,12 +9,73 @@
         Background="{StaticResource BgBrush}"
         FontFamily="{StaticResource UiFont}">
 
+    <Window.Resources>
+        <!-- Segmented control for Простой / Расширенный -->
+        <Style x:Key="ModeSegment" TargetType="RadioButton">
+            <Setter Property="Foreground" Value="{StaticResource FgMutedBrush}"/>
+            <Setter Property="Padding" Value="16,5"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="b" CornerRadius="6" Background="Transparent"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="b" Property="Background" Value="{StaticResource AccentBrush}"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Expand/collapse chevron toggle -->
+        <Style x:Key="ChevronToggle" TargetType="ToggleButton">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Foreground" Value="{StaticResource FgMutedBrush}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border Background="Transparent" Padding="6">
+                            <TextBlock x:Name="chev" Text="&#xE70D;" FontFamily="{StaticResource IconFont}"
+                                       FontSize="11" Foreground="{TemplateBinding Foreground}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="chev" Property="Text" Value="&#xE70E;"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="chev" Property="Foreground" Value="White"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
     <shell:WindowChrome.WindowChrome>
         <shell:WindowChrome CaptionHeight="40" ResizeBorderThickness="6"
                             CornerRadius="0" GlassFrameThickness="0" UseAeroCaptionButtons="False"/>
     </shell:WindowChrome.WindowChrome>
 
     <Border x:Name="RootBorder" BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1">
+        <Border.Background>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="0.4,1">
+                <GradientStop Color="#FF13161D" Offset="0"/>
+                <GradientStop Color="#FF0C0E13" Offset="0.55"/>
+                <GradientStop Color="#FF090A0E" Offset="1"/>
+            </LinearGradientBrush>
+        </Border.Background>
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="40"/>
@@ -22,8 +83,30 @@
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
 
+            <!-- ============ Decorative background blooms ============ -->
+            <Grid Grid.RowSpan="3" IsHitTestVisible="False" ClipToBounds="True">
+                <Ellipse Width="1000" Height="680" HorizontalAlignment="Center" VerticalAlignment="Top"
+                         Margin="0,-160,0,0">
+                    <Ellipse.Fill>
+                        <RadialGradientBrush>
+                            <GradientStop Color="#2A6C5CFF" Offset="0"/>
+                            <GradientStop Color="#000C0E13" Offset="1"/>
+                        </RadialGradientBrush>
+                    </Ellipse.Fill>
+                </Ellipse>
+                <Ellipse Width="760" Height="560" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                         Margin="0,0,-180,-160">
+                    <Ellipse.Fill>
+                        <RadialGradientBrush>
+                            <GradientStop Color="#182CC0A0" Offset="0"/>
+                            <GradientStop Color="#000C0E13" Offset="1"/>
+                        </RadialGradientBrush>
+                    </Ellipse.Fill>
+                </Ellipse>
+            </Grid>
+
             <!-- ============ Caption bar ============ -->
-            <Grid Grid.Row="0" Background="{StaticResource BgBrush}">
+            <Grid Grid.Row="0" Background="Transparent">
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="14,0,0,0">
                     <Image Source="/Assets/app.ico" Width="18" Height="18" Margin="0,0,9,0"/>
                     <TextBlock Text="Zapret UI" FontWeight="SemiBold" FontSize="13"
@@ -31,6 +114,18 @@
                     <TextBlock Text="DPI bypass" FontSize="11" Foreground="{StaticResource FgMutedBrush}"
                                VerticalAlignment="Center" Margin="10,1,0,0"/>
                 </StackPanel>
+
+                <Border HorizontalAlignment="Center" VerticalAlignment="Center" CornerRadius="8"
+                        Background="{StaticResource BgBrush}" BorderBrush="{StaticResource BorderBrush2}"
+                        BorderThickness="1" Padding="3"
+                        shell:WindowChrome.IsHitTestVisibleInChrome="True">
+                    <StackPanel Orientation="Horizontal">
+                        <RadioButton Style="{StaticResource ModeSegment}" Content="Простой"
+                                     IsChecked="{Binding IsSimpleMode, Mode=TwoWay}"/>
+                        <RadioButton Style="{StaticResource ModeSegment}" Content="Расширенный"
+                                     IsChecked="{Binding IsSimpleMode, Converter={StaticResource InverseBool}, Mode=TwoWay}"/>
+                    </StackPanel>
+                </Border>
 
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
                             shell:WindowChrome.IsHitTestVisibleInChrome="True">
@@ -46,9 +141,10 @@
                 </StackPanel>
             </Grid>
 
-            <!-- ============ Header ============ -->
+            <!-- ============ Header (advanced mode) ============ -->
             <Border Grid.Row="1" Background="{StaticResource SurfaceBrush}"
-                    BorderBrush="{StaticResource BorderBrush2}" BorderThickness="0,1,0,1" Padding="22,16">
+                    BorderBrush="{StaticResource BorderBrush2}" BorderThickness="0,1,0,1" Padding="22,16"
+                    Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
@@ -123,8 +219,9 @@
                 </Grid>
             </Border>
 
-            <!-- ============ Body ============ -->
-            <TabControl x:Name="MainTabs" Grid.Row="2" Style="{StaticResource SidebarTabs}">
+            <!-- ============ Body: advanced (tabs) ============ -->
+            <TabControl x:Name="MainTabs" Grid.Row="2" Style="{StaticResource SidebarTabs}"
+                        Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}">
                 <TabControl.Resources>
                     <Style TargetType="TabItem" BasedOn="{StaticResource SidebarTabItem}"/>
                 </TabControl.Resources>
@@ -286,90 +383,249 @@
                     </Grid>
                 </TabItem>
 
-                <!-- Проверка стратегий -->
+                <!-- Проверка: матрица диагностики -->
                 <TabItem Header="Проверка" Tag="&#xE721;">
                     <Grid Margin="24">
+                        <Grid.Resources>
+                            <CollectionViewSource x:Key="GroupedDiag" Source="{Binding DiagRows}">
+                                <CollectionViewSource.GroupDescriptions>
+                                    <PropertyGroupDescription PropertyName="Group"/>
+                                </CollectionViewSource.GroupDescriptions>
+                            </CollectionViewSource>
+                        </Grid.Resources>
+
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="*"/>
                             <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
 
-                        <Border Grid.Row="0" Style="{StaticResource Card}" Margin="0,0,0,16">
+                        <!-- Header card: auto-select + diagnostics -->
+                        <Border Grid.Row="0" Style="{StaticResource Card}" Margin="0,0,0,14">
                             <StackPanel>
-                                <TextBlock Text="Авто-подбор рабочей стратегии (blockcheck)" Style="{StaticResource H2}"/>
-                                <TextBlock Style="{StaticResource Muted}" Margin="0,6,0,14"
-                                           Text="Укажите заблокированный сайт. Приложение по очереди пробует стратегии и показывает, какие пробивают именно у вашего провайдера. Рабочую можно сохранить как пресет."/>
+                                <TextBlock Text="Проверка и авто-подбор" Style="{StaticResource H2}"/>
+                                <TextBlock Style="{StaticResource Muted}" Margin="0,6,0,0" TextWrapping="Wrap"
+                                           Text="«Подобрать лучшую» перебирает стратегии и оставляет ту, у которой меньше всего ошибок по выбранной цели. «Диагностика» просто показывает текущую доступность."/>
 
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBox Grid.Column="0" Text="{Binding TestDomain, UpdateSourceTrigger=PropertyChanged}"
-                                             VerticalContentAlignment="Center"/>
-                                    <Button Grid.Column="1" Content="Проверить" Command="{Binding RunTestCommand}"
-                                            Style="{StaticResource PrimaryButton}" Margin="10,0,0,0"
-                                            Visibility="{Binding IsTesting, Converter={StaticResource BoolToVis}, ConverterParameter=invert}"/>
-                                    <Button Grid.Column="1" Content="Остановить" Command="{Binding StopTestCommand}"
-                                            Style="{StaticResource GhostButton}" Margin="10,0,0,0"
-                                            Visibility="{Binding IsTesting, Converter={StaticResource BoolToVis}}"/>
+                                <!-- Scope -->
+                                <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                                    <TextBlock Text="ЦЕЛЬ ПОДБОРА" Style="{StaticResource Muted}" FontSize="11"
+                                               VerticalAlignment="Center" Margin="0,0,12,0"/>
+                                    <Border CornerRadius="8" Background="{StaticResource BgBrush}"
+                                            BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1" Padding="3">
+                                        <StackPanel Orientation="Horizontal">
+                                            <RadioButton Style="{StaticResource ModeSegment}" Content="Discord + YouTube"
+                                                         IsChecked="{Binding ScopeBoth, Mode=TwoWay}"/>
+                                            <RadioButton Style="{StaticResource ModeSegment}" Content="Discord"
+                                                         IsChecked="{Binding ScopeDiscord, Mode=TwoWay}"/>
+                                            <RadioButton Style="{StaticResource ModeSegment}" Content="YouTube"
+                                                         IsChecked="{Binding ScopeYouTube, Mode=TwoWay}"/>
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+
+                                <!-- Actions -->
+                                <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                                    <Button Content="Подобрать лучшую" Command="{Binding RunAutoSelectCommand}"
+                                            Style="{StaticResource PrimaryButton}"
+                                            Visibility="{Binding IsAutoSelecting, Converter={StaticResource BoolToVis}, ConverterParameter=invert}"/>
+                                    <Button Content="Остановить подбор" Command="{Binding StopAutoSelectCommand}"
+                                            Style="{StaticResource GhostButton}"
+                                            Visibility="{Binding IsAutoSelecting, Converter={StaticResource BoolToVis}}"/>
+                                    <Button Content="Диагностика" Command="{Binding RunDiagnosticsCommand}"
+                                            Style="{StaticResource GhostButton}" Margin="8,0,0,0"
+                                            Visibility="{Binding IsDiagnosing, Converter={StaticResource BoolToVis}, ConverterParameter=invert}"/>
+                                    <Button Content="Остановить" Command="{Binding StopDiagnosticsCommand}"
+                                            Style="{StaticResource GhostButton}" Margin="8,0,0,0"
+                                            Visibility="{Binding IsDiagnosing, Converter={StaticResource BoolToVis}}"/>
+                                </StackPanel>
+
+                                <TextBlock Text="{Binding AutoStatusText}" Style="{StaticResource Muted}"
+                                           Margin="0,12,0,0" TextWrapping="Wrap"/>
+
+                                <!-- Scoreboard: candidates tried (expandable, with save) -->
+                                <ScrollViewer Margin="0,8,0,0" MaxHeight="260" VerticalScrollBarVisibility="Auto">
+                                    <ItemsControl ItemsSource="{Binding AutoScores}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border CornerRadius="8" Background="{StaticResource BgBrush}"
+                                                        BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1"
+                                                        Margin="0,0,0,6" Opacity="0">
+                                                    <Border.Triggers>
+                                                        <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                                                            <BeginStoryboard>
+                                                                <Storyboard>
+                                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                                        From="0" To="1" Duration="0:0:0.28"/>
+                                                                </Storyboard>
+                                                            </BeginStoryboard>
+                                                        </EventTrigger>
+                                                    </Border.Triggers>
+                                                    <StackPanel>
+                                                        <!-- header row -->
+                                                        <Grid Margin="12,8">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <TextBlock Grid.Column="0" Text="{Binding Glyph}" FontWeight="Bold"
+                                                                       FontSize="14" VerticalAlignment="Center">
+                                                                <TextBlock.Style>
+                                                                    <Style TargetType="TextBlock">
+                                                                        <Setter Property="Foreground" Value="{StaticResource FgMutedBrush}"/>
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding Glyph}" Value="✓">
+                                                                                <Setter Property="Foreground" Value="{StaticResource SuccessBrush}"/>
+                                                                            </DataTrigger>
+                                                                            <DataTrigger Binding="{Binding Glyph}" Value="≈">
+                                                                                <Setter Property="Foreground" Value="#FFF5A623"/>
+                                                                            </DataTrigger>
+                                                                            <DataTrigger Binding="{Binding Glyph}" Value="✗">
+                                                                                <Setter Property="Foreground" Value="{StaticResource DangerBrush}"/>
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </TextBlock.Style>
+                                                            </TextBlock>
+                                                            <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center">
+                                                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold"/>
+                                                                <TextBlock Text="{Binding Detail}" Style="{StaticResource Muted}" FontSize="11.5"/>
+                                                            </StackPanel>
+                                                            <Button Grid.Column="2" Content="Сохранить в пресеты"
+                                                                    Style="{StaticResource GhostButton}" Padding="10,5" FontSize="12"
+                                                                    Command="{Binding DataContext.ApplyScoreCommand,
+                                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                                    CommandParameter="{Binding}"/>
+                                                            <ToggleButton x:Name="exp" Grid.Column="3" Style="{StaticResource ChevronToggle}"
+                                                                          Margin="4,0,0,0" VerticalAlignment="Center"/>
+                                                        </Grid>
+                                                        <!-- expandable per-endpoint detail -->
+                                                        <ItemsControl ItemsSource="{Binding HostList}" Margin="14,0,14,10"
+                                                                      Visibility="{Binding IsChecked, ElementName=exp, Converter={StaticResource BoolToVis}}">
+                                                            <ItemsControl.ItemTemplate>
+                                                                <DataTemplate>
+                                                                    <Grid Margin="0,3">
+                                                                        <Grid.ColumnDefinitions>
+                                                                            <ColumnDefinition Width="*"/>
+                                                                            <ColumnDefinition Width="120"/>
+                                                                            <ColumnDefinition Width="120"/>
+                                                                        </Grid.ColumnDefinitions>
+                                                                        <TextBlock Grid.Column="0" Text="{Binding Host}"
+                                                                                   Style="{StaticResource Muted}" VerticalAlignment="Center"/>
+                                                                        <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                                                            <TextBlock Text="TLS 1.2 " Style="{StaticResource Muted}" FontSize="11"/>
+                                                                            <TextBlock Text="{Binding Tls12, Converter={StaticResource DiagText}}"
+                                                                                       Foreground="{Binding Tls12, Converter={StaticResource DiagBrush}}"
+                                                                                       FontWeight="SemiBold" FontSize="11.5"/>
+                                                                        </StackPanel>
+                                                                        <StackPanel Grid.Column="2" Orientation="Horizontal">
+                                                                            <TextBlock Text="TLS 1.3 " Style="{StaticResource Muted}" FontSize="11"/>
+                                                                            <TextBlock Text="{Binding Tls13, Converter={StaticResource DiagText}}"
+                                                                                       Foreground="{Binding Tls13, Converter={StaticResource DiagBrush}}"
+                                                                                       FontWeight="SemiBold" FontSize="11.5"/>
+                                                                        </StackPanel>
+                                                                    </Grid>
+                                                                </DataTemplate>
+                                                            </ItemsControl.ItemTemplate>
+                                                        </ItemsControl>
+                                                    </StackPanel>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+
+                                <Border Background="#22F59E0B" CornerRadius="6" Padding="10,7" Margin="0,4,0,0">
+                                    <TextBlock Text="{Binding DiagEngineNote}" TextWrapping="Wrap"
+                                               FontSize="11.5" Foreground="#FFFBBF24"/>
+                                </Border>
+
+                                <Grid Margin="0,12,0,0">
+                                    <TextBlock Text="{Binding DiagStatusText}" Style="{StaticResource Muted}"
+                                               HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding DiagSummary}" FontWeight="SemiBold" FontSize="12.5"
+                                               HorizontalAlignment="Right" VerticalAlignment="Center"/>
                                 </Grid>
-
-                                <ListBox ItemsSource="{Binding TestKinds}" SelectedIndex="{Binding SelectedTestKindIndex, Mode=TwoWay}"
-                                         ItemContainerStyle="{StaticResource SelectableItem}" Margin="0,12,0,0">
-                                    <ListBox.ItemsPanel>
-                                        <ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate>
-                                    </ListBox.ItemsPanel>
-                                </ListBox>
-
-                                <TextBlock Text="{Binding TestStatus}" Style="{StaticResource Muted}" Margin="0,12,0,0"/>
                             </StackPanel>
                         </Border>
 
-                        <Border Grid.Row="1" Style="{StaticResource Card}" Padding="8">
-                            <ListBox ItemsSource="{Binding TestResults}" SelectedItem="{Binding SelectedResult}"
-                                     ItemContainerStyle="{StaticResource SelectableItem}">
-                                <ListBox.ItemTemplate>
-                                    <DataTemplate>
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="26"/>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
-                                            <TextBlock Grid.Column="0" Text="{Binding Glyph}" FontWeight="Bold" FontSize="14"
-                                                       VerticalAlignment="Center">
-                                                <TextBlock.Style>
-                                                    <Style TargetType="TextBlock">
-                                                        <Setter Property="Foreground" Value="{StaticResource FgMutedBrush}"/>
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding Works}" Value="True">
-                                                                <Setter Property="Foreground" Value="{StaticResource SuccessBrush}"/>
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </TextBlock.Style>
-                                            </TextBlock>
-                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold"/>
-                                                <TextBlock Text="{Binding Detail}" Style="{StaticResource Muted}" FontSize="11.5"/>
-                                            </StackPanel>
-                                            <TextBlock Grid.Column="2" Text="{Binding MsText}" Style="{StaticResource Muted}"
-                                                       VerticalAlignment="Center" Margin="8,0,4,0"/>
-                                        </Grid>
-                                    </DataTemplate>
-                                </ListBox.ItemTemplate>
-                            </ListBox>
-                        </Border>
+                        <!-- Column headers -->
+                        <Grid Grid.Row="1" Margin="20,0,20,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="96"/>
+                                <ColumnDefinition Width="96"/>
+                                <ColumnDefinition Width="96"/>
+                                <ColumnDefinition Width="90"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="ТОЧКА" Style="{StaticResource Muted}" FontSize="11"/>
+                            <TextBlock Grid.Column="1" Text="HTTP" Style="{StaticResource Muted}" FontSize="11" HorizontalAlignment="Center"/>
+                            <TextBlock Grid.Column="2" Text="TLS 1.2" Style="{StaticResource Muted}" FontSize="11" HorizontalAlignment="Center"/>
+                            <TextBlock Grid.Column="3" Text="TLS 1.3" Style="{StaticResource Muted}" FontSize="11" HorizontalAlignment="Center"/>
+                            <TextBlock Grid.Column="4" Text="ПИНГ" Style="{StaticResource Muted}" FontSize="11" HorizontalAlignment="Center"/>
+                        </Grid>
 
-                        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,14,0,0">
-                            <Button Content="Применить рабочую → сохранить пресет" Command="{Binding ApplyResultCommand}"
-                                    Style="{StaticResource PrimaryButton}"/>
-                            <TextBlock Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="14,0,0,0"
-                                       Text="Выберите строку с ✓ и нажмите, чтобы сохранить её как пресет и сделать активной."/>
-                        </StackPanel>
+                        <!-- Matrix -->
+                        <Border Grid.Row="2" Style="{StaticResource Card}" Padding="6">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                <ItemsControl ItemsSource="{Binding Source={StaticResource GroupedDiag}}">
+                                    <ItemsControl.GroupStyle>
+                                        <GroupStyle>
+                                            <GroupStyle.HeaderTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="12.5"
+                                                               Foreground="{StaticResource AccentBrush}" Margin="10,12,0,4"/>
+                                                </DataTemplate>
+                                            </GroupStyle.HeaderTemplate>
+                                        </GroupStyle>
+                                    </ItemsControl.GroupStyle>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Padding="14,7" Margin="0,1" CornerRadius="6" Background="{StaticResource BgBrush}"
+                                                    Opacity="0">
+                                                <Border.Triggers>
+                                                    <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                                                        <BeginStoryboard>
+                                                            <Storyboard>
+                                                                <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                                    From="0" To="1" Duration="0:0:0.3"/>
+                                                            </Storyboard>
+                                                        </BeginStoryboard>
+                                                    </EventTrigger>
+                                                </Border.Triggers>
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="96"/>
+                                                        <ColumnDefinition Width="96"/>
+                                                        <ColumnDefinition Width="96"/>
+                                                        <ColumnDefinition Width="90"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold"/>
+                                                        <TextBlock Text="{Binding Host}" Style="{StaticResource Muted}" FontSize="10.5"/>
+                                                    </StackPanel>
+                                                    <TextBlock Grid.Column="1" Text="{Binding Http, Converter={StaticResource DiagText}}"
+                                                               Foreground="{Binding Http, Converter={StaticResource DiagBrush}}"
+                                                               FontWeight="SemiBold" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                    <TextBlock Grid.Column="2" Text="{Binding Tls12, Converter={StaticResource DiagText}}"
+                                                               Foreground="{Binding Tls12, Converter={StaticResource DiagBrush}}"
+                                                               FontWeight="SemiBold" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                    <TextBlock Grid.Column="3" Text="{Binding Tls13, Converter={StaticResource DiagText}}"
+                                                               Foreground="{Binding Tls13, Converter={StaticResource DiagBrush}}"
+                                                               FontWeight="SemiBold" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                    <TextBlock Grid.Column="4" Text="{Binding PingText}"
+                                                               Foreground="{Binding Ping, Converter={StaticResource DiagBrush}}"
+                                                               FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Border>
                     </Grid>
                 </TabItem>
 
@@ -442,10 +698,152 @@
                                               Margin="0,6"/>
                                 </StackPanel>
                             </Border>
+
+                            <Border Style="{StaticResource Card}" Margin="0,16,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="Авто-починка" Style="{StaticResource H2}" Margin="0,0,0,8"/>
+                                    <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,10"
+                                               Text="Приложение фоном следит за доступностью Discord и YouTube. Если обход вдруг перестал работать — само переподбирает рабочую стратегию и перезапускает, без вашего участия."/>
+                                    <CheckBox Content="Сам переподбирать обход, если он сломался"
+                                              IsChecked="{Binding AutoHeal}" Style="{StaticResource ToggleSwitch}"
+                                              Margin="0,4"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Style="{StaticResource Card}" Margin="0,16,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="Обход по IP (для жёстких блоков)" Style="{StaticResource H2}" Margin="0,0,0,8"/>
+                                    <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,10"
+                                               Text="Если Discord режут по IP-адресам, обход по доменам не помогает. Соберите актуальные подсети Discord (резолв доменов) — после этого заработает пресет «Discord — по IP (ipset)»."/>
+                                    <StackPanel Orientation="Horizontal">
+                                        <Button Content="Собрать IP-список Discord" Command="{Binding BuildDiscordIpsetCommand}"
+                                                Style="{StaticResource GhostButton}"
+                                                Visibility="{Binding IsBuildingIpset, Converter={StaticResource BoolToVis}, ConverterParameter=invert}"/>
+                                        <TextBlock Text="Собираю…" Style="{StaticResource Muted}" VerticalAlignment="Center"
+                                                   Visibility="{Binding IsBuildingIpset, Converter={StaticResource BoolToVis}}"/>
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding IpsetStatus}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,10,0,0"/>
+                                </StackPanel>
+                            </Border>
                         </StackPanel>
                     </ScrollViewer>
                 </TabItem>
             </TabControl>
+
+            <!-- ============ Body: simple (one-click) ============ -->
+            <Grid Grid.Row="2" Visibility="{Binding IsSimpleMode, Converter={StaticResource BoolToVis}}">
+                <StackPanel MaxWidth="560" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="24"
+                            Opacity="0" RenderTransformOrigin="0.5,0.5">
+                    <StackPanel.RenderTransform><TranslateTransform x:Name="simpleSlide" Y="14"/></StackPanel.RenderTransform>
+                    <StackPanel.Triggers>
+                        <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                            <BeginStoryboard>
+                                <Storyboard>
+                                    <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0" To="1" Duration="0:0:0.4"/>
+                                    <DoubleAnimation Storyboard.TargetName="simpleSlide" Storyboard.TargetProperty="Y"
+                                                     From="14" To="0" Duration="0:0:0.4">
+                                        <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                                    </DoubleAnimation>
+                                </Storyboard>
+                            </BeginStoryboard>
+                        </EventTrigger>
+                    </StackPanel.Triggers>
+
+                    <!-- Status ring -->
+                    <Grid Width="104" Height="104" HorizontalAlignment="Center" Margin="0,0,0,20">
+                        <Ellipse Width="104" Height="104" Opacity="0.12"
+                                 Fill="{Binding State, Converter={StaticResource StateToBrush}}"/>
+                        <Ellipse Width="78" Height="78" Opacity="0.16"
+                                 Fill="{Binding State, Converter={StaticResource StateToBrush}}"/>
+                        <Ellipse Width="22" Height="22" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                 Fill="{Binding State, Converter={StaticResource StateToBrush}}">
+                            <Ellipse.Style>
+                                <Style TargetType="Ellipse">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsRunning}" Value="True">
+                                            <DataTrigger.EnterActions>
+                                                <BeginStoryboard Name="PulseSimple">
+                                                    <Storyboard>
+                                                        <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                            From="1" To="0.3" Duration="0:0:1" AutoReverse="True"
+                                                            RepeatBehavior="Forever"/>
+                                                    </Storyboard>
+                                                </BeginStoryboard>
+                                            </DataTrigger.EnterActions>
+                                            <DataTrigger.ExitActions>
+                                                <StopStoryboard BeginStoryboardName="PulseSimple"/>
+                                            </DataTrigger.ExitActions>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Ellipse.Style>
+                        </Ellipse>
+                    </Grid>
+
+                    <TextBlock Text="{Binding State, Converter={StaticResource StateToText}}"
+                               Style="{StaticResource H1}" HorizontalAlignment="Center"/>
+                    <TextBlock HorizontalAlignment="Center" Style="{StaticResource Muted}" Margin="0,6,0,0"
+                               TextAlignment="Center"
+                               Text="{Binding RecommendedPreset.Name, FallbackValue='движок загружается…', StringFormat='Рекомендуемый набор: {0}'}"/>
+
+                    <!-- Scope: what to optimise for -->
+                    <TextBlock Text="ЧТО ПОДОБРАТЬ" Style="{StaticResource Muted}" FontSize="11"
+                               HorizontalAlignment="Center" Margin="0,24,0,8"/>
+                    <Border CornerRadius="8" Background="{StaticResource SurfaceBrush}" HorizontalAlignment="Center"
+                            BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1" Padding="3">
+                        <StackPanel Orientation="Horizontal">
+                            <RadioButton Style="{StaticResource ModeSegment}" Content="Discord + YouTube"
+                                         IsChecked="{Binding ScopeBoth, Mode=TwoWay}"/>
+                            <RadioButton Style="{StaticResource ModeSegment}" Content="Discord"
+                                         IsChecked="{Binding ScopeDiscord, Mode=TwoWay}"/>
+                            <RadioButton Style="{StaticResource ModeSegment}" Content="YouTube"
+                                         IsChecked="{Binding ScopeYouTube, Mode=TwoWay}"/>
+                        </StackPanel>
+                    </Border>
+                    <TextBlock Text="{Binding SimpleGoalHint}" Style="{StaticResource Muted}" FontSize="11.5"
+                               HorizontalAlignment="Center" TextAlignment="Center" Margin="0,8,0,0"/>
+
+                    <!-- Big toggle -->
+                    <Button Command="{Binding SimpleToggleCommand}" Height="54" Margin="0,28,0,0">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource StartStopButton}">
+                                <Setter Property="FontSize" Value="15"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsRunning}" Value="True">
+                                        <Setter Property="Background" Value="{StaticResource DangerBrush}"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                        <TextBlock>
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Text" Value="&#x25B6;  Включить обход"/>
+                                    <Setter Property="Foreground" Value="White"/>
+                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsRunning}" Value="True">
+                                            <Setter Property="Text" Value="&#x25A0;  Выключить обход"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </Button>
+
+                    <Button Content="Переподобрать под провайдера" Command="{Binding SmartPickCommand}"
+                            Style="{StaticResource GhostButton}" Margin="0,12,0,0" HorizontalAlignment="Center"/>
+
+                    <TextBlock Text="{Binding SimpleStatus}" Style="{StaticResource Muted}" TextWrapping="Wrap"
+                               HorizontalAlignment="Center" TextAlignment="Center" Margin="0,20,0,0"/>
+
+                    <ProgressBar Value="{Binding UpdateProgress, Mode=OneWay}" Maximum="1" Margin="0,16,0,0"
+                                 Visibility="{Binding IsUpdating, Converter={StaticResource BoolToVis}}"/>
+                    <TextBlock Text="{Binding UpdateStatus}" Style="{StaticResource Muted}" Margin="0,8,0,0"
+                               HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap"
+                               Visibility="{Binding IsUpdating, Converter={StaticResource BoolToVis}}"/>
+                </StackPanel>
+            </Grid>
         </Grid>
     </Border>
 </Window>

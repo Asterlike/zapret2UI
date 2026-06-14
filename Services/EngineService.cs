@@ -44,14 +44,20 @@ public sealed class EngineService : IDisposable
             ? $"--hostlist={hostlistPath}"
             : "";
 
+        // {IPSET} expands to --ipset=<file> only if the Discord ipset has been built.
+        string ipsetArg = File.Exists(AppPaths.IpsetDiscordFile)
+            ? $"--ipset={AppPaths.IpsetDiscordFile}"
+            : "";
+
         foreach (var raw in preset.Args)
         {
             string a = raw
                 .Replace("{FILES}", AppPaths.FilesDir, StringComparison.Ordinal)
                 .Replace("{WF}", AppPaths.WinDivertFilterDir, StringComparison.Ordinal)
-                .Replace("{HOSTLIST}", hostlistArg, StringComparison.Ordinal);
+                .Replace("{HOSTLIST}", hostlistArg, StringComparison.Ordinal)
+                .Replace("{IPSET}", ipsetArg, StringComparison.Ordinal);
 
-            // A {HOSTLIST} that resolved to nothing leaves an empty token — drop it.
+            // A {HOSTLIST}/{IPSET} that resolved to nothing leaves an empty token — drop it.
             if (a.Length == 0) continue;
             args.Add(a);
         }
