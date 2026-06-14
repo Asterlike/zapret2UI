@@ -16,6 +16,8 @@ public sealed class MainViewModel : ObservableObject
     private readonly HostlistService _hostlists = new();
     private readonly SettingsService _settingsSvc = new();
     private readonly AutostartService _autostart = new();
+    private readonly StrategyTesterService _tester = new();
+    private CancellationTokenSource? _testCts;
 
     public AppSettings Settings => _settingsSvc.Settings;
 
@@ -42,6 +44,14 @@ public sealed class MainViewModel : ObservableObject
                                                _ => SelectedPreset is { IsBuiltIn: false });
         SavePresetCommand = new RelayCommand(_ => SavePreset(),
                                              _ => SelectedPreset is { IsBuiltIn: false });
+
+        RunTestCommand = new RelayCommand(async _ => await RunTestAsync(), _ => !IsTesting);
+        StopTestCommand = new RelayCommand(_ => _testCts?.Cancel(), _ => IsTesting);
+        ApplyResultCommand = new RelayCommand(_ => ApplyResult(),
+            _ => SelectedResult is { Works: true } && !IsTesting);
+
+        _tester.Status += s => OnUi(() => TestStatus = s);
+        _tester.ResultReady += r => OnUi(() => TestResults.Add(r));
     }
 
     // ---- collections -------------------------------------------------------
@@ -49,6 +59,7 @@ public sealed class MainViewModel : ObservableObject
     public ObservableCollection<Preset> Presets { get; } = new();
     public ObservableCollection<string> Hostlists { get; } = new();
     public ObservableCollection<string> LogLines { get; } = new();
+    public ObservableCollection<StrategyTestResult> TestResults { get; } = new();
 
     // ---- commands ----------------------------------------------------------
 
@@ -64,6 +75,9 @@ public sealed class MainViewModel : ObservableObject
     public RelayCommand DuplicatePresetCommand { get; }
     public RelayCommand DeletePresetCommand { get; }
     public RelayCommand SavePresetCommand { get; }
+    public RelayCommand RunTestCommand { get; }
+    public RelayCommand StopTestCommand { get; }
+    public RelayCommand ApplyResultCommand { get; }
 
     // ---- engine state ------------------------------------------------------
 
@@ -187,6 +201,106 @@ public sealed class MainViewModel : ObservableObject
 
     private string _engineVersion = "—";
     public string EngineVersion { get => _engineVersion; private set => SetField(ref _engineVersion, value); }
+
+    // ---- strategy tester ---------------------------------------------------
+
+    public string[] TestKinds { get; } = { "HTTPS (TLS)", "HTTP", "QUIC (HTTP/3)" };
+
+    private int _selectedTestKindIndex;
+    public int SelectedTestKindIndex { get => _selectedTestKindIndex; set => SetField(ref _selectedTestKindIndex, value); }
+
+    private string _testDomain = "youtube.com";
+    public string TestDomain { get => _testDomain; set => SetField(ref _testDomain, value); }
+
+    private bool _isTesting;
+    public bool IsTesting
+    {
+        get => _isTesting;
+        private set { if (SetField(ref _isTesting, value)) RaiseCommandStates(); }
+    }
+
+    private string _testStatus = "Укажите домен и нажмите «Проверить».";
+    public string TestStatus { get => _testStatus; private set => SetField(ref _testStatus, value); }
+
+    private StrategyTestResult? _selectedResult;
+    public StrategyTestResult? SelectedResult
+    {
+        get => _selectedResult;
+        set { if (SetField(ref _selectedResult, value)) RaiseCommandStates(); }
+    }
+
+    private TestKind CurrentTestKind => SelectedTestKindIndex switch
+    {
+        1 => TestKind.Http,
+        2 => TestKind.Quic,
+        _ => TestKind.Tls,
+    };
+
+    private async Task RunTestAsync()
+    {
+        if (IsTesting) return;
+        if (string.IsNullOrWhiteSpace(TestDomain))
+        {
+            TestStatus = "Укажите домен.";
+            return;
+        }
+
+        // Only one winws2 can own the capture — stop the main engine first.
+        if (IsRunning)
+        {
+            AppendLog("Остановка движка для проверки стратегий…");
+            _engine.Stop();
+            await Task.Delay(700);
+        }
+
+        TestResults.Clear();
+        SelectedResult = null;
+        IsTesting = true;
+        _testCts = new CancellationTokenSource();
+        try
+        {
+            await _tester.RunAsync(TestDomain, CurrentTestKind, _testCts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            TestStatus = "Проверка остановлена.";
+        }
+        catch (Exception ex)
+        {
+            TestStatus = "Ошибка: " + ex.Message;
+        }
+        finally
+        {
+            IsTesting = false;
+            _testCts?.Dispose();
+            _testCts = null;
+        }
+    }
+
+    private void ApplyResult()
+    {
+        if (SelectedResult is not { Works: true } res) return;
+
+        var kind = CurrentTestKind;
+        var candidate = _tester.CandidatesFor(kind).FirstOrDefault(c => c.Name == res.Name);
+        if (candidate is null)
+        {
+            TestStatus = "Не удалось сопоставить стратегию.";
+            return;
+        }
+
+        string kindName = kind switch { TestKind.Http => "http", TestKind.Quic => "quic", _ => "tls" };
+        var preset = new Preset
+        {
+            Name = $"Подобрано: {TestDomain} [{kindName}]",
+            Description = $"Стратегия «{res.Name}», подобранная авто-тестером для {TestDomain}.",
+            Args = StrategyTesterService.BuildPresetArgs(kind, candidate),
+        };
+        _presets.AddUser(preset);
+        ReloadPresets();
+        SelectedPreset = Presets.FirstOrDefault(p => p.Name == preset.Name);
+        TestStatus = $"Сохранено как пресет «{preset.Name}» и сделано активным.";
+    }
 
     // ---- settings toggles (bound to checkboxes) ----------------------------
 
@@ -418,6 +532,9 @@ public sealed class MainViewModel : ObservableObject
         DuplicatePresetCommand.RaiseCanExecuteChanged();
         DeletePresetCommand.RaiseCanExecuteChanged();
         SavePresetCommand.RaiseCanExecuteChanged();
+        RunTestCommand.RaiseCanExecuteChanged();
+        StopTestCommand.RaiseCanExecuteChanged();
+        ApplyResultCommand.RaiseCanExecuteChanged();
     }
 
     private static void OnUi(Action a)
