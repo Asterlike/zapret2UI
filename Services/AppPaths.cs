@@ -18,6 +18,7 @@ public static class AppPaths
     public static string WinwsExe => Path.Combine(EngineDir, "winws2.exe");
     public static string LuaDir => Path.Combine(EngineDir, "lua");
     public static string FilesDir => Path.Combine(EngineDir, "files");
+    public static string WinDivertFilterDir => Path.Combine(EngineDir, "windivert.filter");
 
     // User data
     public static string ListsDir => Path.Combine(Root, "lists");

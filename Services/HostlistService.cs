@@ -71,6 +71,22 @@ public sealed class HostlistService
         }
     }
 
+    /// <summary>Create a couple of useful starter lists on first run (if none exist yet).</summary>
+    public void SeedDefaults()
+    {
+        if (GetLists().Count > 0) return;
+        Write("youtube", string.Join('\n', new[]
+        {
+            "youtube.com", "youtu.be", "googlevideo.com", "ytimg.com", "ggpht.com",
+            "yt3.ggpht.com", "youtubei.googleapis.com", "jnn-pa.googleapis.com", "gstatic.com",
+        }));
+        Write("discord", string.Join('\n', new[]
+        {
+            "discord.com", "discord.gg", "discordapp.com", "discordapp.net",
+            "discord.media", "discordcdn.com", "stun.discord.com",
+        }));
+    }
+
     /// <summary>Validate a hostlist name so it cannot escape the lists folder.</summary>
     public static bool IsValidName(string name) =>
         !string.IsNullOrWhiteSpace(name) &&

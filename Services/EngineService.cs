@@ -48,6 +48,7 @@ public sealed class EngineService : IDisposable
         {
             string a = raw
                 .Replace("{FILES}", AppPaths.FilesDir, StringComparison.Ordinal)
+                .Replace("{WF}", AppPaths.WinDivertFilterDir, StringComparison.Ordinal)
                 .Replace("{HOSTLIST}", hostlistArg, StringComparison.Ordinal);
 
             // A {HOSTLIST} that resolved to nothing leaves an empty token — drop it.

@@ -6,6 +6,7 @@ namespace ZapretUI.Models;
 ///
 /// Tokens expanded by <c>EngineService</c> at launch time:
 ///   {FILES}    -> absolute path to the engine "files" folder (fake blobs)
+///   {WF}       -> absolute path to the engine "windivert.filter" folder (raw-part filters)
 ///   {HOSTLIST} -> "--hostlist=&lt;path&gt;" for the active list, or removed if none
 /// </summary>
 public sealed class Preset

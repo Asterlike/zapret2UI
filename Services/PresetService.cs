@@ -78,73 +78,128 @@ public sealed class PresetService
 
     // ---- built-in strategies (documented winws2 syntax) --------------------
 
+    // Strategies follow the official preset2_example from the zapret2 manual
+    // (autottl / md5sig / seqovl / multidisorder, kernel-mode windivert raw-part
+    // capture filters). DPI bypass is provider-specific — these are proven
+    // starting points, not a guarantee for every ISP.
     public static List<Preset> BuiltIns() => new()
     {
         new Preset
         {
-            Name = "Общий (HTTP + TLS + QUIC)",
-            Description = "Базовый обход для большинства сайтов: 80/443 TCP и 443 UDP (QUIC). " +
-                          "Хорошая отправная точка.",
+            Name = "Общий (рекомендуемый)",
+            Description = "Эталонная базовая стратегия bol-van для HTTP+TLS+QUIC. Подходит большинству " +
+                          "сайтов и не требует хостлиста. Начните с неё.",
             IsBuiltIn = true,
             Args = new()
             {
-                "--wf-tcp-out=80,443", "--wf-udp-out=443",
+                "--wf-tcp-out=80,443",
+                "--wf-raw-part=@{WF}\\windivert_part.quic_initial_ietf.txt",
+                "--lua-init=fake_default_tls = tls_mod(fake_default_tls,'rnd,rndsni')",
                 "--filter-tcp=80", "--filter-l7=http", "--out-range=-d10", "--payload=http_req",
                   "--lua-desync=fake:blob=fake_default_http:ip_autottl=-2,3-20:ip6_autottl=-2,3-20:tcp_md5",
                   "--lua-desync=fakedsplit:ip_autottl=-2,3-20:ip6_autottl=-2,3-20:tcp_md5",
                 "--new",
                 "--filter-tcp=443", "--filter-l7=tls", "--out-range=-d10", "--payload=tls_client_hello",
-                  "--lua-desync=fake:blob=fake_default_tls:tcp_md5",
+                  "--lua-desync=fake:blob=fake_default_tls:tcp_md5:tcp_seq=-10000:repeats=6",
                   "--lua-desync=multidisorder:pos=midsld",
                 "--new",
                 "--filter-udp=443", "--filter-l7=quic", "--payload=quic_initial",
-                  "--lua-desync=fake:blob=fake_default_quic:repeats=2",
+                  "--lua-desync=fake:blob=fake_default_quic:repeats=6",
             }
         },
         new Preset
         {
-            Name = "YouTube",
-            Description = "Усиленная стратегия для YouTube/Google. Подменяет SNI на www.google.com. " +
-                          "Подключите хостлист с доменами youtube/googlevideo.",
+            Name = "YouTube / Google",
+            Description = "Усиленная стратегия для YouTube/Google: подмена SNI фейка на www.google.com, " +
+                          "google-QUIC-фейк, 11 повторов. Выберите хостлист «youtube» для точечного применения.",
             IsBuiltIn = true,
             UsesHostlist = true,
             Args = new()
             {
-                "--wf-tcp-out=443", "--wf-udp-out=443",
+                "--wf-tcp-out=443",
+                "--wf-raw-part=@{WF}\\windivert_part.quic_initial_ietf.txt",
+                "--lua-init=fake_default_tls = tls_mod(fake_default_tls,'rnd,rndsni')",
+                "--blob=quic_google:@{FILES}\\fake\\quic_initial_www_google_com.bin",
                 "--filter-tcp=443", "--filter-l7=tls", "{HOSTLIST}", "--out-range=-d10", "--payload=tls_client_hello",
                   "--lua-desync=fake:blob=fake_default_tls:tcp_md5:repeats=11:tls_mod=rnd,dupsid,sni=www.google.com",
                   "--lua-desync=multidisorder:pos=1,midsld",
                 "--new",
                 "--filter-udp=443", "--filter-l7=quic", "{HOSTLIST}", "--payload=quic_initial",
-                  "--lua-desync=fake:blob=fake_default_quic:repeats=11",
+                  "--lua-desync=fake:blob=quic_google:repeats=11",
             }
         },
         new Preset
         {
-            Name = "Discord",
-            Description = "TLS-обход + фейки для голосового трафика Discord (STUN / IP discovery).",
+            Name = "Discord (чат + голос)",
+            Description = "TLS-обход + фейки для голосового трафика Discord: STUN, IP discovery, WireGuard. " +
+                          "Захват медиапотоков фильтрами windivert в режиме ядра.",
             IsBuiltIn = true,
             Args = new()
             {
-                "--wf-tcp-out=443", "--wf-udp-out=443,50000-65535",
+                "--wf-tcp-out=443",
+                "--wf-raw-part=@{WF}\\windivert_part.discord_media.txt",
+                "--wf-raw-part=@{WF}\\windivert_part.stun.txt",
+                "--wf-raw-part=@{WF}\\windivert_part.wireguard.txt",
                 "--filter-tcp=443", "--filter-l7=tls", "--out-range=-d10", "--payload=tls_client_hello",
-                  "--lua-desync=fake:blob=fake_default_tls:tcp_md5:repeats=6",
+                  "--lua-desync=fake:blob=fake_default_tls:tcp_md5:tcp_seq=-10000:repeats=6",
                   "--lua-desync=multidisorder:pos=midsld",
                 "--new",
-                "--filter-l7=stun,discord", "--payload=stun,discord_ip_discovery",
+                "--filter-l7=wireguard,stun,discord",
+                  "--payload=wireguard_initiation,wireguard_cookie,stun,discord_ip_discovery",
                   "--lua-desync=fake:blob=0x00000000000000000000000000000000:repeats=2",
             }
         },
         new Preset
         {
             Name = "Только QUIC",
-            Description = "Минимальная стратегия: фейк для QUIC Initial на udp/443.",
+            Description = "Минимальная стратегия: фейк для QUIC Initial. Захват QUIC-инициалов фильтром " +
+                          "windivert в режиме ядра (экономит CPU).",
             IsBuiltIn = true,
             Args = new()
             {
-                "--wf-udp-out=443",
+                "--wf-raw-part=@{WF}\\windivert_part.quic_initial_ietf.txt",
+                "--filter-l7=quic", "--payload=quic_initial",
+                  "--lua-desync=fake:blob=fake_default_quic:repeats=6",
+            }
+        },
+        new Preset
+        {
+            Name = "Эталон bol-van (всё сразу)",
+            Description = "Полная официальная стратегия preset2_example: HTTP, TLS (общий + YouTube), " +
+                          "QUIC (общий + YouTube), Discord/STUN/WireGuard. Для YouTube-профилей выберите " +
+                          "хостлист «youtube».",
+            IsBuiltIn = true,
+            UsesHostlist = true,
+            Args = new()
+            {
+                "--wf-tcp-out=80,443",
+                "--lua-init=fake_default_tls = tls_mod(fake_default_tls,'rnd,rndsni')",
+                "--blob=quic_google:@{FILES}\\fake\\quic_initial_www_google_com.bin",
+                "--wf-raw-part=@{WF}\\windivert_part.discord_media.txt",
+                "--wf-raw-part=@{WF}\\windivert_part.stun.txt",
+                "--wf-raw-part=@{WF}\\windivert_part.wireguard.txt",
+                "--wf-raw-part=@{WF}\\windivert_part.quic_initial_ietf.txt",
+                "--filter-tcp=80", "--filter-l7=http", "--out-range=-d10", "--payload=http_req",
+                  "--lua-desync=fake:blob=fake_default_http:ip_autottl=-2,3-20:ip6_autottl=-2,3-20:tcp_md5",
+                  "--lua-desync=fakedsplit:ip_autottl=-2,3-20:ip6_autottl=-2,3-20:tcp_md5",
+                "--new",
+                "--filter-tcp=443", "--filter-l7=tls", "{HOSTLIST}", "--out-range=-d10", "--payload=tls_client_hello",
+                  "--lua-desync=fake:blob=fake_default_tls:tcp_md5:repeats=11:tls_mod=rnd,dupsid,sni=www.google.com",
+                  "--lua-desync=multidisorder:pos=1,midsld",
+                "--new",
+                "--filter-tcp=443", "--filter-l7=tls", "--out-range=-d10", "--payload=tls_client_hello",
+                  "--lua-desync=fake:blob=fake_default_tls:tcp_md5:tcp_seq=-10000:repeats=6",
+                  "--lua-desync=multidisorder:pos=midsld",
+                "--new",
+                "--filter-udp=443", "--filter-l7=quic", "{HOSTLIST}", "--payload=quic_initial",
+                  "--lua-desync=fake:blob=quic_google:repeats=11",
+                "--new",
                 "--filter-udp=443", "--filter-l7=quic", "--payload=quic_initial",
-                  "--lua-desync=fake:blob=fake_default_quic:repeats=2",
+                  "--lua-desync=fake:blob=fake_default_quic:repeats=11",
+                "--new",
+                "--filter-l7=wireguard,stun,discord",
+                  "--payload=wireguard_initiation,wireguard_cookie,stun,discord_ip_discovery",
+                  "--lua-desync=fake:blob=0x00000000000000000000000000000000:repeats=2",
             }
         },
     };

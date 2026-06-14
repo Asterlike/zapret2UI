@@ -225,6 +225,7 @@ public sealed class MainViewModel : ObservableObject
     public async Task InitializeAsync()
     {
         ReloadPresets();
+        _hostlists.SeedDefaults();
         ReloadHostlists();
 
         SelectedPreset = Presets.FirstOrDefault(p => p.Name == Settings.ActivePresetName)
@@ -236,7 +237,7 @@ public sealed class MainViewModel : ObservableObject
 
         EngineVersion = _updater.InstalledVersion ?? "не установлен";
 
-        if (Settings.AutoUpdateEngine || !_updater.IsEngineInstalled)
+        if (Settings.AutoUpdateEngine || !_updater.IsEngineInstalled || !_updater.IsEngineComplete)
             await CheckAndUpdateAsync(silent: true);
 
         if (Settings.AutostartEngine && CanStart && SelectedPreset is not null)
@@ -295,7 +296,7 @@ public sealed class MainViewModel : ObservableObject
                 return;
             }
 
-            if (!_updater.IsEngineInstalled || _updater.IsUpdateAvailable(latest))
+            if (!_updater.IsEngineInstalled || !_updater.IsEngineComplete || _updater.IsUpdateAvailable(latest))
             {
                 bool wasRunning = IsRunning;
                 if (wasRunning)

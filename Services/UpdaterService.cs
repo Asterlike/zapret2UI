@@ -46,6 +46,14 @@ public sealed class UpdaterService
 
     public bool IsEngineInstalled => File.Exists(AppPaths.WinwsExe);
 
+    /// <summary>
+    /// True if the installed engine is missing parts that newer UI versions need
+    /// (e.g. the windivert filter set added after the first install). Such installs
+    /// should be re-extracted even when the version tag is unchanged.
+    /// </summary>
+    public bool IsEngineComplete =>
+        IsEngineInstalled && Directory.Exists(AppPaths.WinDivertFilterDir);
+
     /// <summary>Resolve the latest release and its relevant asset URLs.</summary>
     public async Task<ReleaseInfo> FetchLatestAsync(CancellationToken ct = default)
     {
@@ -215,6 +223,7 @@ public sealed class UpdaterService
         string binPrefix = $"{top}binaries/{arch}/";
         string luaPrefix = $"{top}lua/";
         string filesPrefix = $"{top}files/";
+        string wfPrefix = $"{top}init.d/windivert.filter.examples/";
 
         bool gotWinws = false;
         foreach (var entry in zip.Entries)
@@ -229,6 +238,9 @@ public sealed class UpdaterService
                 target = Path.Combine(stageDir, "lua", entry.FullName[luaPrefix.Length..]);
             else if (entry.FullName.StartsWith(filesPrefix, StringComparison.OrdinalIgnoreCase))
                 target = Path.Combine(stageDir, "files", entry.FullName[filesPrefix.Length..]);
+            else if (entry.FullName.StartsWith(wfPrefix, StringComparison.OrdinalIgnoreCase) &&
+                     entry.Name.StartsWith("windivert_part", StringComparison.OrdinalIgnoreCase))
+                target = Path.Combine(stageDir, "windivert.filter", entry.FullName[wfPrefix.Length..]);
 
             if (target is null) continue;
 
