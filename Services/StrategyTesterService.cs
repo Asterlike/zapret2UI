@@ -21,12 +21,15 @@ public sealed record StrategyTestResult(string Name, bool Works, long Ms, string
 /// The caller MUST stop the main engine first — only one winws2 should own the
 /// WinDivert capture for a given port at a time.
 /// </summary>
-public sealed class StrategyTesterService
+public sealed class StrategyTesterService : IDisposable
 {
     public event Action<StrategyTestResult>? ResultReady;
     public event Action<string>? Status;
 
     private Process? _proc;
+
+    /// <summary>Kills any temporary winws2 if the host is torn down mid-test.</summary>
+    public void Dispose() => StopEngine();
 
     public StrategyCandidate[] CandidatesFor(TestKind kind) => kind switch
     {
@@ -49,7 +52,7 @@ public sealed class StrategyTesterService
         // DNS sanity check.
         Status?.Invoke($"Резолвлю {domain}…");
         try { await Dns.GetHostAddressesAsync(domain, ct); }
-        catch
+        catch (Exception) when (!ct.IsCancellationRequested)
         {
             throw new InvalidOperationException(
                 $"Не удалось разрезолвить {domain}. Возможна DNS-блокировка — попробуйте другой DNS.");
@@ -175,10 +178,18 @@ public sealed class StrategyTesterService
         var p = new Process { StartInfo = psi };
         p.OutputDataReceived += (_, _) => { };
         p.ErrorDataReceived += (_, _) => { };
-        p.Start();
-        p.BeginOutputReadLine();
-        p.BeginErrorReadLine();
-        _proc = p;
+        _proc = p; // assign before Start so a failure is still cleaned up by StopEngine
+        try
+        {
+            p.Start();
+            p.BeginOutputReadLine();
+            p.BeginErrorReadLine();
+        }
+        catch
+        {
+            StopEngine();
+            throw;
+        }
     }
 
     private void StopEngine()

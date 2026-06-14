@@ -29,7 +29,7 @@ public sealed class MainViewModel : ObservableObject
         StartCommand = new RelayCommand(_ => Start(), _ => CanStart);
         StopCommand = new RelayCommand(_ => _engine.Stop(), _ => CanStop);
         ToggleCommand = new RelayCommand(_ => { if (IsRunning) _engine.Stop(); else Start(); },
-                                         _ => !IsUpdating);
+                                         _ => !IsUpdating && (IsRunning || CanStart));
         CheckUpdateCommand = new RelayCommand(async _ => await CheckAndUpdateAsync(silent: false),
                                               _ => !IsUpdating);
         ClearLogCommand = new RelayCommand(_ => LogLines.Clear());
@@ -425,7 +425,16 @@ public sealed class MainViewModel : ObservableObject
                     UpdateProgress = p.Fraction;
                     UpdateStatus = p.Message;
                 });
-                await _updater.InstallAsync(latest, progress);
+                try
+                {
+                    await _updater.InstallAsync(latest, progress);
+                }
+                catch (Exception ex)
+                {
+                    UpdateStatus = $"Не удалось установить движок: {ex.Message}";
+                    AppendLog("Ошибка загрузки движка: " + ex.Message);
+                    return;
+                }
                 EngineVersion = _updater.InstalledVersion ?? "—";
                 UpdateStatus = $"Движок обновлён: {latest.Tag}";
                 OnPropertyChanged(nameof(CanStart));
@@ -508,6 +517,14 @@ public sealed class MainViewModel : ObservableObject
     }
 
     public void StopEngine() => _engine.Stop();
+
+    /// <summary>Stop everything and release resources on application exit.</summary>
+    public void Shutdown()
+    {
+        try { _testCts?.Cancel(); } catch { }
+        try { _tester.Dispose(); } catch { }
+        try { _engine.Dispose(); } catch { }
+    }
 
     // ---- helpers -----------------------------------------------------------
 

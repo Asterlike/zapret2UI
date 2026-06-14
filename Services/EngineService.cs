@@ -123,24 +123,28 @@ public sealed class EngineService : IDisposable
 
     public void Stop()
     {
+        Process? proc;
         lock (_lock)
         {
             if (_proc is null || State == EngineState.Stopped) return;
             SetState(EngineState.Stopping);
-            try
-            {
-                if (!_proc.HasExited)
-                {
-                    _proc.Kill(entireProcessTree: true);
-                    _proc.WaitForExit(5000);
-                }
-            }
-            catch (Exception ex)
-            {
-                Emit($"Ошибка остановки: {ex.Message}");
-            }
-            // OnProcessExited finalizes state and closes the log.
+            proc = _proc;
         }
+        // Wait OUTSIDE the lock: OnProcessExited needs the lock to finalize, and
+        // event marshaling to the UI thread must not be blocked by a held lock.
+        try
+        {
+            if (!proc.HasExited)
+            {
+                proc.Kill(entireProcessTree: true);
+                proc.WaitForExit(5000);
+            }
+        }
+        catch (Exception ex)
+        {
+            Emit($"Ошибка остановки: {ex.Message}");
+        }
+        // OnProcessExited finalizes state and closes the log.
     }
 
     private void OnProcessExited(object? sender, EventArgs e)

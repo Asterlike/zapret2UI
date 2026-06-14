@@ -12,6 +12,7 @@ public partial class MainWindow : Window
 {
     private readonly MainViewModel _vm = new();
     private Forms.NotifyIcon? _tray;
+    private Forms.ContextMenuStrip? _trayMenu;
     private Forms.ToolStripMenuItem? _trayToggle;
     private Drawing.Icon? _iconIdle;
     private Drawing.Icon? _iconRunning;
@@ -28,6 +29,10 @@ public partial class MainWindow : Window
         Loaded += OnLoaded;
         Closing += OnClosing;
         StateChanged += OnWindowStateChanged;
+
+        // OS logoff/shutdown: tear down even though minimize-to-tray would normally
+        // cancel a close, so winws2 is never left running.
+        Application.Current.SessionEnding += (_, _) => { _reallyClose = true; CleanupAndShutdown(); };
     }
 
     private async void OnLoaded(object sender, RoutedEventArgs e)
@@ -94,19 +99,19 @@ public partial class MainWindow : Window
         _iconIdle = LoadIcon("app.ico");
         _iconRunning = LoadIcon("app-on.ico");
 
-        var menu = new Forms.ContextMenuStrip();
-        menu.Items.Add("Открыть", null, (_, _) => ShowFromTray());
+        _trayMenu = new Forms.ContextMenuStrip();
+        _trayMenu.Items.Add("Открыть", null, (_, _) => ShowFromTray());
         _trayToggle = new Forms.ToolStripMenuItem("Запустить обход", null, (_, _) => _vm.ToggleCommand.Execute(null));
-        menu.Items.Add(_trayToggle);
-        menu.Items.Add(new Forms.ToolStripSeparator());
-        menu.Items.Add("Выход", null, (_, _) => ExitApp());
+        _trayMenu.Items.Add(_trayToggle);
+        _trayMenu.Items.Add(new Forms.ToolStripSeparator());
+        _trayMenu.Items.Add("Выход", null, (_, _) => ExitApp());
 
         _tray = new Forms.NotifyIcon
         {
             Icon = _iconIdle ?? Drawing.SystemIcons.Application,
             Visible = true,
             Text = "Zapret UI — остановлен",
-            ContextMenuStrip = menu,
+            ContextMenuStrip = _trayMenu,
         };
         _tray.DoubleClick += (_, _) => ShowFromTray();
     }
@@ -185,10 +190,15 @@ public partial class MainWindow : Window
         Close();
     }
 
+    private bool _cleanedUp;
     private void CleanupAndShutdown()
     {
-        try { _vm.StopEngine(); } catch { }
+        if (_cleanedUp) return;
+        _cleanedUp = true;
+
+        try { _vm.Shutdown(); } catch { }
         if (_tray is not null) { _tray.Visible = false; _tray.Dispose(); _tray = null; }
+        _trayMenu?.Dispose(); _trayMenu = null;
         _iconIdle?.Dispose();
         _iconRunning?.Dispose();
         Application.Current.Shutdown();

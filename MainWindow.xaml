@@ -317,7 +317,7 @@
                                             Visibility="{Binding IsTesting, Converter={StaticResource BoolToVis}}"/>
                                 </Grid>
 
-                                <ListBox ItemsSource="{Binding TestKinds}" SelectedIndex="{Binding SelectedTestKindIndex}"
+                                <ListBox ItemsSource="{Binding TestKinds}" SelectedIndex="{Binding SelectedTestKindIndex, Mode=TwoWay}"
                                          ItemContainerStyle="{StaticResource SelectableItem}" Margin="0,12,0,0">
                                     <ListBox.ItemsPanel>
                                         <ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate>
