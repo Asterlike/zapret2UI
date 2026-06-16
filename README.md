@@ -259,11 +259,12 @@ framework‑dependent: уберите из `.csproj` свойства `SelfConta
 
 ## Благодарности
 
-- [bol-van/zapret2](https://github.com/bol-van/zapret2) — собственно движок обхода DPI (winws2) и
+- [bol-van/zapret2](https://github.com/bol-van/zapret2) - собственно движок обхода DPI (winws2) и
   авторитетная документация. Эта оболочка лишь предоставляет ему удобный интерфейс.
-- [Flowseal/zapret-discord-youtube](https://github.com/Flowseal/zapret-discord-youtube) — рабочие наборы
+- [Flowseal/zapret-discord-youtube](https://github.com/Flowseal/zapret-discord-youtube) - рабочие наборы
   стратегий под Discord/YouTube. Часть встроенных пресетов (включая починку голоса QUIC-фейком и
   multisplit+seqovl) построена по аналогии с его конфигами, переведёнными с nfqws1 на синтаксис nfqws2.
+- [RaccoonLaptop/ZapretUI](https://github.com/RaccoonLaptop/ZapretUI) - Вдохновитель проекта в цело(сделать нормальный интерфейс к zapret)
 
 
 ## VPN от автора — makeitfree.online
