@@ -263,7 +263,7 @@ framework‑dependent: уберите из `.csproj` свойства `SelfConta
 - [Flowseal/zapret-discord-youtube](https://github.com/Flowseal/zapret-discord-youtube) — рабочие наборы
   стратегий под Discord/YouTube. Часть встроенных пресетов (включая починку голоса QUIC-фейком и
   multisplit+seqovl) построена по аналогии с его конфигами, переведёнными с nfqws1 на синтаксис nfqws2.
-- [WinDivert](https://github.com/basil00/WinDivert) — перехват пакетов в Windows.
+
 
 ## VPN от автора — makeitfree.online
 
