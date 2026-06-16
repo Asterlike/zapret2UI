@@ -36,6 +36,7 @@
   <ItemGroup>
     <Resource Include="Assets\app.ico" />
     <Resource Include="Assets\app-on.ico" />
+    <Resource Include="Assets\donate-qr.png" />
   </ItemGroup>
 
 </Project>

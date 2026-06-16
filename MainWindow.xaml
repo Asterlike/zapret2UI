@@ -2,6 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        xmlns:ctl="clr-namespace:ZapretUI.Controls"
         Title="Zapret UI" Height="690" Width="1020" MinHeight="580" MinWidth="880"
         WindowStartupLocation="CenterScreen"
         WindowStyle="None" ResizeMode="CanResize"
@@ -790,7 +791,7 @@
                                 <StackPanel>
                                     <TextBlock Text="Обход по IP (для жёстких блоков)" Style="{StaticResource H2}" Margin="0,0,0,8"/>
                                     <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,10"
-                                               Text="Если Discord режут по IP-адресам, обход по доменам не помогает. Соберите актуальные подсети Discord (резолв доменов) — после этого заработает пресет «Discord — по IP (ipset)»."/>
+                                               Text="Если Discord режут по IP-адресам, обход по доменам не помогает. Соберите актуальные подсети Discord (резолв доменов) — список сохранится в ipset-discord.txt, его можно подключить в своём пресете через токен {IPSET}."/>
                                     <StackPanel Orientation="Horizontal">
                                         <Button Content="Собрать IP-список Discord" Command="{Binding BuildDiscordIpsetCommand}"
                                                 Style="{StaticResource GhostButton}"
@@ -806,8 +807,16 @@
                 </TabItem>
             </TabControl>
 
+            <!-- Donate block pinned to the bottom-left, under the advanced sidebar -->
+            <ctl:DonateBlock Grid.Row="2" HorizontalAlignment="Left" VerticalAlignment="Bottom"
+                             Margin="22,0,0,20" Panel.ZIndex="10"
+                             Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}"/>
+
             <!-- ============ Body: simple (one-click) ============ -->
             <Grid Grid.Row="2" Visibility="{Binding IsSimpleMode, Converter={StaticResource BoolToVis}}">
+                <!-- Donate block: bottom-left corner -->
+                <ctl:DonateBlock HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="24"/>
+
                 <StackPanel MaxWidth="560" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="24"
                             Opacity="0" RenderTransformOrigin="0.5,0.5">
                     <StackPanel.RenderTransform><TranslateTransform x:Name="simpleSlide" Y="14"/></StackPanel.RenderTransform>

@@ -832,8 +832,9 @@ public sealed class MainViewModel : ObservableObject
     private void DeleteHostlist()
     {
         if (SelectedHostlist is null) return;
-        if (MessageBox.Show($"Удалить список «{SelectedHostlist}»?", "Подтверждение",
-                MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+        if (!ConfirmDialog.Show("Удалить список?",
+                $"Список доменов «{SelectedHostlist}» будет удалён без возможности восстановления."))
+            return;
         _hostlists.Delete(SelectedHostlist);
         ReloadHostlists();
         SelectedHostlist = Hostlists.FirstOrDefault();
@@ -867,8 +868,9 @@ public sealed class MainViewModel : ObservableObject
     private void DeletePreset()
     {
         if (SelectedPreset is not { IsBuiltIn: false } p) return;
-        if (MessageBox.Show($"Удалить пресет «{p.Name}»?", "Подтверждение",
-                MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+        if (!ConfirmDialog.Show("Удалить пресет?",
+                $"Пресет «{p.Name}» будет удалён без возможности восстановления."))
+            return;
         _presets.DeleteUser(p);
         ReloadPresets();
         SelectedPreset = Presets.FirstOrDefault();

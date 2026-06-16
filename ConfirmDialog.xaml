@@ -1,0 +1,22 @@
+<Window x:Class="ZapretUI.ConfirmDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Подтверждение"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        ResizeMode="NoResize" WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        SizeToContent="WidthAndHeight">
+
+    <Border Background="{StaticResource SurfaceBrush}" CornerRadius="14"
+            BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1" MaxWidth="430">
+        <StackPanel Margin="24" MouseLeftButtonDown="OnDrag">
+            <TextBlock x:Name="TitleText" Style="{StaticResource H2}"/>
+            <TextBlock x:Name="MessageText" Style="{StaticResource Muted}" Margin="0,10,0,0"/>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,22,0,0">
+                <Button x:Name="CancelButton" Content="Отмена" Style="{StaticResource GhostButton}"
+                        Margin="0,0,10,0" Click="OnCancel" IsCancel="True"/>
+                <Button x:Name="ConfirmButton" Content="Удалить" Style="{StaticResource DangerButton}"
+                        Click="OnConfirm" IsDefault="True"/>
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</Window>
