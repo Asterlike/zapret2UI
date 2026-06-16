@@ -11,6 +11,7 @@ namespace ZapretUI;
 public partial class MainWindow : Window
 {
     private readonly MainViewModel _vm = new();
+    private CheckWindow? _checkWindow;
     private Forms.NotifyIcon? _tray;
     private Forms.ContextMenuStrip? _trayMenu;
     private Forms.ToolStripMenuItem? _trayToggle;
@@ -27,6 +28,8 @@ public partial class MainWindow : Window
         _vm.LogLines.CollectionChanged += OnLogChanged;
         _vm.PropertyChanged += OnVmPropertyChanged;
         _vm.Notify += (title, msg) => _tray?.ShowBalloonTip(3500, title, msg, Forms.ToolTipIcon.Info);
+        _vm.AutoCheckStarted += OnAutoCheckStarted;
+        _vm.AutoCheckFinished += OnAutoCheckFinished;
         Loaded += OnLoaded;
         Closing += OnClosing;
         StateChanged += OnWindowStateChanged;
@@ -94,6 +97,18 @@ public partial class MainWindow : Window
         string glyph = WindowState == WindowState.Maximized ? "" : "";
         if (MaxButton.Content is System.Windows.Controls.TextBlock tb) tb.Text = glyph;
     }
+
+    // ---- auto-select popup -------------------------------------------------
+
+    private void OnAutoCheckStarted()
+    {
+        if (_checkWindow is not null) return;
+        _checkWindow = new CheckWindow { Owner = this, DataContext = _vm };
+        _checkWindow.Closed += (_, _) => _checkWindow = null;
+        _checkWindow.Show();
+    }
+
+    private void OnAutoCheckFinished() => _checkWindow?.CloseFromVm();
 
     // ---- tray --------------------------------------------------------------
 

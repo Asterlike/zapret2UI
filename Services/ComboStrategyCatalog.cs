@@ -6,7 +6,7 @@ public sealed record ComboStrategy(string Name, List<string> Args);
 /// <summary>
 /// The candidate "configs" the auto-selector cycles through — each a complete
 /// multi-profile winws2 strategy that handles HTTP + TLS + QUIC (general) AND
-/// Discord voice (STUN + IP-discovery) in one go, differing only in the TLS/QUIC
+/// Discord voice (STUN) in one go, differing only in the TLS/QUIC
 /// desync flavour. The selector launches each, scores it against the goal
 /// endpoints, and keeps the one with the fewest failures — so a single chosen
 /// strategy works for YouTube and Discord together.
@@ -24,10 +24,8 @@ public static class ComboStrategyCatalog
         "--ipcache-lifetime=8400",
         "--ipcache-hostname=1",
         "--lua-init=fake_default_tls = tls_mod(fake_default_tls,'rnd,rndsni')",
-        "--blob=disc_stun:@{FILES}\\fake\\stun.bin",
-        "--blob=disc_ipd:@{FILES}\\fake\\discord-ip-discovery-with-port.bin",
+        "--blob=quic_google:@{FILES}\\fake\\quic_initial_www_google_com.bin",
         "--blob=tls_google:@{FILES}\\fake\\tls_clienthello_www_google_com.bin",
-        "--wf-raw-part=@{WF}\\windivert_part.discord_media.txt",
         "--wf-raw-part=@{WF}\\windivert_part.stun.txt",
         "--wf-raw-part=@{WF}\\windivert_part.quic_initial_ietf.txt",
         // HTTP (shared across variants)
@@ -48,14 +46,14 @@ public static class ComboStrategyCatalog
     .Concat(quic)
     .Concat(new[]
     {
-        // Discord voice: STUN handshake (fake + autottl, like the proven recipe)
+        // Discord voice (STUN + IP-discovery): fake with a QUIC-google blob, no ttl
+        // limiting. The voice server discards the QUIC garbage for its flow, so the
+        // SSRC is never poisoned (no NO_ROUTE) and the fake doesn't need to be kept
+        // short of the server — which makes it route-independent (ttl cutting is
+        // fragile across rotating voice IPs). Proven working path: Flowseal alt10.
         "--new",
-        "--filter-l7=stun", "--payload=stun",
-          "--lua-desync=fake:blob=disc_stun:ip_autottl=-2,3-20:ip6_autottl=-2,3-20:repeats=6",
-        // Discord voice: IP discovery
-        "--new",
-        "--filter-l7=discord", "--payload=discord_ip_discovery",
-          "--lua-desync=fake:blob=disc_ipd:ip_autottl=-2,3-20:ip6_autottl=-2,3-20:repeats=6",
+        "--filter-udp=19294-19344,50000-50100", "--filter-l7=discord,stun",
+          "--lua-desync=fake:blob=quic_google:repeats=6",
     })
     .ToList();
 
@@ -83,20 +81,29 @@ public static class ComboStrategyCatalog
             new[] { "--lua-desync=send:repeats=2",
                     "--lua-desync=syndata:blob=tls_google",
                     "--lua-desync=fake:blob=tls_google:tcp_ack=-66000:tcp_ts_up:tls_mod=rnd:repeats=2",
-                    "--lua-desync=multisplit:pos=2,midsld-2:seqovl=700:seqovl_pattern=tls_google:tcp_flags_unset=ack:optional" }, QuicFake11)),
+                    "--lua-desync=multisplit:pos=2,midsld-2:seqovl=700:seqovl_pattern=tls_google:optional" }, QuicFake11)),
 
         // --- The legacy Discord recipe (Example 1): fake with tcp_ts then a
-        //     big seqovl multidisorder_legacy carrying a real ClientHello.
-        new("DC legacy: fake ts → multidisorder_legacy 652", Build(
+        //     multidisorder_legacy carrying a real ClientHello as the overlap.
+        //     NOTE: in multidisorder(_legacy) `seqovl` is a POSITION MARKER
+        //     (resolve_pos) that must be LESS than the first split pos — not a
+        //     byte count like in multisplit. The old `seqovl=652` silently
+        //     cancelled itself (652 >= split pos), so the overlap did nothing.
+        new("DC legacy: fake ts → multidisorder sld seqovl", Build(
             new[] { "--lua-desync=fake:blob=tls_google:repeats=6:tcp_ts=1000",
-                    "--lua-desync=multidisorder_legacy:seqovl=652:seqovl_pattern=tls_google:optional" }, QuicFake6)),
+                    "--lua-desync=multidisorder_legacy:pos=1,sld+2,midsld:seqovl=sld+1:seqovl_pattern=tls_google:optional" }, QuicFake6)),
 
-        // --- The discord.media recipe (high TCP ports): syndata + a heavily
-        //     fooled multisplit (low ttl, wrong ack). Good for media/gateway.
-        new("DC media: syndata autottl → multisplit ttl4", Build(
+        // --- The discord.media recipe (high TCP ports): syndata in the SYN, the
+        //     heavy fooling (bad-ack + low autottl) carried by a FAKE, then a
+        //     CLEAN multisplit. The old version put tcp_ack=-66000 / ip_ttl=4 /
+        //     repeats=10 directly on the multisplit — i.e. on the REAL segments,
+        //     which corrupts the ACK and drops the real ClientHello before the
+        //     server (ttl 4). Fooling belongs on fakes, never on real splits.
+        new("DC media: syndata → fake badack → multisplit seqovl", Build(
             new[] { "--lua-desync=send:repeats=2",
                     "--lua-desync=syndata:blob=tls_google:ip_autottl=-2,3-20",
-                    "--lua-desync=multisplit:pos=1,midsld:repeats=10:tcp_ack=-66000:tcp_ts_up:ip_ttl=4:ip6_ttl=4:optional" }, QuicFake11)),
+                    "--lua-desync=fake:blob=tls_google:tcp_ack=-66000:tcp_ts_up:ip_autottl=-2,3-20:repeats=6",
+                    "--lua-desync=multisplit:pos=1,midsld:seqovl=336:seqovl_pattern=tls_google:optional" }, QuicFake11)),
 
         // --- window-size (wssize): zapret2's strongest ZERO-PHASE lever for
         //     stubborn blocks like Discord login — forces the server to split

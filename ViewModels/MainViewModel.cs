@@ -26,6 +26,11 @@ public sealed class MainViewModel : ObservableObject
     /// <summary>Raised to show a soft tray notification (title, message).</summary>
     public event Action<string, string>? Notify;
 
+    /// <summary>Raised when a user-initiated auto-select starts — the View shows the popup.</summary>
+    public event Action? AutoCheckStarted;
+    /// <summary>Raised when the auto-select finishes/cancels — the View closes the popup.</summary>
+    public event Action? AutoCheckFinished;
+
     public AppSettings Settings => _settingsSvc.Settings;
 
     public MainViewModel()
@@ -46,6 +51,8 @@ public sealed class MainViewModel : ObservableObject
         SaveHostlistCommand = new RelayCommand(_ => SaveHostlist(), _ => SelectedHostlist is not null);
         AddDomainCommand = new RelayCommand(_ => AddDomain(), _ => SelectedHostlist is not null);
 
+        ApplyStrategyCommand = new RelayCommand(async _ => await ApplyStrategyAsync(),
+                                                _ => IsStrategyChangePending && !IsUpdating);
         DuplicatePresetCommand = new RelayCommand(_ => DuplicatePreset(), _ => SelectedPreset is not null);
         DeletePresetCommand = new RelayCommand(_ => DeletePreset(),
                                                _ => SelectedPreset is { IsBuiltIn: false });
@@ -73,7 +80,9 @@ public sealed class MainViewModel : ObservableObject
 
         _diag.Status += s => OnUi(() => DiagStatusText = s);
         _autoSelect.Status += s => OnUi(() => SetAutoStatus(s));
-        _autoSelect.ScoreReady += sc => OnUi(() => AutoScores.Add(sc));
+        _autoSelect.CandidateStarted += name => OnUi(() => MarkCandidateRunning(name));
+        _autoSelect.HostProbed += (host, t12, t13) => OnUi(() => OnHostProbed(host, t12, t13));
+        _autoSelect.ScoreReady += sc => OnUi(() => ApplyCandidateScore(sc));
         _monitor.ConnectivityLost += () => OnUi(() => _ = AutoHealAsync());
     }
 
@@ -83,7 +92,21 @@ public sealed class MainViewModel : ObservableObject
     public ObservableCollection<string> Hostlists { get; } = new();
     public ObservableCollection<string> LogLines { get; } = new();
     public ObservableCollection<DiagRow> DiagRows { get; } = new();
+
+    /// <summary>Successful strategies, shown in the Проверка tab after a run finishes.</summary>
     public ObservableCollection<AutoScore> AutoScores { get; } = new();
+
+    /// <summary>Live per-candidate rows, shown in the popup while a run is in progress.</summary>
+    public ObservableCollection<AutoCandidateRow> AutoCandidates { get; } = new();
+
+    /// <summary>Goal endpoints of the current run, shown as chips in the popup.</summary>
+    public ObservableCollection<string> AutoTargets { get; } = new();
+
+    /// <summary>The current candidate's per-target probe state (popup main area).</summary>
+    public ObservableCollection<CheckTargetRow> CheckTargets { get; } = new();
+
+    /// <summary>Strategies that passed (Ok &gt; 0), accumulating live (popup right panel).</summary>
+    public ObservableCollection<AutoScore> PassedStrategies { get; } = new();
 
     // ---- commands ----------------------------------------------------------
 
@@ -96,6 +119,7 @@ public sealed class MainViewModel : ObservableObject
     public RelayCommand DeleteHostlistCommand { get; }
     public RelayCommand SaveHostlistCommand { get; }
     public RelayCommand AddDomainCommand { get; }
+    public RelayCommand ApplyStrategyCommand { get; }
     public RelayCommand DuplicatePresetCommand { get; }
     public RelayCommand DeletePresetCommand { get; }
     public RelayCommand SavePresetCommand { get; }
@@ -124,6 +148,10 @@ public sealed class MainViewModel : ObservableObject
                 OnPropertyChanged(nameof(CanStart));
                 OnPropertyChanged(nameof(CanStop));
                 OnPropertyChanged(nameof(DiagEngineNote));
+                // Once the engine is fully stopped, nothing is running anymore.
+                if (value == EngineState.Stopped) RunningPreset = null;
+                OnPropertyChanged(nameof(IsStrategyChangePending));
+                OnPropertyChanged(nameof(RunStatusText));
                 UpdateMonitor();
                 RaiseCommandStates();
             }
@@ -150,12 +178,47 @@ public sealed class MainViewModel : ObservableObject
                 OnPropertyChanged(nameof(CommandPreview));
                 OnPropertyChanged(nameof(SelectedPresetEditable));
                 OnPropertyChanged(nameof(DiagEngineNote));
+                OnPropertyChanged(nameof(IsStrategyChangePending));
+                OnPropertyChanged(nameof(RunStatusText));
                 RaiseCommandStates();
             }
         }
     }
 
     public bool SelectedPresetEditable => SelectedPreset is { IsBuiltIn: false };
+
+    // The preset the engine is ACTUALLY running right now (captured at Start),
+    // as opposed to SelectedPreset which is merely highlighted in the UI. A
+    // strategy change needs an engine restart, so these can diverge until the
+    // user confirms with ApplyStrategyCommand.
+    private Preset? _runningPreset;
+    public Preset? RunningPreset
+    {
+        get => _runningPreset;
+        private set
+        {
+            if (SetField(ref _runningPreset, value))
+            {
+                OnPropertyChanged(nameof(RunningPresetName));
+                OnPropertyChanged(nameof(IsStrategyChangePending));
+                OnPropertyChanged(nameof(RunStatusText));
+                RaiseCommandStates();
+            }
+        }
+    }
+
+    public string RunningPresetName => RunningPreset?.Name ?? "—";
+
+    /// <summary>True when the engine runs one preset but the user has selected a different one.</summary>
+    public bool IsStrategyChangePending =>
+        IsRunning && RunningPreset is not null && SelectedPreset is not null
+        && !ReferenceEquals(RunningPreset, SelectedPreset);
+
+    /// <summary>Sub-line under the state badge: what is ENABLED (running), not just selected.</summary>
+    public string RunStatusText =>
+        IsRunning
+            ? $"Включён: {RunningPresetName}"
+            : SelectedPreset is null ? "пресет не выбран" : $"Выбран: {SelectedPreset.Name}";
 
     /// <summary>Args of the selected preset, one per line, for editing.</summary>
     public string PresetArgsText
@@ -318,7 +381,7 @@ public sealed class MainViewModel : ObservableObject
         if (IsAutoSelecting || IsUpdating) return;
         Notify?.Invoke("Zapret UI", "Обход перестал работать — подбираю заново…");
         AppendLog("Авто-починка: обход перестал отвечать, перезапускаю подбор.");
-        await RunAutoSelectAsync();
+        await RunAutoSelectAsync(showWindow: false);
         if (IsRunning)
             Notify?.Invoke("Zapret UI", "Обход восстановлен автоматически.");
     }
@@ -429,12 +492,75 @@ public sealed class MainViewModel : ObservableObject
 
     private void SetAutoStatus(string s) { AutoStatusText = s; SimpleStatus = s; }
 
+    private double _autoProgress;
+    public double AutoProgress { get => _autoProgress; private set => SetField(ref _autoProgress, value); }
+
+    private string _autoProgressText = "";
+    public string AutoProgressText { get => _autoProgressText; private set => SetField(ref _autoProgressText, value); }
+
+    private string _currentCandidateName = "";
+    public string CurrentCandidateName { get => _currentCandidateName; private set => SetField(ref _currentCandidateName, value); }
+
+    // Index of the candidate currently being probed (set by CandidateStarted, used by ScoreReady).
+    private int _autoCursor = -1;
+
+    private void MarkCandidateRunning(string name)
+    {
+        CurrentCandidateName = name;
+        // Reset the main-area target rows for this candidate (filled live by OnHostProbed).
+        CheckTargets.Clear();
+        foreach (var h in AutoTargets) CheckTargets.Add(new CheckTargetRow(h));
+
+        for (int i = 0; i < AutoCandidates.Count; i++)
+        {
+            if (AutoCandidates[i].Name == name)
+            {
+                AutoCandidates[i].State = AutoCandidateState.Running;
+                _autoCursor = i;
+                return;
+            }
+        }
+    }
+
+    private void OnHostProbed(string host, DiagStatus tls12, DiagStatus tls13)
+    {
+        foreach (var t in CheckTargets)
+        {
+            if (t.Host == host) { t.Tls12 = tls12; t.Tls13 = tls13; return; }
+        }
+    }
+
+    private void ApplyCandidateScore(AutoScore score)
+    {
+        if (_autoCursor >= 0 && _autoCursor < AutoCandidates.Count)
+            AutoCandidates[_autoCursor].Apply(score);
+
+        // Sync the main-area rows from the final result (covers the engine-failed path
+        // where OnHostProbed never fired).
+        foreach (var h in score.HostList)
+            foreach (var t in CheckTargets)
+                if (t.Host == h.Host) { t.Tls12 = h.Tls12; t.Tls13 = h.Tls13; break; }
+
+        // Accumulate strategies that worked, best first, into the right panel.
+        if (score is { Ok: > 0, Strategy: not null })
+        {
+            int idx = 0;
+            while (idx < PassedStrategies.Count && PassedStrategies[idx].Ratio >= score.Ratio) idx++;
+            PassedStrategies.Insert(idx, score);
+        }
+
+        int done = AutoCandidates.Count(c => c.IsDone);
+        int total = AutoCandidates.Count;
+        AutoProgress = total > 0 ? (double)done / total : 0;
+        AutoProgressText = $"{done} / {total}";
+    }
+
     /// <summary>
     /// Try each combined strategy, score it against the chosen scope's endpoints,
     /// keep the best, save it as a preset and start it. Used by both the Проверка
     /// tab and the Simple-mode «Переподобрать» button.
     /// </summary>
-    private async Task RunAutoSelectAsync()
+    private async Task RunAutoSelectAsync(bool showWindow = true)
     {
         if (IsAutoSelecting) return;
         if (!_updater.IsEngineInstalled) { SetAutoStatus("Движок ещё не установлен — дождитесь загрузки."); return; }
@@ -446,9 +572,22 @@ public sealed class MainViewModel : ObservableObject
             await Task.Delay(700);
         }
 
+        // Reset live state for the popup: one row per candidate + the goal endpoints.
         AutoScores.Clear();
+        AutoCandidates.Clear();
+        foreach (var c in ComboStrategyCatalog.All) AutoCandidates.Add(new AutoCandidateRow(c.Name));
+        AutoTargets.Clear();
+        foreach (var h in SelectedScope.GoalHosts()) AutoTargets.Add(h);
+        CheckTargets.Clear();
+        PassedStrategies.Clear();
+        CurrentCandidateName = "";
+        _autoCursor = -1;
+        AutoProgress = 0;
+        AutoProgressText = $"0 / {AutoCandidates.Count}";
+
         IsAutoSelecting = true;
         _autoCts = new CancellationTokenSource();
+        if (showWindow) AutoCheckStarted?.Invoke();
         try
         {
             SetAutoStatus($"Подбираю лучшую стратегию для «{ScopeTitle}»…");
@@ -471,10 +610,26 @@ public sealed class MainViewModel : ObservableObject
         catch (Exception ex) { SetAutoStatus("Ошибка подбора: " + ex.Message); }
         finally
         {
+            // Surface only the strategies that worked in the main tab, best first.
+            PublishSuccessfulScores();
             IsAutoSelecting = false;
             _autoCts?.Dispose();
             _autoCts = null;
+            if (showWindow) AutoCheckFinished?.Invoke();
         }
+    }
+
+    /// <summary>After a run, fill the tab's list with the candidates that worked (best first).</summary>
+    private void PublishSuccessfulScores()
+    {
+        AutoScores.Clear();
+        var ok = AutoCandidates
+            .Where(c => c.IsDone && c.Score is { Ok: > 0 })
+            .Select(c => c.Score!)
+            .OrderByDescending(s => s.Ratio)
+            .ThenBy(s => s.Fail)
+            .ToList();
+        foreach (var s in ok) AutoScores.Add(s);
     }
 
     // ---- ipset (IP-based bypass) ------------------------------------------
@@ -573,12 +728,32 @@ public sealed class MainViewModel : ObservableObject
         try
         {
             _engine.Start(SelectedPreset, SelectedPreset.UsesHostlist ? ActiveHostlistPath : null);
+            RunningPreset = SelectedPreset;
         }
         catch (Exception ex)
         {
             AppendLog($"Ошибка запуска: {ex.Message}");
             MessageBox.Show(ex.Message, "Не удалось запустить", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
+    }
+
+    /// <summary>
+    /// Apply the currently selected strategy to a running engine. Since a strategy
+    /// change can't happen in-place, this stops the engine and relaunches it on the
+    /// selected preset. No-op (just Start) when the engine is idle.
+    /// </summary>
+    private async Task ApplyStrategyAsync()
+    {
+        if (SelectedPreset is null) return;
+        if (!IsRunning) { if (CanStart) Start(); return; }
+
+        AppendLog($"Смена стратегии → «{SelectedPreset.Name}». Перезапуск движка…");
+        _engine.Stop();
+        // Wait for the process to release WinDivert before relaunching.
+        for (int i = 0; i < 60 && State != EngineState.Stopped; i++)
+            await Task.Delay(50);
+        await Task.Delay(250);
+        if (CanStart) Start();
     }
 
     public async Task CheckAndUpdateAsync(bool silent)
@@ -739,6 +914,7 @@ public sealed class MainViewModel : ObservableObject
         DeleteHostlistCommand.RaiseCanExecuteChanged();
         SaveHostlistCommand.RaiseCanExecuteChanged();
         AddDomainCommand.RaiseCanExecuteChanged();
+        ApplyStrategyCommand.RaiseCanExecuteChanged();
         DuplicatePresetCommand.RaiseCanExecuteChanged();
         DeletePresetCommand.RaiseCanExecuteChanged();
         SavePresetCommand.RaiseCanExecuteChanged();

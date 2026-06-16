@@ -9,6 +9,7 @@
     <mvvm:StateToTextConverter x:Key="StateToText"/>
     <mvvm:DiagStatusToTextConverter x:Key="DiagText"/>
     <mvvm:DiagStatusToBrushConverter x:Key="DiagBrush"/>
+    <mvvm:RefEqualsToVisibilityConverter x:Key="RefEqualsToVis"/>
 
     <!-- ====================== Palette ====================== -->
     <Color x:Key="C.Bg">#FF0F1115</Color>

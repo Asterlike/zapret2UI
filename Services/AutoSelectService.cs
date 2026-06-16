@@ -33,6 +33,10 @@ public sealed class AutoSelectService : IDisposable
 {
     public event Action<string>? Status;
     public event Action<AutoScore>? ScoreReady;
+    /// <summary>Fired with the candidate name right before it starts being probed.</summary>
+    public event Action<string>? CandidateStarted;
+    /// <summary>Fired after each goal host is probed (host, TLS1.2 result, TLS1.3 result).</summary>
+    public event Action<string, DiagStatus, DiagStatus>? HostProbed;
 
     private Process? _proc;
 
@@ -52,6 +56,7 @@ public sealed class AutoSelectService : IDisposable
         {
             ct.ThrowIfCancellationRequested();
             var cand = candidates[i];
+            CandidateStarted?.Invoke(cand.Name);
             Status?.Invoke($"[{i + 1}/{candidates.Count}] Пробую: {cand.Name}…");
 
             AutoScore score;
@@ -98,6 +103,7 @@ public sealed class AutoSelectService : IDisposable
                 ct.ThrowIfCancellationRequested();
                 var t12 = await NetProbe.TlsAsync(host, SslProtocols.Tls12, ct);
                 var t13 = await NetProbe.TlsAsync(host, SslProtocols.Tls13, ct);
+                HostProbed?.Invoke(host, t12, t13);
                 if (t12 == DiagStatus.Ok) ok++;
                 if (t13 == DiagStatus.Ok) ok++;
                 rows.Add(new AutoHostResult(host, t12, t13));

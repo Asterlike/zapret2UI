@@ -76,214 +76,155 @@ public sealed class PresetService
         catch { UserPresets = new(); }
     }
 
-    // ---- built-in strategies (documented winws2 syntax) --------------------
+    // ---- built-in strategies ----------------------------------------------
 
-    // Strategies follow the official preset2_example from the zapret2 manual
-    // (autottl / md5sig / seqovl / multidisorder, kernel-mode windivert raw-part
-    // capture filters). DPI bypass is provider-specific — these are proven
+    // All built-ins are SNI-routed "combo" strategies: they send Discord SNIs,
+    // YouTube/Google SNIs and everything else through different TLS desyncs
+    // (via the discord/youtube hostlists), and always carry the Discord voice
+    // profile (discord+stun faked with a QUIC blob, the way Flowseal alt10 does it —
+    // the server discards the QUIC garbage so there is no SSRC poison / NO_ROUTE, and
+    // no fragile ttl cutting is needed). They differ only in the per-service
+    // TLS desync "bundle". The generic bol-van presets were dropped — what works
+    // is the *combination*, routed per service (see the nfqws1→nfqws2 migration
+    // + Flowseal general.bat). DPI bypass is provider-specific; these are proven
     // starting points, not a guarantee for every ISP.
     public static List<Preset> BuiltIns() => new()
     {
+        // 1) RECOMMENDED — the user-confirmed winners for this provider:
+        //    Discord web/login/media = hostfakesplit, YouTube = fake+multidisorder.
+        Combo("Комбо (рекомендуемый)",
+            "Лучшее под каждый сервис в одной команде, маршрутизация по SNI. Discord → hostfakesplit " +
+            "(быстрый логин + медиа), YouTube/Google → fake+multidisorder, остальное → hostfakesplit. " +
+            "Голос: STUN + RTP-фикс. Не нужно переключаться между пресетами.",
+            recommended: true,
+            discordTls: new[] { "--lua-desync=hostfakesplit:host=www.google.com:tcp_ts=-1000:tcp_md5:repeats=4" },
+            youtubeTls: new[] { "--lua-desync=fake:blob=tls_google:tcp_md5:tcp_seq=-10000:repeats=6",
+                                "--lua-desync=multidisorder:pos=1,midsld" },
+            fallbackTls: new[] { "--lua-desync=hostfakesplit:host=www.google.com:tcp_ts=-1000:tcp_md5:repeats=4" }),
+
+        // 2) Flowseal general.bat (June 2026), translated 1:1: multisplit + big seqovl
+        //    with a real google ClientHello as the overlap pattern, per hostlist.
+        Combo("Комбо — Flowseal (multisplit seqovl)",
+            "Актуальная стратегия Flowseal general, переведённая на nfqws2: multisplit с большим seqovl " +
+            "и реальным ClientHello google как паттерном, раздельно по SNI. Голос: STUN + RTP-фикс.",
+            recommended: false,
+            discordTls: new[] { "--lua-desync=multisplit:pos=2:seqovl=681:seqovl_pattern=tls_google:optional" },
+            youtubeTls: new[] { "--lua-desync=multisplit:pos=2:seqovl=681:seqovl_pattern=tls_google:ip_id=zero:optional" },
+            fallbackTls: new[] { "--lua-desync=multisplit:pos=2:seqovl=568:seqovl_pattern=tls_google:optional" }),
+
+        // 3) Flowseal general (ALT).bat, translated: fake (ts) + fakedsplit (fooling on fakes).
+        Combo("Комбо — Flowseal ALT (fake+fakedsplit)",
+            "Альтернатива Flowseal ALT: fake с tcp_ts + fakedsplit (fooling только на фейках), раздельно " +
+            "по SNI. Голос: STUN + RTP-фикс. Пробуйте, если multisplit-вариант не пробивает.",
+            recommended: false,
+            discordTls: new[] { "--lua-desync=fake:blob=tls_google:tcp_ts=1000:repeats=6",
+                                "--lua-desync=fakedsplit:tcp_ts=1000" },
+            youtubeTls: new[] { "--lua-desync=fake:blob=tls_google:tcp_ts=1000:repeats=6",
+                                "--lua-desync=fakedsplit:tcp_ts=1000" },
+            fallbackTls: new[] { "--lua-desync=fake:blob=tls_google:tcp_ts=1000:repeats=6",
+                                 "--lua-desync=fakedsplit:tcp_ts=1000" }),
+
+        // 4) wssize bundle: split+seqovl then force the server to fragment its reply.
+        Combo("Комбо — окно (wssize)",
+            "Для упрямого блока входа: разрезка ClientHello (реальный паттерн) + wssize заставляет " +
+            "сервер дробить ответ. YouTube → fake+multidisorder. Голос: STUN + RTP-фикс. Медленнее, но " +
+            "иногда пробивает там, где остальное нет.",
+            recommended: false,
+            discordTls: new[] { "--lua-desync=multisplit:pos=2,midsld-2:seqovl=1:seqovl_pattern=tls_google:optional",
+                                "--lua-desync=wssize:wsize=1:scale=6" },
+            youtubeTls: new[] { "--lua-desync=fake:blob=tls_google:tcp_md5:tcp_seq=-10000:repeats=6",
+                                "--lua-desync=multidisorder:pos=1,midsld" },
+            fallbackTls: new[] { "--lua-desync=multisplit:pos=2,midsld-2:seqovl=1:seqovl_pattern=tls_google:optional",
+                                 "--lua-desync=wssize:wsize=1:scale=6" }),
+
+        // 5) Standalone voice — minimal, for testing voice in isolation.
         new Preset
         {
-            Name = "Общий (рекомендуемый)",
-            Description = "Эталонная базовая стратегия bol-van для HTTP+TLS+QUIC. Подходит большинству " +
-                          "сайтов и не требует хостлиста. Начните с неё.",
+            Name = "Discord — голос (QUIC-фейк)",
+            Description = "Только починка голоса (без разбивки TLS по SNI). discord+stun на голосовых портах " +
+                          "фейкуются QUIC-блобом google — сервер отбрасывает его как мусор, поэтому SSRC не " +
+                          "портится и нет NO_ROUTE. Для случая «подключается, но никого не слышно / пинг 5000 / " +
+                          "Connection timed out». Без ограничения ttl (рабочий путь Flowseal alt10).",
             IsBuiltIn = true,
             Args = new()
             {
-                "--wf-tcp-out=80,443",
+                "--wf-tcp-out=80,443-65535",
+                "--wf-udp-out=443-65535",
+                "--ctrack-disable=0",
+                "--ipcache-lifetime=8400",
+                "--ipcache-hostname=1",
+                "--wf-raw-part=@{WF}\\windivert_part.stun.txt",
                 "--wf-raw-part=@{WF}\\windivert_part.quic_initial_ietf.txt",
-                "--lua-init=fake_default_tls = tls_mod(fake_default_tls,'rnd,rndsni')",
-                "--filter-tcp=80", "--filter-l7=http", "--out-range=-d10", "--payload=http_req",
-                  "--lua-desync=fake:blob=fake_default_http:ip_autottl=-2,3-20:ip6_autottl=-2,3-20:tcp_md5",
-                  "--lua-desync=fakedsplit:ip_autottl=-2,3-20:ip6_autottl=-2,3-20:tcp_md5",
-                "--new",
-                "--filter-tcp=443-65535", "--filter-l7=tls", "--out-range=-d10", "--payload=tls_client_hello",
-                  "--lua-desync=fake:blob=fake_default_tls:tcp_md5:tcp_seq=-10000:repeats=6",
-                  "--lua-desync=multidisorder:pos=midsld",
-                "--new",
-                "--filter-udp=443-65535", "--filter-l7=quic", "--payload=quic_initial",
-                  "--lua-desync=fake:blob=fake_default_quic:repeats=6",
-            }
-        },
-        new Preset
-        {
-            Name = "YouTube / Google",
-            Description = "Усиленная стратегия для YouTube/Google: подмена SNI фейка на www.google.com, " +
-                          "google-QUIC-фейк, 11 повторов. Выберите хостлист «youtube» для точечного применения.",
-            IsBuiltIn = true,
-            UsesHostlist = true,
-            Args = new()
-            {
-                "--wf-tcp-out=443",
-                "--wf-raw-part=@{WF}\\windivert_part.quic_initial_ietf.txt",
-                "--lua-init=fake_default_tls = tls_mod(fake_default_tls,'rnd,rndsni')",
                 "--blob=quic_google:@{FILES}\\fake\\quic_initial_www_google_com.bin",
-                "--filter-tcp=443", "--filter-l7=tls", "{HOSTLIST}", "--out-range=-d10", "--payload=tls_client_hello",
-                  "--lua-desync=fake:blob=fake_default_tls:tcp_md5:repeats=11:tls_mod=rnd,dupsid,sni=www.google.com",
-                  "--lua-desync=multidisorder:pos=1,midsld",
-                "--new",
-                "--filter-udp=443-65535", "--filter-l7=quic", "{HOSTLIST}", "--payload=quic_initial",
-                  "--lua-desync=fake:blob=quic_google:repeats=11",
-            }
-        },
-        new Preset
-        {
-            Name = "Discord (чат + голос)",
-            Description = "Три профиля в одной команде: TLS для веба/логина/гейтвея/медиа-доменов + " +
-                          "отдельная обработка голоса — STUN-хендшейк и Discord IP-discovery штатными " +
-                          "фейк-блобами движка (stun.bin / discord-ip-discovery). Захват медиа/голоса — " +
-                          "фильтрами windivert в режиме ядра.",
-            IsBuiltIn = true,
-            Args = new()
-            {
-                "--wf-tcp-out=80,443-65535",
-                "--wf-udp-out=443-65535",
-                "--ctrack-disable=0",
-                "--ipcache-lifetime=8400",
-                "--ipcache-hostname=1",
-                "--wf-raw-part=@{WF}\\windivert_part.discord_media.txt",
-                "--wf-raw-part=@{WF}\\windivert_part.stun.txt",
-                "--blob=disc_stun:@{FILES}\\fake\\stun.bin",
-                "--blob=disc_ipd:@{FILES}\\fake\\discord-ip-discovery-with-port.bin",
-                // Веб / логин / гейтвей / медиа-домены Discord (TLS).
+                "--blob=tls_google:@{FILES}\\fake\\tls_clienthello_www_google_com.bin",
+                // discord.media control socket (TLS) — лёгкая разрезка, чтобы пускало в войс.
                 "--filter-tcp=443-65535", "--filter-l7=tls", "--out-range=-d10", "--payload=tls_client_hello",
-                  "--lua-desync=fake:blob=fake_default_tls:tcp_md5:tcp_seq=-10000:repeats=6",
-                  "--lua-desync=multidisorder:pos=midsld",
-                // Голос: STUN (установление UDP-сессии).
+                  "--lua-desync=multisplit:pos=2,midsld-2:seqovl=1:seqovl_pattern=tls_google:optional",
                 "--new",
-                "--filter-l7=stun", "--payload=stun",
-                  "--lua-desync=fake:blob=disc_stun:repeats=6",
-                // Голос: Discord IP discovery.
-                "--new",
-                "--filter-l7=discord", "--payload=discord_ip_discovery",
-                  "--lua-desync=fake:blob=disc_ipd:repeats=6",
-            }
-        },
-        new Preset
-        {
-            Name = "Discord — окно (wssize)",
-            Description = "Для упрямого блока входа/логина Discord: метод wssize (zapret2) заставляет " +
-                          "сервер дробить ответ, чтобы DPI не смог его собрать. Плюс голос. Пробуйте, если " +
-                          "обычный Discord-пресет не пробивает вход.",
-            IsBuiltIn = true,
-            Args = new()
-            {
-                "--wf-tcp-out=80,443-65535",
-                "--wf-udp-out=443-65535",
-                "--ctrack-disable=0",
-                "--ipcache-lifetime=8400",
-                "--ipcache-hostname=1",
-                "--wf-raw-part=@{WF}\\windivert_part.discord_media.txt",
-                "--wf-raw-part=@{WF}\\windivert_part.stun.txt",
-                "--blob=disc_stun:@{FILES}\\fake\\stun.bin",
-                "--blob=disc_ipd:@{FILES}\\fake\\discord-ip-discovery-with-port.bin",
-                "--filter-tcp=443-65535", "--filter-l7=tls", "--out-range=-d10", "--payload=tls_client_hello",
-                  "--lua-desync=fake:blob=fake_default_tls:tcp_md5:repeats=6",
-                  "--lua-desync=wssize:wsize=1:scale=6",
-                "--new",
-                "--filter-l7=stun", "--payload=stun",
-                  "--lua-desync=fake:blob=disc_stun:repeats=6",
-                "--new",
-                "--filter-l7=discord", "--payload=discord_ip_discovery",
-                  "--lua-desync=fake:blob=disc_ipd:repeats=6",
-            }
-        },
-        new Preset
-        {
-            Name = "Discord — по IP (ipset)",
-            Description = "Для жёсткого блока по IP (когда обход по доменам/SNI не помогает): обход " +
-                          "применяется к диапазонам IP Discord. Сначала соберите IP-список Discord в " +
-                          "«Настройках» (резолв доменов в подсети). Плюс голос и окно wssize.",
-            IsBuiltIn = true,
-            Args = new()
-            {
-                "--wf-tcp-out=80,443-65535",
-                "--wf-udp-out=443-65535",
-                "--ctrack-disable=0",
-                "--ipcache-lifetime=8400",
-                "--ipcache-hostname=1",
-                "--wf-raw-part=@{WF}\\windivert_part.discord_media.txt",
-                "--wf-raw-part=@{WF}\\windivert_part.stun.txt",
-                "--blob=disc_stun:@{FILES}\\fake\\stun.bin",
-                "--blob=disc_ipd:@{FILES}\\fake\\discord-ip-discovery-with-port.bin",
-                "--filter-tcp=443-65535", "--filter-l7=tls", "{IPSET}", "--out-range=-d10", "--payload=tls_client_hello",
-                  "--lua-desync=fake:blob=fake_default_tls:tcp_md5:repeats=6",
-                  "--lua-desync=wssize:wsize=1:scale=6",
-                "--new",
-                "--filter-l7=stun", "--payload=stun",
-                  "--lua-desync=fake:blob=disc_stun:ip_autottl=-2,3-20:repeats=6",
-                "--new",
-                "--filter-l7=discord", "--payload=discord_ip_discovery",
-                  "--lua-desync=fake:blob=disc_ipd:ip_autottl=-2,3-20:repeats=6",
-            }
-        },
-        new Preset
-        {
-            Name = "Только QUIC",
-            Description = "Минимальная стратегия: фейк для QUIC Initial. Захват QUIC-инициалов фильтром " +
-                          "windivert в режиме ядра (экономит CPU).",
-            IsBuiltIn = true,
-            Args = new()
-            {
-                "--wf-raw-part=@{WF}\\windivert_part.quic_initial_ietf.txt",
-                "--filter-l7=quic", "--payload=quic_initial",
-                  "--lua-desync=fake:blob=fake_default_quic:repeats=6",
-            }
-        },
-        new Preset
-        {
-            Name = "Эталон bol-van (всё сразу)",
-            Description = "Полная официальная стратегия preset2_example: HTTP, TLS (общий + YouTube), " +
-                          "QUIC (общий + YouTube), Discord (веб + голос STUN/IP-discovery), WireGuard. " +
-                          "Это и есть рекомендуемый «всё сразу» режим для Discord и YouTube.",
-            IsBuiltIn = true,
-            UsesHostlist = true,
-            IsRecommended = true,
-            Args = new()
-            {
-                "--wf-tcp-out=80,443-65535",
-                "--wf-udp-out=443-65535",
-                "--ctrack-disable=0",
-                "--ipcache-lifetime=8400",
-                "--ipcache-hostname=1",
-                "--lua-init=fake_default_tls = tls_mod(fake_default_tls,'rnd,rndsni')",
-                "--blob=quic_google:@{FILES}\\fake\\quic_initial_www_google_com.bin",
-                "--blob=disc_stun:@{FILES}\\fake\\stun.bin",
-                "--blob=disc_ipd:@{FILES}\\fake\\discord-ip-discovery-with-port.bin",
-                "--blob=wg_init:@{FILES}\\fake\\wireguard_initiation.bin",
-                "--wf-raw-part=@{WF}\\windivert_part.discord_media.txt",
-                "--wf-raw-part=@{WF}\\windivert_part.stun.txt",
-                "--wf-raw-part=@{WF}\\windivert_part.wireguard.txt",
-                "--wf-raw-part=@{WF}\\windivert_part.quic_initial_ietf.txt",
-                "--filter-tcp=80", "--filter-l7=http", "--out-range=-d10", "--payload=http_req",
-                  "--lua-desync=fake:blob=fake_default_http:ip_autottl=-2,3-20:ip6_autottl=-2,3-20:tcp_md5",
-                  "--lua-desync=fakedsplit:ip_autottl=-2,3-20:ip6_autottl=-2,3-20:tcp_md5",
-                "--new",
-                "--filter-tcp=443", "--filter-l7=tls", "{HOSTLIST}", "--out-range=-d10", "--payload=tls_client_hello",
-                  "--lua-desync=fake:blob=fake_default_tls:tcp_md5:repeats=11:tls_mod=rnd,dupsid,sni=www.google.com",
-                  "--lua-desync=multidisorder:pos=1,midsld",
-                "--new",
-                "--filter-tcp=443-65535", "--filter-l7=tls", "--out-range=-d10", "--payload=tls_client_hello",
-                  "--lua-desync=fake:blob=fake_default_tls:tcp_md5:tcp_seq=-10000:repeats=6",
-                  "--lua-desync=multidisorder:pos=midsld",
-                "--new",
-                "--filter-udp=443-65535", "--filter-l7=quic", "{HOSTLIST}", "--payload=quic_initial",
-                  "--lua-desync=fake:blob=quic_google:repeats=11",
-                "--new",
-                "--filter-udp=443-65535", "--filter-l7=quic", "--payload=quic_initial",
-                  "--lua-desync=fake:blob=fake_default_quic:repeats=11",
-                "--new",
-                "--filter-l7=stun", "--payload=stun",
-                  "--lua-desync=fake:blob=disc_stun:repeats=6",
-                "--new",
-                "--filter-l7=discord", "--payload=discord_ip_discovery",
-                  "--lua-desync=fake:blob=disc_ipd:repeats=6",
-                "--new",
-                "--filter-l7=wireguard", "--payload=wireguard_initiation,wireguard_cookie",
-                  "--lua-desync=fake:blob=wg_init:repeats=2",
+                // Голос: discord+stun → фейк QUIC-блобом, без ttl-ограничения.
+                "--filter-udp=19294-19344,50000-50100", "--filter-l7=discord,stun",
+                  "--lua-desync=fake:blob=quic_google:repeats=6",
             }
         },
     };
+
+    /// <summary>
+    /// Builds a full SNI-routed combo preset: per-service TLS desyncs (Discord /
+    /// YouTube / fallback) + QUIC + Discord voice (discord+stun QUIC-blob fake).
+    /// Only the three TLS bundles differ between built-ins; everything else is shared.
+    /// </summary>
+    private static Preset Combo(
+        string name, string description, bool recommended,
+        string[] discordTls, string[] youtubeTls, string[] fallbackTls,
+        string discordFilter = "{HOSTLIST:discord}")
+    {
+        var a = new List<string>
+        {
+            "--wf-tcp-out=80,443-65535",
+            "--wf-udp-out=443-65535",
+            "--ctrack-disable=0",
+            "--ipcache-lifetime=8400",
+            "--ipcache-hostname=1",
+            "--lua-init=fake_default_tls = tls_mod(fake_default_tls,'rnd,rndsni')",
+            "--blob=tls_google:@{FILES}\\fake\\tls_clienthello_www_google_com.bin",
+            "--blob=quic_google:@{FILES}\\fake\\quic_initial_www_google_com.bin",
+            "--wf-raw-part=@{WF}\\windivert_part.stun.txt",
+            "--wf-raw-part=@{WF}\\windivert_part.quic_initial_ietf.txt",
+            // 1) Discord web/login/media (по SNI).
+            "--filter-tcp=443-65535", "--filter-l7=tls", discordFilter, "--out-range=-d10", "--payload=tls_client_hello",
+        };
+        a.AddRange(discordTls);
+        // 2) YouTube / Google (по SNI).
+        a.Add("--new");
+        a.AddRange(new[] { "--filter-tcp=443-65535", "--filter-l7=tls", "{HOSTLIST:youtube}", "--out-range=-d10", "--payload=tls_client_hello" });
+        a.AddRange(youtubeTls);
+        // 3) Остальной TLS (вкл. hCaptcha и пр.).
+        a.Add("--new");
+        a.AddRange(new[] { "--filter-tcp=443-65535", "--filter-l7=tls", "--out-range=-d10", "--payload=tls_client_hello" });
+        a.AddRange(fallbackTls);
+        // 4) QUIC YouTube (по SNI) → google-фейк.
+        a.Add("--new");
+        a.AddRange(new[] { "--filter-udp=443-65535", "--filter-l7=quic", "{HOSTLIST:youtube}", "--payload=quic_initial",
+                           "--lua-desync=fake:blob=quic_google:repeats=11" });
+        // 5) QUIC остальное → дефолтный фейк.
+        a.Add("--new");
+        a.AddRange(new[] { "--filter-udp=443-65535", "--filter-l7=quic", "--payload=quic_initial",
+                           "--lua-desync=fake:blob=fake_default_quic:repeats=6" });
+        // 6) Голос Discord (STUN + IP-discovery): фейк QUIC-блобом google. Голосовой сервер
+        //    отбрасывает QUIC как мусор для своего потока → SSRC не портится, нет NO_ROUTE,
+        //    поэтому ttl НЕ режем (route-independent). Проверенный рабочий путь — Flowseal alt10:
+        //    --filter-l7=discord,stun → fake quic_initial_www_google_com, repeats=6.
+        a.Add("--new");
+        a.AddRange(new[] { "--filter-udp=19294-19344,50000-50100", "--filter-l7=discord,stun",
+                           "--lua-desync=fake:blob=quic_google:repeats=6" });
+
+        return new Preset
+        {
+            Name = name,
+            Description = description,
+            IsBuiltIn = true,
+            IsRecommended = recommended,
+            Args = a,
+        };
+    }
 }

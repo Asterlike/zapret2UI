@@ -7,6 +7,19 @@ using ZapretUI.Services;
 
 namespace ZapretUI.Mvvm;
 
+/// <summary>
+/// Two bound values -> Visibility: Visible when they are the SAME instance.
+/// Used to flag the currently-running preset inside the preset list.
+/// </summary>
+public sealed class RefEqualsToVisibilityConverter : IMultiValueConverter
+{
+    public object Convert(object[] values, Type t, object? p, CultureInfo c) =>
+        values.Length == 2 && ReferenceEquals(values[0], values[1]) && values[0] is not null
+            ? Visibility.Visible : Visibility.Collapsed;
+    public object[] ConvertBack(object? v, Type[] t, object? p, CultureInfo c) =>
+        throw new NotSupportedException();
+}
+
 /// <summary>Inverts a boolean.</summary>
 public sealed class InverseBoolConverter : IValueConverter
 {

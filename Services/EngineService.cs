@@ -57,11 +57,36 @@ public sealed class EngineService : IDisposable
                 .Replace("{HOSTLIST}", hostlistArg, StringComparison.Ordinal)
                 .Replace("{IPSET}", ipsetArg, StringComparison.Ordinal);
 
+            // Named hostlist token {HOSTLIST:name} -> --hostlist=<lists>\name.txt (or "" if the
+            // list is missing) — lets one preset route different SNIs to different strategies.
+            a = ExpandNamedHostlists(a);
+
             // A {HOSTLIST}/{IPSET} that resolved to nothing leaves an empty token — drop it.
             if (a.Length == 0) continue;
             args.Add(a);
         }
         return args;
+    }
+
+    /// <summary>
+    /// Expand every <c>{HOSTLIST:name}</c> token in an argument to
+    /// <c>--hostlist=&lt;lists&gt;\name.txt</c>, or to an empty string if that list does
+    /// not exist (the profile then matches by its other filters).
+    /// </summary>
+    private static string ExpandNamedHostlists(string a)
+    {
+        const string marker = "{HOSTLIST:";
+        int i;
+        while ((i = a.IndexOf(marker, StringComparison.Ordinal)) >= 0)
+        {
+            int end = a.IndexOf('}', i + marker.Length);
+            if (end < 0) break;
+            string name = a.Substring(i + marker.Length, end - i - marker.Length);
+            string path = Path.Combine(AppPaths.ListsDir, name + ".txt");
+            string repl = File.Exists(path) ? $"--hostlist={path}" : "";
+            a = a[..i] + repl + a[(end + 1)..];
+        }
+        return a;
     }
 
     /// <summary>Human-readable preview of the command line that will be launched.</summary>
