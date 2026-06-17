@@ -88,6 +88,15 @@ public sealed class PresetService
     // is the *combination*, routed per service (see the nfqws1→nfqws2 migration
     // + Flowseal general.bat). DPI bypass is provider-specific; these are proven
     // starting points, not a guarantee for every ISP.
+
+    // Recommended-combo TLS bundles, reused by the proxy presets so DC/YT stay identical to the base.
+    private static readonly string[] RecDiscordTls = { "--lua-desync=hostfakesplit:host=www.google.com:tcp_ts=-1000:tcp_md5:repeats=4" };
+    private static readonly string[] RecYoutubeTls =
+    {
+        "--lua-desync=fake:blob=tls_google:tcp_md5:tcp_seq=-10000:repeats=6",
+        "--lua-desync=multidisorder:pos=1,midsld",
+    };
+
     public static List<Preset> BuiltIns() => new()
     {
         // 1) RECOMMENDED — the user-confirmed winners for this provider:
@@ -97,10 +106,35 @@ public sealed class PresetService
             "(быстрый логин + медиа), YouTube/Google → fake+multidisorder, остальное → hostfakesplit. " +
             "Голос: STUN + RTP-фикс. Не нужно переключаться между пресетами.",
             recommended: true,
-            discordTls: new[] { "--lua-desync=hostfakesplit:host=www.google.com:tcp_ts=-1000:tcp_md5:repeats=4" },
-            youtubeTls: new[] { "--lua-desync=fake:blob=tls_google:tcp_md5:tcp_seq=-10000:repeats=6",
-                                "--lua-desync=multidisorder:pos=1,midsld" },
-            fallbackTls: new[] { "--lua-desync=hostfakesplit:host=www.google.com:tcp_ts=-1000:tcp_md5:repeats=4" }),
+            discordTls: RecDiscordTls, youtubeTls: RecYoutubeTls, fallbackTls: RecDiscordTls),
+
+        // 1b/1c/1d) Telegram via YOUR MTProxy (secret ee). Same as the recommended combo (DC+YT+voice)
+        //     plus ONE extra profile desyncing ONLY the proxy server's IP ({IPSET:proxy}). The three
+        //     differ only in that proxy desync — on different ISPs/TSPU a different one connects, so the
+        //     user tries them. Requires entering the proxy host first (RequiresProxyHost gates connect).
+        Combo("Комбо + Telegram через ваш прокси (осн.)",
+            "Рекомендуемое комбо + профиль под ВАШ MTProxy (секрет ee). Десинк применяется ТОЛЬКО к IP " +
+            "вашего прокси-сервера — YouTube/Discord/голос как в основном комбо. Основной вариант " +
+            "(лучший в тестах). Сначала укажите хост прокси, иначе подключение недоступно. На разных " +
+            "операторах связи может зайти «вариант 2/3» — если этот нестабилен, пробуйте их.",
+            recommended: false,
+            discordTls: RecDiscordTls, youtubeTls: RecYoutubeTls, fallbackTls: RecDiscordTls,
+            proxyTls: new[] { "--lua-desync=multidisorder:pos=88,176,264,352,440" }),
+
+        Combo("Комбо + Telegram через ваш прокси (вариант 2)",
+            "То же, но другой десинк прокси (нарезка по маркерам имени). На части операторов связи " +
+            "заходит лучше основного, на части — хуже. Пробуйте, если основной нестабилен. " +
+            "Сначала укажите хост прокси.",
+            recommended: false,
+            discordTls: RecDiscordTls, youtubeTls: RecYoutubeTls, fallbackTls: RecDiscordTls,
+            proxyTls: new[] { "--lua-desync=multidisorder:pos=1,sniext,midsld,endhost" }),
+
+        Combo("Комбо + Telegram через ваш прокси (вариант 3)",
+            "То же, но крупная нарезка прокси-хендшейка. Ещё один профиль на случай, если основной и " +
+            "вариант 2 на вашем операторе связи не пробивают. Сначала укажите хост прокси.",
+            recommended: false,
+            discordTls: RecDiscordTls, youtubeTls: RecYoutubeTls, fallbackTls: RecDiscordTls,
+            proxyTls: new[] { "--lua-desync=multidisorder:pos=128,256,384" }),
 
         // 2) Flowseal general.bat (June 2026), translated 1:1: multisplit + big seqovl
         //    with a real google ClientHello as the overlap pattern, per hostlist.
@@ -158,7 +192,7 @@ public sealed class PresetService
                 "--blob=quic_google:@{FILES}\\fake\\quic_initial_www_google_com.bin",
                 "--blob=tls_google:@{FILES}\\fake\\tls_clienthello_www_google_com.bin",
                 // discord.media control socket (TLS) — лёгкая разрезка, чтобы пускало в войс.
-                "--filter-tcp=443-65535", "--filter-l7=tls", "--out-range=-d10", "--payload=tls_client_hello",
+                "--filter-tcp=443-65535", "--filter-l7=tls", "{EXCLUDE:exclude}", "--out-range=-d10", "--payload=tls_client_hello",
                   "--lua-desync=multisplit:pos=2,midsld-2:seqovl=1:seqovl_pattern=tls_google:optional",
                 "--new",
                 // Голос: discord+stun → фейк QUIC-блобом, без ttl-ограничения.
@@ -166,6 +200,7 @@ public sealed class PresetService
                   "--lua-desync=fake:blob=quic_google:repeats=6",
             }
         },
+
     };
 
     /// <summary>
@@ -176,7 +211,7 @@ public sealed class PresetService
     private static Preset Combo(
         string name, string description, bool recommended,
         string[] discordTls, string[] youtubeTls, string[] fallbackTls,
-        string discordFilter = "{HOSTLIST:discord}")
+        string discordFilter = "{HOSTLIST:discord}", string[]? proxyTls = null)
     {
         var a = new List<string>
         {
@@ -198,17 +233,31 @@ public sealed class PresetService
         a.Add("--new");
         a.AddRange(new[] { "--filter-tcp=443-65535", "--filter-l7=tls", "{HOSTLIST:youtube}", "--out-range=-d10", "--payload=tls_client_hello" });
         a.AddRange(youtubeTls);
-        // 3) Остальной TLS (вкл. hCaptcha и пр.).
+        // NB: Telegram is intentionally NOT handled by the base combo — TG lives only in the dedicated
+        // "через ваш прокси" presets (the proxyTls profile below). The base combo stays DC+YT+voice.
+        // 2d) ee-MTProxy (опционально): рукопожатие FakeTLS уходит TLS-ClientHello'ом к ПРОИЗВОЛЬНОМУ
+        //     SNI прокси, поэтому ловим строго по IP прокси-сервера ({IPSET:proxy}), а не по SNI/домену.
+        //     Заскоупено по IP → YouTube/Discord/прочий TLS НЕ затрагивает (в отличие от широкого
+        //     catch-all, который ломал ютуб). Десинк — победивший в тестах multidisorder. Профиль
+        //     активен только если задан хост прокси (иначе движок не стартует — RequiresProxyHost).
+        if (proxyTls is not null)
+        {
+            a.Add("--new");
+            a.AddRange(new[] { "--filter-tcp=443-65535", "{IPSET:proxy}", "--filter-l7=tls", "--out-range=-d10", "--payload=tls_client_hello" });
+            a.AddRange(proxyTls);
+        }
+        // 3) Остальной TLS (вкл. hCaptcha и пр.). Catch-all — поэтому исключаем чувствительные
+        //    домены (банки/госуслуги/VK/Яндекс/Steam/…) через {EXCLUDE:exclude}, чтобы их не сломать.
         a.Add("--new");
-        a.AddRange(new[] { "--filter-tcp=443-65535", "--filter-l7=tls", "--out-range=-d10", "--payload=tls_client_hello" });
+        a.AddRange(new[] { "--filter-tcp=443-65535", "--filter-l7=tls", "{EXCLUDE:exclude}", "--out-range=-d10", "--payload=tls_client_hello" });
         a.AddRange(fallbackTls);
         // 4) QUIC YouTube (по SNI) → google-фейк.
         a.Add("--new");
         a.AddRange(new[] { "--filter-udp=443-65535", "--filter-l7=quic", "{HOSTLIST:youtube}", "--payload=quic_initial",
                            "--lua-desync=fake:blob=quic_google:repeats=11" });
-        // 5) QUIC остальное → дефолтный фейк.
+        // 5) QUIC остальное → дефолтный фейк. Тоже catch-all → исключаем чувствительные домены.
         a.Add("--new");
-        a.AddRange(new[] { "--filter-udp=443-65535", "--filter-l7=quic", "--payload=quic_initial",
+        a.AddRange(new[] { "--filter-udp=443-65535", "--filter-l7=quic", "{EXCLUDE:exclude}", "--payload=quic_initial",
                            "--lua-desync=fake:blob=fake_default_quic:repeats=6" });
         // 6) Голос Discord (STUN + IP-discovery): фейк QUIC-блобом google. Голосовой сервер
         //    отбрасывает QUIC как мусор для своего потока → SSRC не портится, нет NO_ROUTE,
@@ -224,7 +273,9 @@ public sealed class PresetService
             Description = description,
             IsBuiltIn = true,
             IsRecommended = recommended,
+            RequiresProxyHost = proxyTls is not null,
             Args = a,
         };
     }
+
 }

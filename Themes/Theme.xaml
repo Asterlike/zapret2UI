@@ -10,6 +10,7 @@
     <mvvm:DiagStatusToTextConverter x:Key="DiagText"/>
     <mvvm:DiagStatusToBrushConverter x:Key="DiagBrush"/>
     <mvvm:RefEqualsToVisibilityConverter x:Key="RefEqualsToVis"/>
+    <mvvm:BuiltInToGroupTitleConverter x:Key="BuiltInGroupTitle"/>
 
     <!-- ====================== Palette ====================== -->
     <Color x:Key="C.Bg">#FF0F1115</Color>

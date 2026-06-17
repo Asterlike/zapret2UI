@@ -1,5 +1,7 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Windows;
+using System.Windows.Data;
 using ZapretUI.Models;
 using ZapretUI.Mvvm;
 using ZapretUI.Services;
@@ -75,6 +77,22 @@ public sealed class MainViewModel : ObservableObject
             p => (p as AutoScore)?.CanApply == true);
         BuildDiscordIpsetCommand = new RelayCommand(async _ => await BuildIpsetAsync(),
             _ => !IsBuildingIpset && _updater.IsEngineInstalled);
+        BuildTelegramIpsetCommand = new RelayCommand(async _ => await BuildTelegramIpsetAsync(),
+            _ => !IsBuildingIpset);
+        ApplyProxyHostCommand = new RelayCommand(async _ => await ApplyProxyHostAsync(),
+            _ => !IsBuildingIpset);
+        OpenProxyPromptCommand = new RelayCommand(_ => ShowProxyPopup = true);
+        CloseProxyPromptCommand = new RelayCommand(_ => ShowProxyPopup = false);
+        TogglePresetArgsCommand = new RelayCommand(_ => ShowPresetArgs = !ShowPresetArgs);
+        OpenHowItWorksCommand = new RelayCommand(_ => ShowHowItWorks = true);
+        CloseHowItWorksCommand = new RelayCommand(_ => ShowHowItWorks = false);
+        EnableTelegramCommand = new RelayCommand(_ => EnableTelegram(),
+            _ => !IsUpdating && _updater.IsEngineInstalled);
+        OpenAppReleaseCommand = new RelayCommand(_ => OpenUrl(_appLatestUrl));
+
+        // Group the presets list into "Авторские (встроенные)" vs "Личные" (IsBuiltIn).
+        PresetsView = CollectionViewSource.GetDefaultView(Presets);
+        PresetsView.GroupDescriptions.Add(new PropertyGroupDescription(nameof(Preset.GroupTitle)));
 
         foreach (var r in DiagnosticsService.BuildRows()) DiagRows.Add(r);
 
@@ -89,6 +107,8 @@ public sealed class MainViewModel : ObservableObject
     // ---- collections -------------------------------------------------------
 
     public ObservableCollection<Preset> Presets { get; } = new();
+    /// <summary>Grouped view of <see cref="Presets"/> (Авторские/встроенные vs Личные) for the list.</summary>
+    public ICollectionView PresetsView { get; }
     public ObservableCollection<string> Hostlists { get; } = new();
     public ObservableCollection<string> LogLines { get; } = new();
     public ObservableCollection<DiagRow> DiagRows { get; } = new();
@@ -133,6 +153,15 @@ public sealed class MainViewModel : ObservableObject
     public RelayCommand StopAutoSelectCommand { get; }
     public RelayCommand ApplyScoreCommand { get; }
     public RelayCommand BuildDiscordIpsetCommand { get; }
+    public RelayCommand BuildTelegramIpsetCommand { get; }
+    public RelayCommand ApplyProxyHostCommand { get; }
+    public RelayCommand OpenProxyPromptCommand { get; }
+    public RelayCommand CloseProxyPromptCommand { get; }
+    public RelayCommand TogglePresetArgsCommand { get; }
+    public RelayCommand OpenHowItWorksCommand { get; }
+    public RelayCommand CloseHowItWorksCommand { get; }
+    public RelayCommand EnableTelegramCommand { get; }
+    public RelayCommand OpenAppReleaseCommand { get; }
 
     // ---- engine state ------------------------------------------------------
 
@@ -159,7 +188,8 @@ public sealed class MainViewModel : ObservableObject
     }
 
     public bool IsRunning => State == EngineState.Running;
-    public bool CanStart => State == EngineState.Stopped && !IsUpdating && _updater.IsEngineInstalled;
+    public bool CanStart => State == EngineState.Stopped && !IsUpdating && _updater.IsEngineInstalled
+        && !(SelectedPreset?.RequiresProxyHost == true && !ProxyHostConfigured);
     public bool CanStop => State is EngineState.Running or EngineState.Starting;
 
     // ---- presets -----------------------------------------------------------
@@ -180,12 +210,20 @@ public sealed class MainViewModel : ObservableObject
                 OnPropertyChanged(nameof(DiagEngineNote));
                 OnPropertyChanged(nameof(IsStrategyChangePending));
                 OnPropertyChanged(nameof(RunStatusText));
+                OnPropertyChanged(nameof(CanStart));
+                OnPropertyChanged(nameof(ShowProxyHostPrompt));
+                // Pop the proxy-host prompt automatically when a proxy preset is picked without a host.
+                if (value?.RequiresProxyHost == true && !ProxyHostConfigured) ShowProxyPopup = true;
                 RaiseCommandStates();
             }
         }
     }
 
     public bool SelectedPresetEditable => SelectedPreset is { IsBuiltIn: false };
+
+    private bool _showPresetArgs;
+    /// <summary>Whether the raw-args editor is revealed on the Пресеты tab (hidden by default to declutter).</summary>
+    public bool ShowPresetArgs { get => _showPresetArgs; set => SetField(ref _showPresetArgs, value); }
 
     // The preset the engine is ACTUALLY running right now (captured at Start),
     // as opposed to SelectedPreset which is merely highlighted in the UI. A
@@ -419,6 +457,21 @@ public sealed class MainViewModel : ObservableObject
         SelectedPreset = preset;
         SimpleStatus = $"Запускаю обход: «{preset.Name}».";
         Start();
+    }
+
+    /// <summary>The main Telegram-via-proxy preset for the Simple-mode Telegram card.</summary>
+    public Preset? TelegramProxyPreset => Presets.FirstOrDefault(p => p.RequiresProxyHost);
+
+    /// <summary>Simple-mode one-click for Telegram: select the proxy preset; ask for the host if it's
+    /// missing (selecting it auto-opens the popup), otherwise (re)start the engine on it.</summary>
+    private void EnableTelegram()
+    {
+        var preset = TelegramProxyPreset;
+        if (preset is null) { SimpleStatus = "Движок ещё не установлен — дождитесь загрузки."; return; }
+        SelectedPreset = preset; // setter auto-opens the proxy-host popup when no host is configured
+        if (!ProxyHostConfigured) { ShowProxyPopup = true; SimpleStatus = "Укажите хост вашего прокси для Telegram."; return; }
+        if (IsRunning) { _ = ApplyStrategyAsync(); } else { Start(); }
+        SimpleStatus = $"Telegram через ваш прокси: «{preset.Name}».";
     }
 
     // ---- diagnostics (endpoint matrix) ------------------------------------
@@ -668,6 +721,90 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
+    private string _telegramIpsetStatus = "Соберите IP-список Telegram (официальный фид) для обхода приложения по IP. Веб лечит хостлист telegram, медиа приложения — без гарантий.";
+    public string TelegramIpsetStatus { get => _telegramIpsetStatus; private set => SetField(ref _telegramIpsetStatus, value); }
+
+    private async Task BuildTelegramIpsetAsync()
+    {
+        if (IsBuildingIpset) return;
+        IsBuildingIpset = true;
+        try
+        {
+            TelegramIpsetStatus = "Загружаю официальный список подсетей Telegram…";
+            var res = await _ipset.BuildTelegramIpsetAsync(CancellationToken.None);
+            TelegramIpsetStatus = $"Готово: {res.Subnets} подсетей. Профиль Telegram-MTProto в комбо-пресетах теперь активен (best-effort).";
+            OnPropertyChanged(nameof(CommandPreview));
+        }
+        catch (Exception ex)
+        {
+            TelegramIpsetStatus = "Не удалось собрать список Telegram: " + ex.Message;
+        }
+        finally
+        {
+            IsBuildingIpset = false;
+        }
+    }
+
+    // ---- ee-MTProxy host (Path 2: scope the Telegram desync to the user's proxy IP) ------
+
+    private const string ProxyListName = "proxy";
+
+    private string _proxyHostInput = "";
+    /// <summary>Bound to the inline "enter your proxy host" field (the «Хост» from Telegram's proxy settings).</summary>
+    public string ProxyHostInput { get => _proxyHostInput; set => SetField(ref _proxyHostInput, value); }
+
+    /// <summary>True once a proxy host is saved (list "proxy" non-empty) — gates RequiresProxyHost presets.</summary>
+    public bool ProxyHostConfigured =>
+        _hostlists.Exists(ProxyListName) && _hostlists.ReadDomains(ProxyListName).Count > 0;
+
+    /// <summary>Show the "enter your proxy host" prompt: only for a RequiresProxyHost preset with no host yet.</summary>
+    public bool ShowProxyHostPrompt => SelectedPreset?.RequiresProxyHost == true && !ProxyHostConfigured;
+
+    private string _proxyHostStatus = "";
+    public string ProxyHostStatus { get => _proxyHostStatus; private set => SetField(ref _proxyHostStatus, value); }
+
+    private bool _showProxyPopup;
+    /// <summary>Whether the modal "enter your proxy host" popup overlay is shown.</summary>
+    public bool ShowProxyPopup { get => _showProxyPopup; set => SetField(ref _showProxyPopup, value); }
+
+    private bool _showHowItWorks;
+    /// <summary>Whether the "how it works / app tour" instruction modal is shown.</summary>
+    public bool ShowHowItWorks { get => _showHowItWorks; set => SetField(ref _showHowItWorks, value); }
+
+    /// <summary>Save the entered proxy host (list "proxy") and resolve it into ipset-proxy.txt, so the
+    /// combo's proxy profile can scope its desync to that IP. Enables the connect button on success.</summary>
+    private async Task ApplyProxyHostAsync()
+    {
+        var host = (ProxyHostInput ?? "").Trim();
+        if (host.Length == 0)
+        {
+            ProxyHostStatus = "Введите хост прокси (поле «Хост» из настроек прокси в Telegram).";
+            return;
+        }
+        try
+        {
+            ProxyHostStatus = "Резолвлю IP прокси…";
+            _hostlists.Write(ProxyListName, host);
+            if (!Hostlists.Contains(ProxyListName)) Hostlists.Add(ProxyListName);
+            var res = await _ipset.BuildProxyIpsetAsync(host, CancellationToken.None);
+            ProxyHostStatus = $"Готово: {res.Subnets} IP. Прокси «{host}» сохранён — подключение доступно. " +
+                              "Изменить позже — на вкладке «Хостлисты», список «proxy».";
+            OnUi(() =>
+            {
+                OnPropertyChanged(nameof(ProxyHostConfigured));
+                OnPropertyChanged(nameof(ShowProxyHostPrompt));
+                OnPropertyChanged(nameof(CanStart));
+                OnPropertyChanged(nameof(CommandPreview));
+                ShowProxyPopup = false; // host saved → close the modal
+                RaiseCommandStates();
+            });
+        }
+        catch (Exception ex)
+        {
+            ProxyHostStatus = "Не удалось сохранить прокси: " + ex.Message;
+        }
+    }
+
     /// <summary>Save a specific tried candidate as a preset and make it active.</summary>
     private void ApplyScore(AutoScore? score)
     {
@@ -685,7 +822,11 @@ public sealed class MainViewModel : ObservableObject
     {
         ReloadPresets();
         _hostlists.SeedDefaults();
+        IpsetService.SeedTelegramDefault();   // so the Telegram-by-IP profile works on first run
         ReloadHostlists();
+
+        if (_hostlists.Exists(ProxyListName))
+            ProxyHostInput = _hostlists.ReadDomains(ProxyListName).FirstOrDefault() ?? "";
 
         SelectedPreset = Presets.FirstOrDefault(p => p.Name == Settings.ActivePresetName)
                          ?? Presets.FirstOrDefault();
@@ -701,6 +842,41 @@ public sealed class MainViewModel : ObservableObject
 
         if (Settings.AutostartEngine && CanStart && SelectedPreset is not null)
             Start();
+
+        _ = CheckAppUpdateAsync(); // notify (don't block startup) if a newer ZapretUI release exists
+    }
+
+    // ---- app self-update notification -------------------------------------
+
+    /// <summary>This app's version, shown in the caption bar (e.g. "v0.1.0").</summary>
+    public string AppVersion => "v" + UpdaterService.AppVersion;
+
+    private bool _appUpdateAvailable;
+    public bool AppUpdateAvailable { get => _appUpdateAvailable; private set => SetField(ref _appUpdateAvailable, value); }
+
+    private string _appUpdateText = "";
+    public string AppUpdateText { get => _appUpdateText; private set => SetField(ref _appUpdateText, value); }
+
+    private string _appLatestUrl = "https://github.com/Asterlike/zapret2UI/releases/latest";
+
+    private async Task CheckAppUpdateAsync()
+    {
+        var latest = await _updater.FetchAppLatestAsync(CancellationToken.None);
+        if (latest is null || !UpdaterService.IsAppUpdate(latest.Value.Tag)) return;
+        OnUi(() =>
+        {
+            _appLatestUrl = latest.Value.Url;
+            AppUpdateText = $"Новая версия {latest.Value.Tag} — скачать";
+            AppUpdateAvailable = true;
+            Notify?.Invoke("Доступно обновление",
+                $"Вышла новая версия ZapretUI {latest.Value.Tag}. Откройте страницу релиза, чтобы скачать.");
+        });
+    }
+
+    private static void OpenUrl(string url)
+    {
+        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true }); }
+        catch { /* no browser / blocked — ignore */ }
     }
 
     private void ReloadPresets()
@@ -845,6 +1021,13 @@ public sealed class MainViewModel : ObservableObject
         if (SelectedHostlist is null) return;
         _hostlists.Write(SelectedHostlist, HostlistContent);
         AppendLog($"Список «{SelectedHostlist}» сохранён.");
+        // The "proxy" list is the source for ipset-proxy.txt — re-resolve so the combo's
+        // proxy profile points at the current IP after an edit here.
+        if (string.Equals(SelectedHostlist, ProxyListName, StringComparison.OrdinalIgnoreCase))
+        {
+            ProxyHostInput = _hostlists.ReadDomains(ProxyListName).FirstOrDefault() ?? "";
+            _ = ApplyProxyHostAsync();
+        }
     }
 
     private void AddDomain()
@@ -927,6 +1110,7 @@ public sealed class MainViewModel : ObservableObject
         RunAutoSelectCommand.RaiseCanExecuteChanged();
         StopAutoSelectCommand.RaiseCanExecuteChanged();
         BuildDiscordIpsetCommand.RaiseCanExecuteChanged();
+        BuildTelegramIpsetCommand.RaiseCanExecuteChanged();
     }
 
     private static void OnUi(Action a)

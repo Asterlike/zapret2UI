@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         xmlns:ctl="clr-namespace:ZapretUI.Controls"
-        Title="Zapret UI" Height="690" Width="1020" MinHeight="580" MinWidth="880"
+        Title="Zapret UI" Height="720" Width="1280" MinHeight="580" MinWidth="880"
         WindowStartupLocation="CenterScreen"
         WindowStyle="None" ResizeMode="CanResize"
         Icon="Assets/app.ico"
@@ -114,6 +114,26 @@
                                VerticalAlignment="Center"/>
                     <TextBlock Text="DPI bypass" FontSize="11" Foreground="{StaticResource FgMutedBrush}"
                                VerticalAlignment="Center" Margin="10,1,0,0"/>
+                    <TextBlock Text="{Binding AppVersion}" FontSize="11" Foreground="{StaticResource FgMutedBrush}"
+                               VerticalAlignment="Center" Margin="8,1,0,0"/>
+                    <!-- App-update badge: shown only when a newer ZapretUI release exists; opens the page -->
+                    <Button Command="{Binding OpenAppReleaseCommand}" VerticalAlignment="Center" Margin="10,0,0,0"
+                            Cursor="Hand" shell:WindowChrome.IsHitTestVisibleInChrome="True"
+                            Visibility="{Binding AppUpdateAvailable, Converter={StaticResource BoolToVis}}">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border Background="#26F5A623" BorderBrush="{StaticResource WarnBrush}" BorderThickness="1"
+                                        CornerRadius="6" Padding="8,2">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#x2B07;" FontSize="11" Foreground="{StaticResource WarnBrush}"
+                                                   VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                        <TextBlock Text="{Binding AppUpdateText}" FontSize="11"
+                                                   Foreground="{StaticResource WarnBrush}" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Border>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
                 </StackPanel>
 
                 <Border HorizontalAlignment="Center" VerticalAlignment="Center" CornerRadius="8"
@@ -272,6 +292,26 @@
                                 </StackPanel>
                             </Border>
 
+                            <!-- Proxy-host banner: compact hint + button that opens the modal popup.
+                                 Visible only for a proxy preset with no host yet (connect stays disabled). -->
+                            <Border CornerRadius="10" Padding="14,12" Margin="0,0,0,16"
+                                    Background="#1AF5A623" BorderBrush="{StaticResource WarnBrush}" BorderThickness="1"
+                                    Visibility="{Binding ShowProxyHostPrompt, Converter={StaticResource BoolToVis}}">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,12,0">
+                                        <TextBlock Text="Нужен хост вашего MTProxy" FontWeight="SemiBold"/>
+                                        <TextBlock Style="{StaticResource Muted}" FontSize="11.5" TextWrapping="Wrap" Margin="0,3,0,0"
+                                                   Text="Этот пресет работает через ваш прокси. Пока не укажете его «Хост» — подключение недоступно."/>
+                                    </StackPanel>
+                                    <Button Grid.Column="1" Content="Указать хост прокси" VerticalAlignment="Center"
+                                            Command="{Binding OpenProxyPromptCommand}" Style="{StaticResource StartStopButton}"/>
+                                </Grid>
+                            </Border>
+
                             <Border Style="{StaticResource Card}">
                                 <StackPanel>
                                     <TextBlock Text="Командная строка движка" Style="{StaticResource Muted}"/>
@@ -291,13 +331,29 @@
                 <TabItem Header="Пресеты" Tag="&#xE71D;">
                     <Grid Margin="24">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="280"/>
+                            <ColumnDefinition Width="300"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
 
                         <Border Grid.Column="0" Style="{StaticResource Card}" Padding="8" Margin="0,0,16,0">
-                            <ListBox ItemsSource="{Binding Presets}" SelectedItem="{Binding SelectedPreset}"
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="*"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                            <ListBox Grid.Row="0" ItemsSource="{Binding PresetsView}" SelectedItem="{Binding SelectedPreset}"
                                      ItemContainerStyle="{StaticResource SelectableItem}">
+                                <ListBox.GroupStyle>
+                                    <GroupStyle>
+                                        <GroupStyle.HeaderTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding Name}"
+                                                           FontSize="11" FontWeight="Bold" Opacity="0.6"
+                                                           Margin="2,10,0,4"/>
+                                            </DataTemplate>
+                                        </GroupStyle.HeaderTemplate>
+                                    </GroupStyle>
+                                </ListBox.GroupStyle>
                                 <ListBox.ItemTemplate>
                                     <DataTemplate>
                                         <StackPanel>
@@ -324,6 +380,9 @@
                                     </DataTemplate>
                                 </ListBox.ItemTemplate>
                             </ListBox>
+                            <Button Grid.Row="1" Content="❔  Как это работает" Command="{Binding OpenHowItWorksCommand}"
+                                    Style="{StaticResource GhostButton}" Margin="4,8,4,4" HorizontalAlignment="Stretch"/>
+                            </Grid>
                         </Border>
 
                         <Border Grid.Column="1" Style="{StaticResource Card}">
@@ -336,22 +395,57 @@
                                 </Grid.RowDefinitions>
 
                                 <TextBlock Grid.Row="0" Text="{Binding SelectedPreset.Name, FallbackValue='Выберите пресет'}"
-                                           Style="{StaticResource H2}"/>
-                                <TextBlock Grid.Row="1" Text="{Binding SelectedPreset.Description}"
-                                           Style="{StaticResource Muted}" Margin="0,6,0,12"/>
+                                           Style="{StaticResource H2}" TextWrapping="Wrap"/>
 
-                                <Grid Grid.Row="2">
-                                    <Grid.RowDefinitions>
-                                        <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="*"/>
-                                    </Grid.RowDefinitions>
-                                    <TextBlock Grid.Row="0" Text="Аргументы winws2 (по одному в строке)"
-                                               Style="{StaticResource Muted}" Margin="0,0,0,6"/>
-                                    <TextBox Grid.Row="1" Text="{Binding PresetArgsText, UpdateSourceTrigger=PropertyChanged}"
-                                             IsReadOnly="{Binding SelectedPresetEditable, Converter={StaticResource InverseBool}}"
-                                             AcceptsReturn="True" TextWrapping="NoWrap"
-                                             VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
-                                             FontFamily="{StaticResource MonoFont}" FontSize="12"/>
+                                <!-- Row 2 holds EITHER the readable description (default) OR the raw-args editor.
+                                     The editor is opt-in via the «Аргументы движка» button (declutter). -->
+                                <Grid Grid.Row="2" Margin="0,10,0,0">
+                                    <!-- Default: clean, readable description + a contextual help card filling the space -->
+                                    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                                  Visibility="{Binding ShowPresetArgs, Converter={StaticResource BoolToVis}, ConverterParameter=invert}">
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding SelectedPreset.Description}" TextWrapping="Wrap"
+                                                       FontSize="13.5" LineHeight="20" Foreground="{StaticResource FgBrush}"/>
+
+                                            <!-- Telegram-proxy specific note -->
+                                            <Border CornerRadius="10" Padding="14,12" Margin="0,16,0,0"
+                                                    Background="#142CC0A0" BorderBrush="{StaticResource SuccessBrush}" BorderThickness="1"
+                                                    Visibility="{Binding SelectedPreset.RequiresProxyHost, Converter={StaticResource BoolToVis}}">
+                                                <StackPanel>
+                                                    <TextBlock Text="Это про подключение к ВАШЕМУ прокси" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                                                    <TextBlock Style="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap"
+                                                               Text="Пресет НЕ чинит сам прокси и не «лечит» Telegram напрямую — он помогает вашему клиенту дозвониться до MTProxy и заодно чинит веб-версию (web.telegram.org в браузере). Включите пресет → в Telegram подключайтесь именно через ваш прокси.(Как только подключитесь - Вас от него не отключит и вы можете менять стратегию на любую другую)"/>
+                                                </StackPanel>
+                                            </Border>
+
+                                            <!-- General help / app tour entry -->
+                                            <Border CornerRadius="10" Padding="14,12" Margin="0,12,0,0"
+                                                    Background="{StaticResource BgBrush}" BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1">
+                                                <StackPanel>
+                                                    <TextBlock Text="Не заработало?" FontWeight="SemiBold"/>
+                                                    <TextBlock Style="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap" Margin="0,4,0,0"
+                                                               Text="Стратегии зависят от провайдера. Если этот пресет не пробивает — попробуйте другие из списка. Если ничего не заходит — вкладка «Проверка» → «Автоподбор» подберёт рабочую стратегию под вашего оператора."/>
+                                                    <Button Content="❔  Как это работает — экскурс по приложению"
+                                                            Command="{Binding OpenHowItWorksCommand}"
+                                                            Style="{StaticResource GhostButton}" HorizontalAlignment="Left" Margin="0,10,0,0"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </StackPanel>
+                                    </ScrollViewer>
+                                    <!-- Opt-in: in-app args editor -->
+                                    <Grid Visibility="{Binding ShowPresetArgs, Converter={StaticResource BoolToVis}}">
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="*"/>
+                                        </Grid.RowDefinitions>
+                                        <TextBlock Grid.Row="0" Text="Аргументы winws2 (по одному в строке)"
+                                                   Style="{StaticResource Muted}" Margin="0,0,0,6"/>
+                                        <TextBox Grid.Row="1" Text="{Binding PresetArgsText, UpdateSourceTrigger=PropertyChanged}"
+                                                 IsReadOnly="{Binding SelectedPresetEditable, Converter={StaticResource InverseBool}}"
+                                                 AcceptsReturn="True" TextWrapping="NoWrap"
+                                                 VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+                                                 FontFamily="{StaticResource MonoFont}" FontSize="12"/>
+                                    </Grid>
                                 </Grid>
 
                                 <StackPanel Grid.Row="3" Margin="0,14,0,0">
@@ -377,6 +471,21 @@
                                     </Border>
 
                                     <StackPanel Orientation="Horizontal">
+                                        <Button Command="{Binding TogglePresetArgsCommand}"
+                                                Style="{StaticResource GhostButton}" Margin="0,0,8,0">
+                                            <TextBlock>
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Text" Value="Аргументы движка"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding ShowPresetArgs}" Value="True">
+                                                                <Setter Property="Text" Value="Скрыть аргументы"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </Button>
                                         <Button Content="Дублировать" Command="{Binding DuplicatePresetCommand}"
                                                 Style="{StaticResource GhostButton}" Margin="0,0,8,0"/>
                                         <Button Content="Сохранить" Command="{Binding SavePresetCommand}"
@@ -438,11 +547,19 @@
                                          VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
                                          FontFamily="{StaticResource MonoFont}" FontSize="12.5"/>
 
-                                <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,14,0,0">
-                                    <Button Content="Сохранить список" Command="{Binding SaveHostlistCommand}"
-                                            Style="{StaticResource PrimaryButton}" Margin="0,0,8,0"/>
-                                    <Button Content="Удалить список" Command="{Binding DeleteHostlistCommand}"
-                                            Style="{StaticResource GhostButton}"/>
+                                <StackPanel Grid.Row="3" Margin="0,14,0,0">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Button Content="Сохранить список" Command="{Binding SaveHostlistCommand}"
+                                                Style="{StaticResource PrimaryButton}" Margin="0,0,8,0"/>
+                                        <Button Content="Удалить список" Command="{Binding DeleteHostlistCommand}"
+                                                Style="{StaticResource GhostButton}"/>
+                                    </StackPanel>
+                                    <!-- Noticeable note about the special "proxy" list (Path-2 surgical scoping) -->
+                                    <Border CornerRadius="8" Padding="12,10" Margin="0,12,0,0"
+                                            Background="#1A6AA0FF" BorderBrush="{StaticResource AccentBrush}" BorderThickness="1">
+                                        <TextBlock Style="{StaticResource Muted}" FontSize="11.5" TextWrapping="Wrap"
+                                                   Text="Список «proxy» — это адрес вашего MTProxy (поле «Хост» из настроек прокси Telegram) для пресета «Комбо + Telegram (через мой прокси)». Одна строка = хост. После сохранения он автоматически пере-резолвится в IP, чтобы десинк бил точно по прокси и не задевал YouTube/Discord."/>
+                                    </Border>
                                 </StackPanel>
                             </Grid>
                         </Border>
@@ -480,7 +597,7 @@
                                     <Border CornerRadius="8" Background="{StaticResource BgBrush}"
                                             BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1" Padding="3">
                                         <StackPanel Orientation="Horizontal">
-                                            <RadioButton Style="{StaticResource ModeSegment}" Content="Discord + YouTube"
+                                            <RadioButton Style="{StaticResource ModeSegment}" Content="DC + YT"
                                                          IsChecked="{Binding ScopeBoth, Mode=TwoWay}"/>
                                             <RadioButton Style="{StaticResource ModeSegment}" Content="Discord"
                                                          IsChecked="{Binding ScopeDiscord, Mode=TwoWay}"/>
@@ -800,6 +917,20 @@
                                                    Visibility="{Binding IsBuildingIpset, Converter={StaticResource BoolToVis}}"/>
                                     </StackPanel>
                                     <TextBlock Text="{Binding IpsetStatus}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,10,0,0"/>
+
+                                    <Border Height="1" Background="{StaticResource BorderBrush2}" Margin="0,16,0,14"/>
+
+                                    <TextBlock Text="Telegram (по IP)" Style="{StaticResource H2}" Margin="0,0,0,8"/>
+                                    <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,10"
+                                               Text="Telegram замедляют по QUIC (UDP 443). Комбо-пресеты шлют QUIC-фейк (google-блоб) и по доменам (хостлист telegram), и по подсетям дата-центров (ipset) — в РФ это ускоряет и веб, и приложение. Список подсетей засевается автоматически; кнопка ниже обновляет его с официального фида Telegram. Если у твоего провайдера не помогло — остаётся WARP / MTProto-прокси / tg-ws-proxy."/>
+                                    <StackPanel Orientation="Horizontal">
+                                        <Button Content="Собрать IP-список Telegram" Command="{Binding BuildTelegramIpsetCommand}"
+                                                Style="{StaticResource GhostButton}"
+                                                Visibility="{Binding IsBuildingIpset, Converter={StaticResource BoolToVis}, ConverterParameter=invert}"/>
+                                        <TextBlock Text="Собираю…" Style="{StaticResource Muted}" VerticalAlignment="Center"
+                                                   Visibility="{Binding IsBuildingIpset, Converter={StaticResource BoolToVis}}"/>
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding TelegramIpsetStatus}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,10,0,0"/>
                                 </StackPanel>
                             </Border>
                         </StackPanel>
@@ -809,13 +940,33 @@
 
             <!-- Donate block pinned to the bottom-left, under the advanced sidebar -->
             <ctl:DonateBlock Grid.Row="2" HorizontalAlignment="Left" VerticalAlignment="Bottom"
-                             Margin="22,0,0,20" Panel.ZIndex="10"
+                             Margin="24,0,0,22" Panel.ZIndex="10"
                              Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolToVis}}"/>
 
             <!-- ============ Body: simple (one-click) ============ -->
             <Grid Grid.Row="2" Visibility="{Binding IsSimpleMode, Converter={StaticResource BoolToVis}}">
-                <!-- Donate block: bottom-left corner -->
-                <ctl:DonateBlock HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="24"/>
+                <!-- Donate block: bottom-left corner (same spot as advanced mode) -->
+                <ctl:DonateBlock HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="24,0,0,22"/>
+
+                <!-- Telegram one-click card (top-left, the previously empty column) -->
+                <Border HorizontalAlignment="Left" VerticalAlignment="Top" Margin="24,24,0,0" Width="216"
+                        Style="{StaticResource Card}" Padding="16">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <Border Width="22" Height="22" CornerRadius="11" Background="#2A6AA0FF" VerticalAlignment="Center">
+                                <TextBlock Text="&#x2708;" FontSize="12" Foreground="{StaticResource AccentBrush}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <TextBlock Text="Telegram" FontWeight="SemiBold" FontSize="14" VerticalAlignment="Center" Margin="9,0,0,0"/>
+                        </StackPanel>
+                        <TextBlock Style="{StaticResource Muted}" FontSize="11.5" TextWrapping="Wrap" Margin="0,10,0,0"
+                                   Text="Доступ к Telegram через ваш MTProxy + веб-версия в браузере."/>
+                        <Button Content="Включить для Telegram" Command="{Binding EnableTelegramCommand}"
+                                Style="{StaticResource StartStopButton}" Margin="0,12,0,0" HorizontalAlignment="Stretch"/>
+                        <Button Content="❔  Как это работает" Command="{Binding OpenHowItWorksCommand}"
+                                Style="{StaticResource GhostButton}" Margin="0,8,0,0" HorizontalAlignment="Stretch"/>
+                    </StackPanel>
+                </Border>
 
                 <StackPanel MaxWidth="560" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="24"
                             Opacity="0" RenderTransformOrigin="0.5,0.5">
@@ -877,7 +1028,7 @@
                     <Border CornerRadius="8" Background="{StaticResource SurfaceBrush}" HorizontalAlignment="Center"
                             BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1" Padding="3">
                         <StackPanel Orientation="Horizontal">
-                            <RadioButton Style="{StaticResource ModeSegment}" Content="Discord + YouTube"
+                            <RadioButton Style="{StaticResource ModeSegment}" Content="DC + YT"
                                          IsChecked="{Binding ScopeBoth, Mode=TwoWay}"/>
                             <RadioButton Style="{StaticResource ModeSegment}" Content="Discord"
                                          IsChecked="{Binding ScopeDiscord, Mode=TwoWay}"/>
@@ -928,6 +1079,130 @@
                                HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap"
                                Visibility="{Binding IsUpdating, Converter={StaticResource BoolToVis}}"/>
                 </StackPanel>
+            </Grid>
+
+            <!-- ============ Modal: enter your MTProxy host ============ -->
+            <Grid Grid.Row="0" Grid.RowSpan="3" Panel.ZIndex="100" Background="#C0000000"
+                  Visibility="{Binding ShowProxyPopup, Converter={StaticResource BoolToVis}}">
+                <Border Style="{StaticResource Card}" MaxWidth="430" MaxHeight="640"
+                        VerticalAlignment="Center" HorizontalAlignment="Center"
+                        BorderBrush="{StaticResource AccentBrush}" BorderThickness="1">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <StackPanel>
+                            <Grid>
+                                <TextBlock Text="Укажите хост вашего MTProxy" Style="{StaticResource H2}"/>
+                                <Button Content="✕" Command="{Binding CloseProxyPromptCommand}"
+                                        Style="{StaticResource GhostButton}" HorizontalAlignment="Right"
+                                        VerticalAlignment="Top" Padding="9,2" MinWidth="0"/>
+                            </Grid>
+                            <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,6,0,0"
+                                       Text="Пресет десинкует подключение ТОЛЬКО к вашему прокси-серверу (по его IP), чтобы не задеть YouTube/Discord. Откройте в Telegram настройки прокси и скопируйте поле «Хост» (см. ниже). Пока не укажете — подключение недоступно. Если вы работаете в ВЕБ версии то можете указать что угодно и добавить его."/>
+
+                            <!-- Illustrative mockup of Telegram's «Редактирование прокси» dialog -->
+                            <Border Background="{StaticResource BgBrush}" BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1"
+                                    CornerRadius="10" Padding="14" Margin="0,12,0,0" HorizontalAlignment="Left" Width="320">
+                                <StackPanel>
+                                    <TextBlock Text="Редактирование прокси" FontWeight="SemiBold" FontSize="13"/>
+                                    <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                        <Grid Width="14" Height="14" VerticalAlignment="Center">
+                                            <Ellipse Stroke="{StaticResource AccentBrush}" StrokeThickness="2"/>
+                                            <Ellipse Width="6" Height="6" Fill="{StaticResource AccentBrush}"/>
+                                        </Grid>
+                                        <TextBlock Text="MTPROTO" Margin="8,0,0,0" VerticalAlignment="Center" FontSize="12"/>
+                                    </StackPanel>
+                                    <TextBlock Text="Адрес сокета" Style="{StaticResource Muted}" FontSize="11" Margin="0,12,0,4"/>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="68"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Border Grid.Column="0" Margin="0,0,8,0" CornerRadius="6" Padding="8,6"
+                                                Background="#1F6AA0FF" BorderBrush="{StaticResource AccentBrush}" BorderThickness="1.5">
+                                            <StackPanel>
+                                                <TextBlock Text="Хост" FontSize="9.5" Foreground="{StaticResource AccentBrush}"/>
+                                                <TextBlock Text="telegr••••••••" FontSize="12" Margin="0,2,0,0"/>
+                                            </StackPanel>
+                                        </Border>
+                                        <Border Grid.Column="1" CornerRadius="6" Padding="8,6"
+                                                BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1">
+                                            <StackPanel>
+                                                <TextBlock Text="Порт" FontSize="9.5" Style="{StaticResource Muted}"/>
+                                                <TextBlock Text="443" FontSize="12" Margin="0,2,0,0"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </Grid>
+                                    <TextBlock Text="↑ нужно скопировать именно поле «Хост»" FontSize="10.5"
+                                               Foreground="{StaticResource AccentBrush}" Margin="0,6,0,0"/>
+                                    <TextBlock Text="Ключ" Style="{StaticResource Muted}" FontSize="11" Margin="0,10,0,4"/>
+                                    <Border CornerRadius="6" Padding="8,6" BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1">
+                                        <TextBlock Text="ee••••••••••••••••" FontSize="12" Foreground="{StaticResource FgMutedBrush}"/>
+                                    </Border>
+                                </StackPanel>
+                            </Border>
+
+                            <TextBlock Text="Хост прокси" Style="{StaticResource Muted}" Margin="0,14,0,4"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox Grid.Column="0" Margin="0,0,8,0"
+                                         Text="{Binding ProxyHostInput, UpdateSourceTrigger=PropertyChanged}"/>
+                                <Button Grid.Column="1" Content="Сохранить" Command="{Binding ApplyProxyHostCommand}"
+                                        Style="{StaticResource StartStopButton}"/>
+                            </Grid>
+                            <TextBlock Text="{Binding ProxyHostStatus}" Style="{StaticResource Muted}" FontSize="11.5"
+                                       TextWrapping="Wrap" Margin="0,8,0,0"/>
+                            <TextBlock Style="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"
+                                       Text="Изменить хост позже — на вкладке «Хостлисты», список «proxy»."/>
+                            <Button Content="Закрыть" Command="{Binding CloseProxyPromptCommand}"
+                                    Style="{StaticResource GhostButton}" HorizontalAlignment="Right" Margin="0,12,0,0"/>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Border>
+            </Grid>
+
+            <!-- ============ Modal: how it works / app tour ============ -->
+            <Grid Grid.Row="0" Grid.RowSpan="3" Panel.ZIndex="100" Background="#C0000000"
+                  Visibility="{Binding ShowHowItWorks, Converter={StaticResource BoolToVis}}">
+                <Border Style="{StaticResource Card}" MaxWidth="520" MaxHeight="640"
+                        VerticalAlignment="Center" HorizontalAlignment="Center"
+                        BorderBrush="{StaticResource AccentBrush}" BorderThickness="1">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <StackPanel>
+                            <Grid>
+                                <TextBlock Text="Как это работает" Style="{StaticResource H2}"/>
+                                <Button Content="✕" Command="{Binding CloseHowItWorksCommand}"
+                                        Style="{StaticResource GhostButton}" HorizontalAlignment="Right"
+                                        VerticalAlignment="Top" Padding="9,2" MinWidth="0"/>
+                            </Grid>
+
+                            <TextBlock Text="Пресеты Telegram (через ваш прокси)" FontWeight="SemiBold" Margin="0,14,0,4"/>
+                            <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap"
+                                       Text="Эти пресеты НЕ чинят сам прокси и не «лечат» приложение Telegram напрямую. Они помогают вашему клиенту дозвониться до MTProxy (десинкуют рукопожатие к IP прокси) и заодно чинят веб-версию Telegram в браузере (web.telegram.org). Поэтому: включите пресет, а в Telegram подключайтесь именно через ваш прокси."/>
+
+                            <TextBlock Text="Если не подключается" FontWeight="SemiBold" Margin="0,14,0,4"/>
+                            <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap"
+                                       Text="Стратегии зависят от оператора связи. Сначала попробуйте «вариант 2» и «вариант 3» — на разных провайдерах заходит разный десинк. Если ни один не пробивает — это, скорее всего, сторона регулятора; смените сам прокси."/>
+
+                            <TextBlock Text="Подбор под вашего провайдера" FontWeight="SemiBold" Margin="0,14,0,4"/>
+                            <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap"
+                                       Text="Для Discord и YouTube во вкладке «Проверка» есть «Автоподбор» — он перебирает стратегии и выбирает рабочую под вашу сеть. (Telegram через прокси автоподбором не проверяется — там пробуйте варианты вручную.)"/>
+
+                            <TextBlock Text="Куда смотреть в приложении" FontWeight="SemiBold" Margin="0,14,0,6"/>
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap" Text="• Управление — что включено сейчас и кнопка запуска."/>
+                                <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap" Margin="0,2,0,0" Text="• Пресеты — выбор стратегии (вы здесь)."/>
+                                <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap" Margin="0,2,0,0" Text="• Хостлисты — какие домены обходить; список «proxy» = адрес вашего MTProxy."/>
+                                <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap" Margin="0,2,0,0" Text="• Проверка — диагностика и автоподбор стратегии."/>
+                                <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap" Margin="0,2,0,0" Text="• Логи — вывод движка. Настройки — автозапуск, обновления, обход по IP."/>
+                            </StackPanel>
+
+                            <Button Content="Понятно" Command="{Binding CloseHowItWorksCommand}"
+                                    Style="{StaticResource StartStopButton}" HorizontalAlignment="Right" Margin="0,16,0,0"/>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Border>
             </Grid>
         </Grid>
     </Border>

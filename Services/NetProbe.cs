@@ -41,6 +41,26 @@ public static class NetProbe
         catch { return (false, 0); }
     }
 
+    /// <summary>
+    /// Plain TCP-connect reachability to host:port. Used for protocols without TLS/SNI
+    /// (e.g. a Telegram MTProto data-center IP) — it answers "is the endpoint reachable",
+    /// NOT "is it throttled" (throttling still lets the connect succeed).
+    /// </summary>
+    public static async Task<DiagStatus> TcpAsync(string host, int port, CancellationToken ct)
+    {
+        try
+        {
+            using var tcp = new TcpClient();
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            cts.CancelAfter(TimeSpan.FromSeconds(4));
+            await tcp.ConnectAsync(host, port, cts.Token);
+            return DiagStatus.Ok;
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (OperationCanceledException) { return DiagStatus.Timeout; }
+        catch { return DiagStatus.Fail; }
+    }
+
     public static async Task<DiagStatus> HttpAsync(string host, CancellationToken ct)
     {
         try

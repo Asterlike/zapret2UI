@@ -22,8 +22,11 @@ public static class AppPaths
     public static string FilesDir => Path.Combine(EngineDir, "files");
     public static string WinDivertFilterDir => Path.Combine(EngineDir, "windivert.filter");
 
+    /// <summary>Path of a named CIDR ipset, e.g. ipset("telegram") -> lists\ipset-telegram.txt.</summary>
+    public static string IpsetFile(string name) => Path.Combine(ListsDir, $"ipset-{name}.txt");
+
     /// <summary>Aggregated CIDR ipset for Discord (built from the discord hostlist).</summary>
-    public static string IpsetDiscordFile => Path.Combine(ListsDir, "ipset-discord.txt");
+    public static string IpsetDiscordFile => IpsetFile("discord");
 
     // User data
     public static string ListsDir => Path.Combine(Root, "lists");

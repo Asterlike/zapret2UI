@@ -19,6 +19,11 @@ public sealed class DiagRow : ObservableObject
     /// <summary>Ping-only endpoints (DNS resolvers) skip HTTP/TLS columns.</summary>
     public bool PingOnly { get; init; }
 
+    /// <summary>TCP-only endpoints (e.g. a Telegram MTProto DC IP): probe ping + a plain
+    /// TCP-connect on 443 (shown in the HTTP column as reachability) and skip the TLS columns,
+    /// since the endpoint speaks no TLS. Reachability only — does not measure throttling.</summary>
+    public bool TcpOnly { get; init; }
+
     private DiagStatus _http = DiagStatus.Pending;
     public DiagStatus Http { get => _http; set => SetField(ref _http, value); }
 
@@ -37,8 +42,8 @@ public sealed class DiagRow : ObservableObject
     public void Reset()
     {
         Http = PingOnly ? DiagStatus.Skip : DiagStatus.Pending;
-        Tls12 = PingOnly ? DiagStatus.Skip : DiagStatus.Pending;
-        Tls13 = PingOnly ? DiagStatus.Skip : DiagStatus.Pending;
+        Tls12 = PingOnly || TcpOnly ? DiagStatus.Skip : DiagStatus.Pending;
+        Tls13 = PingOnly || TcpOnly ? DiagStatus.Skip : DiagStatus.Pending;
         Ping = DiagStatus.Pending;
         PingText = "";
     }

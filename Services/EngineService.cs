@@ -60,6 +60,12 @@ public sealed class EngineService : IDisposable
             // Named hostlist token {HOSTLIST:name} -> --hostlist=<lists>\name.txt (or "" if the
             // list is missing) — lets one preset route different SNIs to different strategies.
             a = ExpandNamedHostlists(a);
+            // Named exclude token {EXCLUDE:name} -> --hostlist-exclude=<lists>\name.txt (or "")
+            // — protects sensitive domains (banks/gov/…) from a catch-all desync profile.
+            a = ExpandNamedExcludes(a);
+            // Named ipset token {IPSET:name} -> --ipset=<lists>\ipset-name.txt (or "" if missing)
+            // — IP-based matching for protocols without SNI (e.g. Telegram MTProto).
+            a = ExpandNamedIpsets(a);
 
             // A {HOSTLIST}/{IPSET} that resolved to nothing leaves an empty token — drop it.
             if (a.Length == 0) continue;
@@ -84,6 +90,48 @@ public sealed class EngineService : IDisposable
             string name = a.Substring(i + marker.Length, end - i - marker.Length);
             string path = Path.Combine(AppPaths.ListsDir, name + ".txt");
             string repl = File.Exists(path) ? $"--hostlist={path}" : "";
+            a = a[..i] + repl + a[(end + 1)..];
+        }
+        return a;
+    }
+
+    /// <summary>
+    /// Expand every <c>{EXCLUDE:name}</c> token to
+    /// <c>--hostlist-exclude=&lt;lists&gt;\name.txt</c>, or to an empty string if that
+    /// list does not exist. Used on catch-all profiles so excluded domains
+    /// (banks, gov, etc.) are left untouched.
+    /// </summary>
+    private static string ExpandNamedExcludes(string a)
+    {
+        const string marker = "{EXCLUDE:";
+        int i;
+        while ((i = a.IndexOf(marker, StringComparison.Ordinal)) >= 0)
+        {
+            int end = a.IndexOf('}', i + marker.Length);
+            if (end < 0) break;
+            string name = a.Substring(i + marker.Length, end - i - marker.Length);
+            string path = Path.Combine(AppPaths.ListsDir, name + ".txt");
+            string repl = File.Exists(path) ? $"--hostlist-exclude={path}" : "";
+            a = a[..i] + repl + a[(end + 1)..];
+        }
+        return a;
+    }
+
+    /// <summary>
+    /// Expand every <c>{IPSET:name}</c> token to <c>--ipset=&lt;lists&gt;\ipset-name.txt</c>,
+    /// or to an empty string if that ipset file does not exist yet.
+    /// </summary>
+    private static string ExpandNamedIpsets(string a)
+    {
+        const string marker = "{IPSET:";
+        int i;
+        while ((i = a.IndexOf(marker, StringComparison.Ordinal)) >= 0)
+        {
+            int end = a.IndexOf('}', i + marker.Length);
+            if (end < 0) break;
+            string name = a.Substring(i + marker.Length, end - i - marker.Length);
+            string path = AppPaths.IpsetFile(name);
+            string repl = File.Exists(path) ? $"--ipset={path}" : "";
             a = a[..i] + repl + a[(end + 1)..];
         }
         return a;

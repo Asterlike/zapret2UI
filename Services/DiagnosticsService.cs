@@ -26,6 +26,13 @@ public sealed class DiagnosticsService
         new() { Group = "YouTube",    Name = "Image (ytimg)",    Host = "i.ytimg.com" },
         new() { Group = "YouTube",    Name = "Video",            Host = "rr1---sn-axq.googlevideo.com" },
 
+        // Telegram — SNI/web part (TLS-probeable, fixable by zapret):
+        new() { Group = "Telegram",   Name = "Web-клиент",       Host = "web.telegram.org" },
+        new() { Group = "Telegram",   Name = "API приложения",   Host = "api.telegram.org" },
+        new() { Group = "Telegram",   Name = "Сайт/ссылки",      Host = "t.me" },
+        // MTProto DC by IP — reachability only (no TLS/SNI; throttle isn't measurable here):
+        new() { Group = "Telegram",   Name = "DC2 MTProto (IP)", Host = "149.154.167.50", TcpOnly = true },
+
         new() { Group = "Google",     Name = "Main",             Host = "www.google.com" },
         new() { Group = "Google",     Name = "Gstatic",          Host = "www.gstatic.com" },
 
@@ -70,6 +77,14 @@ public sealed class DiagnosticsService
         row.Ping = pOk ? DiagStatus.Ok : DiagStatus.Timeout;
 
         if (row.PingOnly) return;
+
+        // MTProto DC IP: a plain TCP-connect on 443 = reachability (no HTTP/TLS to speak).
+        if (row.TcpOnly)
+        {
+            row.Http = DiagStatus.Running;
+            row.Http = await NetProbe.TcpAsync(row.Host, 443, ct);
+            return;
+        }
 
         row.Http = DiagStatus.Running;
         row.Http = await NetProbe.HttpAsync(row.Host, ct);

@@ -26,12 +26,23 @@ public sealed class Preset
     /// <summary>The single preset the Simple mode applies with its one-click button.</summary>
     public bool IsRecommended { get; set; }
 
+    /// <summary>True if this preset desyncs an ee-MTProxy connection scoped to the user's proxy IP
+    /// (the {IPSET:proxy} token). The engine cannot start until the user has entered their proxy host
+    /// (Settings/Hostlists → list "proxy"), because without it the ipset is empty and nothing matches.</summary>
+    public bool RequiresProxyHost { get; set; }
+
+    /// <summary>Section title for grouping in the presets list.</summary>
+    public string GroupTitle => !IsBuiltIn ? "Личные (автоподбор и созданные)"
+        : RequiresProxyHost ? "Telegram (через ваш прокси)"
+        : "Основные (Discord / YouTube)";
+
     public Preset Clone() => new()
     {
         Name = Name,
         Description = Description,
         Args = new List<string>(Args),
         UsesHostlist = UsesHostlist,
+        RequiresProxyHost = RequiresProxyHost,
         IsBuiltIn = false
     };
 }

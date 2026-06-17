@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO;
+using System.Net.Http;
 using System.Text;
 
 namespace ZapretUI.Services;
@@ -13,6 +14,91 @@ namespace ZapretUI.Services;
 public sealed class IpsetService
 {
     public sealed record IpsetResult(string Path, int Subnets);
+
+    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(15) };
+
+    /// <summary>Official Telegram DC ranges feed (CIDR, one per line, IPv4+IPv6).</summary>
+    private const string TelegramCidrUrl = "https://core.telegram.org/resources/cidr.txt";
+
+    /// <summary>Offline fallback — Telegram's published DC ranges (snapshot, June 2026).</summary>
+    private static readonly string[] TelegramCidrFallback =
+    {
+        "91.108.56.0/22", "91.108.4.0/22", "91.108.8.0/22", "91.108.16.0/22", "91.108.12.0/22",
+        "149.154.160.0/20", "91.105.192.0/23", "91.108.20.0/22", "185.76.151.0/24",
+        "2001:b28:f23d::/48", "2001:b28:f23f::/48", "2001:67c:4e8::/48", "2001:b28:f23c::/48",
+        "2a0a:f280::/32",
+    };
+
+    /// <summary>Seed ipset-telegram.txt from the embedded snapshot on first run, so the
+    /// Telegram-by-IP profile works out of the box (the «Собрать» button refreshes it live).</summary>
+    public static void SeedTelegramDefault()
+    {
+        try
+        {
+            string path = AppPaths.IpsetFile("telegram");
+            if (File.Exists(path)) return;
+            Directory.CreateDirectory(AppPaths.ListsDir);
+            File.WriteAllText(path, string.Join("\n", TelegramCidrFallback) + "\n");
+        }
+        catch { /* non-fatal */ }
+    }
+
+    /// <summary>
+    /// Build the Telegram ipset from the official CIDR feed (no DNS — these are the
+    /// MTProto data-center ranges, not CDN). Falls back to the embedded snapshot offline.
+    /// </summary>
+    public async Task<IpsetResult> BuildTelegramIpsetAsync(CancellationToken ct)
+    {
+        List<string> lines;
+        try
+        {
+            string text = await Http.GetStringAsync(TelegramCidrUrl, ct);
+            lines = text.Replace("\r\n", "\n").Split('\n')
+                        .Select(s => s.Trim())
+                        .Where(s => s.Length > 0 && !s.StartsWith('#'))
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .ToList();
+            if (lines.Count == 0) lines = TelegramCidrFallback.ToList();
+        }
+        catch
+        {
+            lines = TelegramCidrFallback.ToList();
+        }
+
+        Directory.CreateDirectory(AppPaths.ListsDir);
+        string path = AppPaths.IpsetFile("telegram");
+        await File.WriteAllTextAsync(path, string.Join("\n", lines) + "\n", ct);
+        return new IpsetResult(path, lines.Count);
+    }
+
+    /// <summary>
+    /// Resolve a single MTProxy host to its IP(s) and write ipset-proxy.txt, so a combo profile
+    /// can scope the ee-proxy ClientHello desync to ONLY that destination IP — keeping YouTube/
+    /// Discord/general TLS untouched (the catch-all conflict we hit when applying it broadly).
+    /// Plain DNS, no admin and no external tools. Accepts a bare IP literal too.
+    /// </summary>
+    public async Task<IpsetResult> BuildProxyIpsetAsync(string host, CancellationToken ct)
+    {
+        host = (host ?? "").Trim();
+        if (host.Length == 0) throw new InvalidOperationException("Хост прокси не задан.");
+
+        System.Net.IPAddress[] addrs;
+        if (System.Net.IPAddress.TryParse(host, out var literal))
+            addrs = new[] { literal };
+        else
+            addrs = await System.Net.Dns.GetHostAddressesAsync(host, ct);
+
+        var lines = addrs.Select(a => a.ToString())
+                         .Distinct(StringComparer.OrdinalIgnoreCase)
+                         .ToList();
+        if (lines.Count == 0)
+            throw new InvalidOperationException("Не удалось разрезолвить хост прокси (DNS-блокировка?).");
+
+        Directory.CreateDirectory(AppPaths.ListsDir);
+        string path = AppPaths.IpsetFile("proxy");
+        await File.WriteAllTextAsync(path, string.Join("\n", lines) + "\n", ct);
+        return new IpsetResult(path, lines.Count);
+    }
 
     /// <summary>Resolve <paramref name="domains"/> and write an aggregated ipset file. Returns the path + subnet count.</summary>
     public async Task<IpsetResult> BuildDiscordIpsetAsync(IEnumerable<string> domains, CancellationToken ct)

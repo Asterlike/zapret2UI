@@ -18,6 +18,12 @@ public sealed class UpdaterService
     private const string ReleasesLatestApi =
         "https://api.github.com/repos/bol-van/zapret2/releases/latest";
 
+    /// <summary>This UI app's own releases (separate from the engine).</summary>
+    private const string AppReleasesLatestApi =
+        "https://api.github.com/repos/Asterlike/zapret2UI/releases/latest";
+    private const string AppReleasesPage =
+        "https://github.com/Asterlike/zapret2UI/releases/latest";
+
     private readonly HttpClient _http;
 
     public UpdaterService()
@@ -45,6 +51,44 @@ public sealed class UpdaterService
     }
 
     public bool IsEngineInstalled => File.Exists(AppPaths.WinwsExe);
+
+    // ---- app (this UI) self-update check ----------------------------------
+
+    /// <summary>This app's own version (from the assembly), e.g. "0.1.0".</summary>
+    public static string AppVersion
+    {
+        get
+        {
+            var v = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
+            return v is null ? "0.0.0" : $"{v.Major}.{v.Minor}.{v.Build}";
+        }
+    }
+
+    /// <summary>Latest app release (tag + page URL) from GitHub, or null on any failure.</summary>
+    public async Task<(string Tag, string Url)?> FetchAppLatestAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            using var resp = await _http.GetAsync(AppReleasesLatestApi, ct).ConfigureAwait(false);
+            resp.EnsureSuccessStatusCode();
+            await using var stream = await resp.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
+            using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct).ConfigureAwait(false);
+            var root = doc.RootElement;
+            string tag = root.GetProperty("tag_name").GetString() ?? "";
+            string url = root.TryGetProperty("html_url", out var u) ? (u.GetString() ?? "") : "";
+            if (string.IsNullOrEmpty(url)) url = AppReleasesPage;
+            return string.IsNullOrEmpty(tag) ? null : (tag, url);
+        }
+        catch { return null; }
+    }
+
+    /// <summary>True if the release tag (e.g. "v1.2.0") is a newer SemVer than the running app.</summary>
+    public static bool IsAppUpdate(string tag)
+    {
+        return Version.TryParse(tag.TrimStart('v', 'V'), out var latest)
+            && Version.TryParse(AppVersion, out var cur)
+            && latest > cur;
+    }
 
     /// <summary>
     /// True if the installed engine is missing parts that newer UI versions need
