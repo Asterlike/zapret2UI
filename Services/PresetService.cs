@@ -212,11 +212,26 @@ public sealed class PresetService
         string name, string description, bool recommended,
         string[] discordTls, string[] youtubeTls, string[] fallbackTls,
         string discordFilter = "{HOSTLIST:discord}", string[]? proxyTls = null)
+        => new()
+        {
+            Name = name,
+            Description = description,
+            IsBuiltIn = true,
+            IsRecommended = recommended,
+            RequiresProxyHost = proxyTls is not null,
+            Args = BuildComboArgs(discordTls, youtubeTls, fallbackTls, discordFilter, proxyTls),
+        };
+
+    /// <summary>Build the shared combo argument list (per-service TLS bundles + QUIC + Discord voice).
+    /// Reused by the strategy generator to assemble a personal preset from generated TLS bundles.</summary>
+    public static List<string> BuildComboArgs(
+        string[] discordTls, string[] youtubeTls, string[] fallbackTls,
+        string discordFilter = "{HOSTLIST:discord}", string[]? proxyTls = null)
     {
         var a = new List<string>
         {
-            "--wf-tcp-out=80,443-65535",
-            "--wf-udp-out=443-65535",
+            "{WF_TCP}",
+            "{WF_UDP}",
             "--ctrack-disable=0",
             "--ipcache-lifetime=8400",
             "--ipcache-hostname=1",
@@ -267,15 +282,7 @@ public sealed class PresetService
         a.AddRange(new[] { "--filter-udp=19294-19344,50000-50100", "--filter-l7=discord,stun",
                            "--lua-desync=fake:blob=quic_google:repeats=6" });
 
-        return new Preset
-        {
-            Name = name,
-            Description = description,
-            IsBuiltIn = true,
-            IsRecommended = recommended,
-            RequiresProxyHost = proxyTls is not null,
-            Args = a,
-        };
+        return a;
     }
 
 }

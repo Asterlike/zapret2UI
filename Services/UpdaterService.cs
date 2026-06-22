@@ -4,6 +4,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using ZapretUI.Models;
 
 namespace ZapretUI.Services;
@@ -15,6 +16,7 @@ namespace ZapretUI.Services;
 /// </summary>
 public sealed class UpdaterService
 {
+    private const string EngineRepo = "bol-van/zapret2";
     private const string ReleasesLatestApi =
         "https://api.github.com/repos/bol-van/zapret2/releases/latest";
 
@@ -82,12 +84,19 @@ public sealed class UpdaterService
         catch { return null; }
     }
 
-    /// <summary>True if the release tag (e.g. "v1.2.0") is a newer SemVer than the running app.</summary>
+    /// <summary>Pull the numeric version out of an arbitrary release tag — handles any prefix
+    /// ("v1.2.0", "Zapret2UI-0.3.0", "release-1.2"), not just a leading "v".</summary>
+    public static Version? ParseTagVersion(string? tag)
+    {
+        var m = Regex.Match(tag ?? "", @"\d+(?:\.\d+){1,3}");
+        return m.Success && Version.TryParse(m.Value, out var v) ? v : null;
+    }
+
+    /// <summary>True if the release tag is a newer SemVer than the running app.</summary>
     public static bool IsAppUpdate(string tag)
     {
-        return Version.TryParse(tag.TrimStart('v', 'V'), out var latest)
-            && Version.TryParse(AppVersion, out var cur)
-            && latest > cur;
+        var latest = ParseTagVersion(tag);
+        return latest is not null && Version.TryParse(AppVersion, out var cur) && latest > cur;
     }
 
     /// <summary>
@@ -98,8 +107,27 @@ public sealed class UpdaterService
     public bool IsEngineComplete =>
         IsEngineInstalled && Directory.Exists(AppPaths.WinDivertFilterDir);
 
-    /// <summary>Resolve the latest release and its relevant asset URLs.</summary>
+    /// <summary>
+    /// Resolve the latest release and its asset URLs. Tries the GitHub <b>API</b> first, then falls
+    /// back to scraping the regular <b>github.com</b> release page — some ISPs block api.github.com
+    /// but allow github.com (or the reverse), so we try both before giving up.
+    /// </summary>
     public async Task<ReleaseInfo> FetchLatestAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            return await FetchLatestViaApiAsync(ct).ConfigureAwait(false);
+        }
+        catch (Exception apiEx) when (apiEx is not OperationCanceledException)
+        {
+            try { return await FetchLatestViaWebAsync(ct).ConfigureAwait(false); }
+            catch (OperationCanceledException) { throw; }
+            catch { throw apiEx; } // both paths failed — surface the original API error
+        }
+    }
+
+    /// <summary>Latest release via api.github.com (JSON).</summary>
+    private async Task<ReleaseInfo> FetchLatestViaApiAsync(CancellationToken ct)
     {
         using var resp = await _http.GetAsync(ReleasesLatestApi, ct).ConfigureAwait(false);
         resp.EnsureSuccessStatusCode();
@@ -136,6 +164,45 @@ public sealed class UpdaterService
             throw new InvalidOperationException($"В релизе {tag} не найден zip-ассет.");
 
         return new ReleaseInfo(tag, zipUrl, shaUrl, zipSize);
+    }
+
+    /// <summary>Latest release by scraping github.com (no API): the latest-redirect gives the tag,
+    /// the expanded_assets partial gives the download links. Asset size is unknown (0).</summary>
+    private async Task<ReleaseInfo> FetchLatestViaWebAsync(CancellationToken ct)
+    {
+        // 1. The tag — github.com/<repo>/releases/latest 302-redirects to …/releases/tag/<tag>.
+        using var resp = await _http.GetAsync(
+            $"https://github.com/{EngineRepo}/releases/latest", ct).ConfigureAwait(false);
+        resp.EnsureSuccessStatusCode();
+        string finalUrl = resp.RequestMessage?.RequestUri?.ToString() ?? "";
+        int i = finalUrl.IndexOf("/tag/", StringComparison.Ordinal);
+        if (i < 0) throw new InvalidOperationException("Не удалось определить версию движка на github.com.");
+        string tag = finalUrl[(i + 5)..].Trim('/');
+        if (tag.Length == 0) throw new InvalidOperationException("Пустой тег релиза на github.com.");
+
+        // 2. The assets — the expanded_assets partial lists every download link.
+        string html = await _http.GetStringAsync(
+            $"https://github.com/{EngineRepo}/releases/expanded_assets/{Uri.EscapeDataString(tag)}", ct)
+            .ConfigureAwait(false);
+
+        string? zipUrl = null, shaUrl = null;
+        foreach (Match m in Regex.Matches(html,
+            "href=\"(/" + Regex.Escape(EngineRepo) + "/releases/download/[^\"]+)\""))
+        {
+            string path = m.Groups[1].Value;
+            string url = "https://github.com" + path;
+            string name = path[(path.LastIndexOf('/') + 1)..];
+            if (name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) &&
+                !name.Contains("openwrt", StringComparison.OrdinalIgnoreCase))
+                zipUrl = url;
+            else if (name.Equals("sha256sum.txt", StringComparison.OrdinalIgnoreCase))
+                shaUrl = url;
+        }
+
+        if (zipUrl is null)
+            throw new InvalidOperationException($"На странице релиза {tag} не найден zip-ассет.");
+
+        return new ReleaseInfo(tag, zipUrl, shaUrl, 0);
     }
 
     /// <summary>True if a newer release than the installed one is available.</summary>

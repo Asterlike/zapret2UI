@@ -14,31 +14,49 @@ public sealed class DiagnosticsService
 {
     public event Action<string>? Status;
 
-    /// <summary>Fresh set of rows for a run (grouped by service).</summary>
+    /// <summary>Fresh set of rows for a run (grouped by service). Endpoints cover each
+    /// service's real subsystems (login/API, gateway, CDN, media, video, bot-guard) plus
+    /// the Cloudflare-ECH and Twitch-addon hosts the Flowseal lists target — so a fail in
+    /// one cell points at the exact subsystem the provider is breaking.</summary>
     public static List<DiagRow> BuildRows() => new()
     {
-        new() { Group = "Discord",    Name = "Main (вход/API)",  Host = "discord.com" },
-        new() { Group = "Discord",    Name = "Gateway",          Host = "gateway.discord.gg" },
-        new() { Group = "Discord",    Name = "CDN",              Host = "cdn.discordapp.com" },
-        new() { Group = "Discord",    Name = "Media",            Host = "discord.media" },
+        // ---- Discord (site + gateway + media/voice) ----
+        new() { Group = "Discord",    Name = "Main (вход/API)",   Host = "discord.com" },
+        new() { Group = "Discord",    Name = "Gateway (WS)",      Host = "gateway.discord.gg" },
+        new() { Group = "Discord",    Name = "CDN",               Host = "cdn.discordapp.com" },
+        new() { Group = "Discord",    Name = "Медиа/вложения",    Host = "media.discordapp.net" },
+        new() { Group = "Discord",    Name = "Голос/стримы",      Host = "discord.media" },
+        new() { Group = "Discord",    Name = "Сервис-ссылки",     Host = "dis.gd" },
 
-        new() { Group = "YouTube",    Name = "Web",              Host = "www.youtube.com" },
-        new() { Group = "YouTube",    Name = "Image (ytimg)",    Host = "i.ytimg.com" },
-        new() { Group = "YouTube",    Name = "Video",            Host = "rr1---sn-axq.googlevideo.com" },
+        // ---- YouTube (web + player API + thumbs + video CDN + bot-guard) ----
+        new() { Group = "YouTube",    Name = "Web",               Host = "www.youtube.com" },
+        new() { Group = "YouTube",    Name = "Плеер API (InnerTube)", Host = "youtubei.googleapis.com" },
+        new() { Group = "YouTube",    Name = "Превью (ytimg)",    Host = "i.ytimg.com" },
+        new() { Group = "YouTube",    Name = "Видео CDN",         Host = "redirector.googlevideo.com" },
+        new() { Group = "YouTube",    Name = "Bot-guard (сбой)",  Host = "jnn-pa.googleapis.com" },
 
-        // Telegram — SNI/web part (TLS-probeable, fixable by zapret):
-        new() { Group = "Telegram",   Name = "Web-клиент",       Host = "web.telegram.org" },
-        new() { Group = "Telegram",   Name = "API приложения",   Host = "api.telegram.org" },
-        new() { Group = "Telegram",   Name = "Сайт/ссылки",      Host = "t.me" },
+        // ---- Telegram — SNI/web part (TLS-probeable, fixable by zapret) ----
+        new() { Group = "Telegram",   Name = "Web-клиент",        Host = "web.telegram.org" },
+        new() { Group = "Telegram",   Name = "API приложения",    Host = "api.telegram.org" },
+        new() { Group = "Telegram",   Name = "Сайт/ссылки",       Host = "t.me" },
         // MTProto DC by IP — reachability only (no TLS/SNI; throttle isn't measurable here):
-        new() { Group = "Telegram",   Name = "DC2 MTProto (IP)", Host = "149.154.167.50", TcpOnly = true },
+        new() { Group = "Telegram",   Name = "DC2 MTProto (IP)",  Host = "149.154.167.50", TcpOnly = true },
 
-        new() { Group = "Google",     Name = "Main",             Host = "www.google.com" },
-        new() { Group = "Google",     Name = "Gstatic",          Host = "www.gstatic.com" },
+        // ---- Cloudflare / ECH (key Flowseal target — encrypted SNI) ----
+        new() { Group = "Cloudflare", Name = "ECH (encrypted SNI)", Host = "cloudflare-ech.com" },
+        new() { Group = "Cloudflare", Name = "Web",               Host = "www.cloudflare.com" },
+        new() { Group = "Cloudflare", Name = "CDN (cdnjs)",       Host = "cdnjs.cloudflare.com" },
 
-        new() { Group = "Cloudflare", Name = "Web",              Host = "www.cloudflare.com" },
-        new() { Group = "Cloudflare", Name = "CDN (cdnjs)",      Host = "cdnjs.cloudflare.com" },
+        // ---- Twitch-аддоны (эмодзи/чат — в общем хостлисте) ----
+        new() { Group = "Twitch-аддоны", Name = "7TV",            Host = "7tv.io" },
+        new() { Group = "Twitch-аддоны", Name = "BetterTTV",      Host = "betterttv.net" },
+        new() { Group = "Twitch-аддоны", Name = "FrankerFaceZ",   Host = "frankerfacez.com" },
 
+        // ---- Google (инфраструктура) ----
+        new() { Group = "Google",     Name = "Main",              Host = "www.google.com" },
+        new() { Group = "Google",     Name = "Gstatic",           Host = "www.gstatic.com" },
+
+        // ---- DNS (доступность резолверов) ----
         new() { Group = "DNS",        Name = "Cloudflare 1.1.1.1", Host = "1.1.1.1", PingOnly = true },
         new() { Group = "DNS",        Name = "Google 8.8.8.8",     Host = "8.8.8.8", PingOnly = true },
         new() { Group = "DNS",        Name = "Quad9 9.9.9.9",      Host = "9.9.9.9", PingOnly = true },

@@ -92,22 +92,29 @@ public sealed class AutoSelectService : IDisposable
         try
         {
             await Task.Delay(1500, ct); // let WinDivert attach
-            int total = hosts.Count * 2, ok = 0;
-            var rows = new List<AutoHostResult>(hosts.Count);
+            int total = hosts.Count * 2;
             if (_proc is null || _proc.HasExited)
                 return new AutoScore(cand.Name, 0, total, total, cand,
                     hosts.Select(h => new AutoHostResult(h, DiagStatus.Fail, DiagStatus.Fail)).ToList());
 
-            foreach (var host in hosts)
+            // Probe all hosts in parallel (both TLS versions concurrently) — the slow part is the
+            // per-probe timeout, so this turns "sum of host times" into "the slowest host".
+            using var gate = new SemaphoreSlim(8);
+            var probes = hosts.Select(async host =>
             {
-                ct.ThrowIfCancellationRequested();
-                var t12 = await NetProbe.TlsAsync(host, SslProtocols.Tls12, ct);
-                var t13 = await NetProbe.TlsAsync(host, SslProtocols.Tls13, ct);
-                HostProbed?.Invoke(host, t12, t13);
-                if (t12 == DiagStatus.Ok) ok++;
-                if (t13 == DiagStatus.Ok) ok++;
-                rows.Add(new AutoHostResult(host, t12, t13));
-            }
+                await gate.WaitAsync(ct).ConfigureAwait(false);
+                try
+                {
+                    var p12 = NetProbe.TlsAsync(host, SslProtocols.Tls12, ct);
+                    var p13 = NetProbe.TlsAsync(host, SslProtocols.Tls13, ct);
+                    await Task.WhenAll(p12, p13).ConfigureAwait(false);
+                    HostProbed?.Invoke(host, p12.Result, p13.Result);
+                    return new AutoHostResult(host, p12.Result, p13.Result);
+                }
+                finally { gate.Release(); }
+            });
+            var rows = (await Task.WhenAll(probes).ConfigureAwait(false)).ToList();
+            int ok = rows.Sum(r => (r.Tls12 == DiagStatus.Ok ? 1 : 0) + (r.Tls13 == DiagStatus.Ok ? 1 : 0));
             return new AutoScore(cand.Name, ok, total - ok, total, cand, rows);
         }
         finally

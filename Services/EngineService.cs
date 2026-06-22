@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Text;
 using ZapretUI.Models;
 
@@ -16,8 +17,23 @@ public sealed class EngineService : IDisposable
     private readonly object _lock = new();
     private Process? _proc;
     private StreamWriter? _logFile;
+    // Job object with KILL_ON_JOB_CLOSE: winws2 is assigned to it so the OS terminates the engine
+    // whenever this (the parent) process dies — including a crash or Task Manager kill, where the
+    // normal Stop()/Dispose() path never runs and would otherwise orphan winws2 + WinDivert.
+    private IntPtr _job = IntPtr.Zero;
 
     public EngineState State { get; private set; } = EngineState.Stopped;
+
+    /// <summary>Flowseal-style game filter: widen the WF capture to all high ports (&gt;1023) when true.
+    /// Set from settings by the VM; consumed by <see cref="Start"/> and the {WF_TCP}/{WF_UDP} tokens.</summary>
+    public bool GameFilter { get; set; }
+
+    /// <summary>When false (default) the engine runs in allow-list mode like Flowseal: only the
+    /// per-service hostlists (YouTube/Discord/Telegram) + the user's custom targets/hostlists are
+    /// desynced, and the catch-all "all other TLS/QUIC" profiles are re-scoped to targets or dropped,
+    /// so games/apps not in any list are never touched. True = bypass every site (catch-all, kept
+    /// safe by the exclude list). Set from settings by the VM; consumed by <see cref="Start"/>.</summary>
+    public bool BypassAllSites { get; set; }
 
     /// <summary>The preset that is currently running (null when stopped).</summary>
     public Preset? ActivePreset { get; private set; }
@@ -31,7 +47,8 @@ public sealed class EngineService : IDisposable
     public bool IsRunning => State == EngineState.Running;
 
     /// <summary>Build the full winws2 argument list for a preset (for preview/launch).</summary>
-    public static List<string> BuildArguments(Preset preset, string? hostlistPath)
+    public static List<string> BuildArguments(Preset preset, string? hostlistPath,
+        bool gameFilter = false, bool bypassAll = false)
     {
         var args = new List<string>
         {
@@ -39,6 +56,11 @@ public sealed class EngineService : IDisposable
             "--lua-init=@" + Path.Combine(AppPaths.LuaDir, "zapret-lib.lua"),
             "--lua-init=@" + Path.Combine(AppPaths.LuaDir, "zapret-antidpi.lua"),
         };
+
+        // {WF_TCP}/{WF_UDP}: WinDivert capture width. Game filter ON → all high ports (games + media);
+        // OFF (default) → narrow (80,443 + Discord voice ranges) so game traffic is left untouched.
+        string wfTcp = gameFilter ? "--wf-tcp-out=80,443-65535" : "--wf-tcp-out=80,443";
+        string wfUdp = gameFilter ? "--wf-udp-out=443-65535" : "--wf-udp-out=443,19294-19344,50000-50100";
 
         string hostlistArg = !string.IsNullOrWhiteSpace(hostlistPath)
             ? $"--hostlist={hostlistPath}"
@@ -49,12 +71,23 @@ public sealed class EngineService : IDisposable
             ? $"--ipset={AppPaths.IpsetDiscordFile}"
             : "";
 
+        // Custom targets: the catch-all profile must actually desync the user's target domains,
+        // so subtract them from the exclude list (otherwise targets like yandex.ru — protected by
+        // the default exclude — would never be bypassed). Done by swapping the catch-all's exclude
+        // for a filtered copy; if there are no targets, the original exclude is used unchanged.
+        // Only needed when actually bypassing everything — in allow-list mode the catch-all is
+        // re-scoped/dropped afterwards (see ScopeCatchAllToTargets), so the exclude is irrelevant.
+        string excludeName = bypassAll ? EffectiveExcludeName() : "exclude";
+
         foreach (var raw in preset.Args)
         {
             string a = raw
                 .Replace("{FILES}", AppPaths.FilesDir, StringComparison.Ordinal)
                 .Replace("{WF}", AppPaths.WinDivertFilterDir, StringComparison.Ordinal)
+                .Replace("{WF_TCP}", wfTcp, StringComparison.Ordinal)
+                .Replace("{WF_UDP}", wfUdp, StringComparison.Ordinal)
                 .Replace("{HOSTLIST}", hostlistArg, StringComparison.Ordinal)
+                .Replace("{EXCLUDE:exclude}", "{EXCLUDE:" + excludeName + "}", StringComparison.Ordinal)
                 .Replace("{IPSET}", ipsetArg, StringComparison.Ordinal);
 
             // Named hostlist token {HOSTLIST:name} -> --hostlist=<lists>\name.txt (or "" if the
@@ -71,7 +104,51 @@ public sealed class EngineService : IDisposable
             if (a.Length == 0) continue;
             args.Add(a);
         }
-        return args;
+
+        // Allow-list mode (default): the catch-all "all other TLS/QUIC" profiles are what break
+        // non-listed games/apps. Re-scope them to the user's custom targets, or drop them, so only
+        // the explicit lists + targets get desynced (like Flowseal).
+        return bypassAll ? args : ScopeCatchAllToTargets(args);
+    }
+
+    /// <summary>
+    /// Allow-list mode: every profile carrying a <c>--hostlist-exclude</c> is a catch-all
+    /// ("desync everything except these"). Re-point it at the user's custom targets
+    /// (<c>--hostlist=&lt;targets&gt;</c>) so they still bypass, or drop the whole profile when there
+    /// are no targets. Profiles are delimited by <c>--new</c>; the catch-all is never the first
+    /// profile, so dropping it together with its leading <c>--new</c> keeps the arg list valid.
+    /// </summary>
+    private static List<string> ScopeCatchAllToTargets(List<string> args)
+    {
+        string targetsPath = Path.Combine(AppPaths.ListsDir, TargetService.AggregateName + ".txt");
+        bool hasTargets = File.Exists(targetsPath) &&
+                          File.ReadAllLines(targetsPath).Any(l => l.Trim().Length > 0);
+
+        var result = new List<string>();
+        var profile = new List<string>();
+
+        void Flush()
+        {
+            if (profile.Count == 0) return;
+            int ex = profile.FindIndex(a => a.StartsWith("--hostlist-exclude=", StringComparison.Ordinal));
+            if (ex < 0)
+                result.AddRange(profile);                       // normal (listed) profile — keep
+            else if (hasTargets)
+            {
+                profile[ex] = $"--hostlist={targetsPath}";       // catch-all → targets-only
+                result.AddRange(profile);
+            }
+            // else: catch-all with no targets → drop the whole profile (incl. its leading --new)
+            profile.Clear();
+        }
+
+        foreach (var a in args)
+        {
+            if (a == "--new") Flush();   // close the previous profile before starting a new one
+            profile.Add(a);
+        }
+        Flush();
+        return result;
     }
 
     /// <summary>
@@ -137,11 +214,42 @@ public sealed class EngineService : IDisposable
         return a;
     }
 
+    /// <summary>
+    /// Returns the exclude-list name the catch-all profiles should use. When the user has custom
+    /// targets, writes <c>exclude-eff.txt</c> = exclude.txt minus the target domains and returns
+    /// "exclude-eff" so the active strategy desyncs those domains; otherwise returns "exclude".
+    /// </summary>
+    private static string EffectiveExcludeName()
+    {
+        try
+        {
+            string targetsPath = Path.Combine(AppPaths.ListsDir, TargetService.AggregateName + ".txt");
+            string excludePath = Path.Combine(AppPaths.ListsDir, "exclude.txt");
+            if (!File.Exists(targetsPath) || !File.Exists(excludePath)) return "exclude";
+
+            var targets = new HashSet<string>(
+                File.ReadAllLines(targetsPath).Select(l => l.Trim().ToLowerInvariant()).Where(l => l.Length > 0),
+                StringComparer.OrdinalIgnoreCase);
+            if (targets.Count == 0) return "exclude";
+
+            var kept = File.ReadAllLines(excludePath)
+                .Where(line =>
+                {
+                    string t = line.Trim().ToLowerInvariant();
+                    return t.Length == 0 || !targets.Contains(t);
+                });
+            File.WriteAllLines(Path.Combine(AppPaths.ListsDir, "exclude-eff.txt"), kept);
+            return "exclude-eff";
+        }
+        catch { return "exclude"; }
+    }
+
     /// <summary>Human-readable preview of the command line that will be launched.</summary>
-    public static string PreviewCommandLine(Preset preset, string? hostlistPath)
+    public static string PreviewCommandLine(Preset preset, string? hostlistPath,
+        bool gameFilter = false, bool bypassAll = false)
     {
         var sb = new StringBuilder("winws2.exe");
-        foreach (var a in BuildArguments(preset, hostlistPath))
+        foreach (var a in BuildArguments(preset, hostlistPath, gameFilter, bypassAll))
             sb.Append(a.Contains(' ') ? $" \"{a}\"" : $" {a}");
         return sb.ToString();
     }
@@ -169,7 +277,7 @@ public sealed class EngineService : IDisposable
                 StandardOutputEncoding = Encoding.UTF8,
                 StandardErrorEncoding = Encoding.UTF8,
             };
-            foreach (var a in BuildArguments(preset, hostlistPath))
+            foreach (var a in BuildArguments(preset, hostlistPath, GameFilter, BypassAllSites))
                 psi.ArgumentList.Add(a);
 
             OpenLogFile(preset);
@@ -192,6 +300,9 @@ public sealed class EngineService : IDisposable
 
             proc.BeginOutputReadLine();
             proc.BeginErrorReadLine();
+
+            // Tie winws2 to the kill-on-close job so it can never outlive this app process.
+            EnsureJobAndAssign(proc);
 
             _proc = proc;
             ActivePreset = preset;
@@ -285,5 +396,98 @@ public sealed class EngineService : IDisposable
     {
         try { Stop(); } catch { }
         CloseLogFile();
+        // Stop() already killed winws2; releasing the job handle now is just cleanup. (If we ever
+        // crash before here, the OS closes the handle for us and kill-on-close ends winws2 anyway.)
+        if (_job != IntPtr.Zero) { try { CloseHandle(_job); } catch { } _job = IntPtr.Zero; }
+    }
+
+    // ---- kill-on-close job object ------------------------------------------
+
+    private const int JobObjectExtendedLimitInformation = 9;
+    private const uint JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x2000;
+
+    /// <summary>Create the kill-on-close job once and assign <paramref name="proc"/> to it. Best-effort:
+    /// if any step fails the engine still runs (graceful Stop/Dispose covers a normal exit).</summary>
+    private void EnsureJobAndAssign(Process proc)
+    {
+        try
+        {
+            if (_job == IntPtr.Zero)
+            {
+                IntPtr job = CreateJobObject(IntPtr.Zero, null);
+                if (job == IntPtr.Zero) return;
+
+                var ext = new JOBOBJECT_EXTENDED_LIMIT_INFORMATION
+                {
+                    BasicLimitInformation = { LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE },
+                };
+                int len = Marshal.SizeOf(ext);
+                IntPtr buf = Marshal.AllocHGlobal(len);
+                try
+                {
+                    Marshal.StructureToPtr(ext, buf, false);
+                    if (SetInformationJobObject(job, JobObjectExtendedLimitInformation, buf, (uint)len))
+                        _job = job;
+                    else
+                        CloseHandle(job);
+                }
+                finally { Marshal.FreeHGlobal(buf); }
+            }
+
+            if (_job != IntPtr.Zero)
+                AssignProcessToJobObject(_job, proc.Handle);
+        }
+        catch { /* best-effort; graceful Stop() still handles a clean exit */ }
+    }
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern IntPtr CreateJobObject(IntPtr lpJobAttributes, string? lpName);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetInformationJobObject(IntPtr hJob, int infoClass, IntPtr info, uint infoLength);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool AssignProcessToJobObject(IntPtr hJob, IntPtr hProcess);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool CloseHandle(IntPtr hObject);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct JOBOBJECT_BASIC_LIMIT_INFORMATION
+    {
+        public long PerProcessUserTimeLimit;
+        public long PerJobUserTimeLimit;
+        public uint LimitFlags;
+        public UIntPtr MinimumWorkingSetSize;
+        public UIntPtr MaximumWorkingSetSize;
+        public uint ActiveProcessLimit;
+        public UIntPtr Affinity;
+        public uint PriorityClass;
+        public uint SchedulingClass;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct IO_COUNTERS
+    {
+        public ulong ReadOperationCount;
+        public ulong WriteOperationCount;
+        public ulong OtherOperationCount;
+        public ulong ReadTransferCount;
+        public ulong WriteTransferCount;
+        public ulong OtherTransferCount;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct JOBOBJECT_EXTENDED_LIMIT_INFORMATION
+    {
+        public JOBOBJECT_BASIC_LIMIT_INFORMATION BasicLimitInformation;
+        public IO_COUNTERS IoInfo;
+        public UIntPtr ProcessMemoryLimit;
+        public UIntPtr JobMemoryLimit;
+        public UIntPtr PeakProcessMemoryUsed;
+        public UIntPtr PeakJobMemoryUsed;
     }
 }

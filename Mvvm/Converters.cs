@@ -40,14 +40,6 @@ public sealed class BoolToVisibilityConverter : IValueConverter
         v is Visibility.Visible;
 }
 
-/// <summary>Preset group key (bool IsBuiltIn) -> Russian section title for the presets list.</summary>
-public sealed class BuiltInToGroupTitleConverter : IValueConverter
-{
-    public object Convert(object? v, Type t, object? p, CultureInfo c) =>
-        v is true ? "Авторские (встроенные)" : "Личные (автоподбор и созданные)";
-    public object ConvertBack(object? v, Type t, object? p, CultureInfo c) => Binding.DoNothing;
-}
-
 /// <summary>EngineState -> status dot colour.</summary>
 public sealed class StateToBrushConverter : IValueConverter
 {

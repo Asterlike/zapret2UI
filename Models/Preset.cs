@@ -31,8 +31,12 @@ public sealed class Preset
     /// (Settings/Hostlists → list "proxy"), because without it the ipset is empty and nothing matches.</summary>
     public bool RequiresProxyHost { get; set; }
 
+    /// <summary>True if assembled by the strategy generator (personalised). Marked ✨ in the list.</summary>
+    public bool IsGenerated { get; set; }
+
     /// <summary>Section title for grouping in the presets list.</summary>
-    public string GroupTitle => !IsBuiltIn ? "Личные (автоподбор и созданные)"
+    public string GroupTitle => !IsBuiltIn
+        ? (IsGenerated ? "✨ Сгенерировано автоподбором" : "Личные (созданные)")
         : RequiresProxyHost ? "Telegram (через ваш прокси)"
         : "Основные (Discord / YouTube)";
 
@@ -43,6 +47,7 @@ public sealed class Preset
         Args = new List<string>(Args),
         UsesHostlist = UsesHostlist,
         RequiresProxyHost = RequiresProxyHost,
+        IsGenerated = IsGenerated,
         IsBuiltIn = false
     };
 }

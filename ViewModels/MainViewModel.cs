@@ -20,10 +20,13 @@ public sealed class MainViewModel : ObservableObject
     private readonly AutostartService _autostart = new();
     private readonly DiagnosticsService _diag = new();
     private readonly AutoSelectService _autoSelect = new();
+    private readonly StrategyGeneratorService _generator = new();
+    private readonly TargetService _targets = new();
     private readonly IpsetService _ipset = new();
     private readonly MonitorService _monitor = new();
     private CancellationTokenSource? _diagCts;
     private CancellationTokenSource? _autoCts;
+    private CancellationTokenSource? _genCts;
 
     /// <summary>Raised to show a soft tray notification (title, message).</summary>
     public event Action<string, string>? Notify;
@@ -67,12 +70,20 @@ public sealed class MainViewModel : ObservableObject
             _ => !IsAutoSelecting && !IsUpdating && _updater.IsEngineInstalled);
         SetSimpleModeCommand = new RelayCommand(_ => IsSimpleMode = true);
         SetAdvancedModeCommand = new RelayCommand(_ => IsSimpleMode = false);
+        GoToSettingsCommand = new RelayCommand(_ => { IsSimpleMode = false; SelectedTabIndex = SettingsTabIndex; });
+        // Single big button on the Home screen — routes to the right toggle per mode.
+        HomeToggleCommand = new RelayCommand(
+            _ => (IsSimpleMode ? SimpleToggleCommand : ToggleCommand).Execute(null),
+            _ => (IsSimpleMode ? SimpleToggleCommand : ToggleCommand).CanExecute(null));
 
         RunDiagnosticsCommand = new RelayCommand(async _ => await RunDiagnosticsAsync(), _ => !IsDiagnosing);
         StopDiagnosticsCommand = new RelayCommand(_ => _diagCts?.Cancel(), _ => IsDiagnosing);
         RunAutoSelectCommand = new RelayCommand(async _ => await RunAutoSelectAsync(),
             _ => !IsAutoSelecting && !IsDiagnosing && !IsUpdating && _updater.IsEngineInstalled);
-        StopAutoSelectCommand = new RelayCommand(_ => _autoCts?.Cancel(), _ => IsAutoSelecting);
+        StopAutoSelectCommand = new RelayCommand(_ => { _autoCts?.Cancel(); _genCts?.Cancel(); },
+            _ => IsAutoSelecting || IsGenerating);
+        GenerateStrategyCommand = new RelayCommand(async _ => await GenerateStrategyAsync(),
+            _ => !IsAutoSelecting && !IsGenerating && !IsDiagnosing && !IsUpdating && _updater.IsEngineInstalled);
         ApplyScoreCommand = new RelayCommand(p => ApplyScore(p as AutoScore),
             p => (p as AutoScore)?.CanApply == true);
         BuildDiscordIpsetCommand = new RelayCommand(async _ => await BuildIpsetAsync(),
@@ -90,17 +101,30 @@ public sealed class MainViewModel : ObservableObject
             _ => !IsUpdating && _updater.IsEngineInstalled);
         OpenAppReleaseCommand = new RelayCommand(_ => OpenUrl(_appLatestUrl));
 
+        // ---- custom targets (Диагностика tab) ----
+        AddTargetCommand = new RelayCommand(_ => OpenTargetPopup(null));
+        OpenTargetCommand = new RelayCommand(p => OpenTargetPopup(p as CustomTarget));
+        DeleteTargetCommand = new RelayCommand(p => DeleteTarget(p as CustomTarget));
+        ExpandTargetCommand = new RelayCommand(async _ => await ExpandTargetAsync(), _ => !IsExpandingTarget);
+        SaveTargetCommand = new RelayCommand(_ => SaveTarget(), _ => !IsExpandingTarget);
+        CloseTargetPopupCommand = new RelayCommand(_ => ShowTargetPopup = false);
+
         // Group the presets list into "Авторские (встроенные)" vs "Личные" (IsBuiltIn).
         PresetsView = CollectionViewSource.GetDefaultView(Presets);
         PresetsView.GroupDescriptions.Add(new PropertyGroupDescription(nameof(Preset.GroupTitle)));
 
-        foreach (var r in DiagnosticsService.BuildRows()) DiagRows.Add(r);
+        RebuildDiagRows();
+        ReloadTargets();
 
         _diag.Status += s => OnUi(() => DiagStatusText = s);
         _autoSelect.Status += s => OnUi(() => SetAutoStatus(s));
         _autoSelect.CandidateStarted += name => OnUi(() => MarkCandidateRunning(name));
         _autoSelect.HostProbed += (host, t12, t13) => OnUi(() => OnHostProbed(host, t12, t13));
         _autoSelect.ScoreReady += sc => OnUi(() => ApplyCandidateScore(sc));
+        _generator.Status += s => OnUi(() => SetAutoStatus(s));
+        _generator.CandidateStarted += name => OnUi(() => MarkCandidateRunning(name));
+        _generator.HostProbed += (host, t12, t13) => OnUi(() => OnHostProbed(host, t12, t13));
+        _generator.ScoreReady += sc => OnUi(() => ApplyCandidateScore(sc));
         _monitor.ConnectivityLost += () => OnUi(() => _ = AutoHealAsync());
     }
 
@@ -113,7 +137,10 @@ public sealed class MainViewModel : ObservableObject
     public ObservableCollection<string> LogLines { get; } = new();
     public ObservableCollection<DiagRow> DiagRows { get; } = new();
 
-    /// <summary>Successful strategies, shown in the Проверка tab after a run finishes.</summary>
+    /// <summary>User-defined bypass targets, shown on the Диагностика tab (left column).</summary>
+    public ObservableCollection<CustomTarget> CustomTargets { get; } = new();
+
+    /// <summary>Successful strategies, shown in the Диагностика tab after a run finishes.</summary>
     public ObservableCollection<AutoScore> AutoScores { get; } = new();
 
     /// <summary>Live per-candidate rows, shown in the popup while a run is in progress.</summary>
@@ -151,6 +178,7 @@ public sealed class MainViewModel : ObservableObject
     public RelayCommand StopDiagnosticsCommand { get; }
     public RelayCommand RunAutoSelectCommand { get; }
     public RelayCommand StopAutoSelectCommand { get; }
+    public RelayCommand GenerateStrategyCommand { get; }
     public RelayCommand ApplyScoreCommand { get; }
     public RelayCommand BuildDiscordIpsetCommand { get; }
     public RelayCommand BuildTelegramIpsetCommand { get; }
@@ -162,6 +190,14 @@ public sealed class MainViewModel : ObservableObject
     public RelayCommand CloseHowItWorksCommand { get; }
     public RelayCommand EnableTelegramCommand { get; }
     public RelayCommand OpenAppReleaseCommand { get; }
+    public RelayCommand GoToSettingsCommand { get; }
+    public RelayCommand HomeToggleCommand { get; }
+    public RelayCommand AddTargetCommand { get; }
+    public RelayCommand OpenTargetCommand { get; }
+    public RelayCommand DeleteTargetCommand { get; }
+    public RelayCommand ExpandTargetCommand { get; }
+    public RelayCommand SaveTargetCommand { get; }
+    public RelayCommand CloseTargetPopupCommand { get; }
 
     // ---- engine state ------------------------------------------------------
 
@@ -222,7 +258,7 @@ public sealed class MainViewModel : ObservableObject
     public bool SelectedPresetEditable => SelectedPreset is { IsBuiltIn: false };
 
     private bool _showPresetArgs;
-    /// <summary>Whether the raw-args editor is revealed on the Пресеты tab (hidden by default to declutter).</summary>
+    /// <summary>Whether the raw-args editor is revealed on the Стратегии tab (hidden by default to declutter).</summary>
     public bool ShowPresetArgs { get => _showPresetArgs; set => SetField(ref _showPresetArgs, value); }
 
     // The preset the engine is ACTUALLY running right now (captured at Start),
@@ -276,7 +312,8 @@ public sealed class MainViewModel : ObservableObject
     public string CommandPreview =>
         SelectedPreset is null
             ? ""
-            : EngineService.PreviewCommandLine(SelectedPreset, ActiveHostlistPath);
+            : EngineService.PreviewCommandLine(SelectedPreset, ActiveHostlistPath, Settings.GameFilter,
+                                               Settings.BypassAllSites);
 
     // ---- hostlists ---------------------------------------------------------
 
@@ -406,6 +443,40 @@ public sealed class MainViewModel : ObservableObject
         set { Settings.AutoHeal = value; _settingsSvc.Save(); OnPropertyChanged(); UpdateMonitor(); }
     }
 
+    /// <summary>Flowseal-style game filter: widen capture to game ports (&gt;1023) when on.
+    /// Pushes the value into the engine; a running engine is relaunched so it takes effect now.</summary>
+    public bool GameFilter
+    {
+        get => Settings.GameFilter;
+        set
+        {
+            if (value == Settings.GameFilter) return;
+            Settings.GameFilter = value;
+            _settingsSvc.Save();
+            _engine.GameFilter = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(CommandPreview));
+            if (IsRunning) _ = ApplyStrategyAsync(); // relaunch so the new capture width applies
+        }
+    }
+
+    /// <summary>Bypass every site (catch-all) vs allow-list (default off, like Flowseal). Off keeps
+    /// games/apps not in any list untouched. Relaunches a running engine so it takes effect now.</summary>
+    public bool BypassAllSites
+    {
+        get => Settings.BypassAllSites;
+        set
+        {
+            if (value == Settings.BypassAllSites) return;
+            Settings.BypassAllSites = value;
+            _settingsSvc.Save();
+            _engine.BypassAllSites = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(CommandPreview));
+            if (IsRunning) _ = ApplyStrategyAsync(); // relaunch so the new scope applies
+        }
+    }
+
     /// <summary>Run the watchdog only while the engine is up and auto-heal is on.</summary>
     private void UpdateMonitor()
     {
@@ -436,10 +507,25 @@ public sealed class MainViewModel : ObservableObject
             _settingsSvc.Save();
             OnPropertyChanged();
             OnPropertyChanged(nameof(IsAdvancedMode));
+            if (value) SelectedTabIndex = 0; // simple mode shows only the Home tab
+            HomeToggleCommand.RaiseCanExecuteChanged();
         }
     }
 
     public bool IsAdvancedMode => !IsSimpleMode;
+
+    // ---- top-tab navigation (redesign) ------------------------------------
+    // Bound to the TabControl; lets the Home gear jump to Настройки and lets
+    // Simple mode lock the view to Главная (the tab strip is hidden there).
+    private int _selectedTabIndex;
+    public int SelectedTabIndex
+    {
+        get => _selectedTabIndex;
+        set => SetField(ref _selectedTabIndex, value);
+    }
+
+    /// <summary>Index of the Настройки tab (Главная,Стратегии,Хостлисты,Диагностика,Журнал,Настройки).</summary>
+    private const int SettingsTabIndex = 5;
 
     /// <summary>The preset the Simple-mode one-click button applies (combined Discord+YouTube).</summary>
     public Preset? RecommendedPreset =>
@@ -610,7 +696,7 @@ public sealed class MainViewModel : ObservableObject
 
     /// <summary>
     /// Try each combined strategy, score it against the chosen scope's endpoints,
-    /// keep the best, save it as a preset and start it. Used by both the Проверка
+    /// keep the best, save it as a preset and start it. Used by both the Диагностика
     /// tab and the Simple-mode «Переподобрать» button.
     /// </summary>
     private async Task RunAutoSelectAsync(bool showWindow = true)
@@ -626,11 +712,15 @@ public sealed class MainViewModel : ObservableObject
         }
 
         // Reset live state for the popup: one row per candidate + the goal endpoints.
+        // Goal endpoints = the chosen scope's hosts + every custom-target domain (always included).
+        var goalHosts = SelectedScope.GoalHosts().Concat(_targets.AllDomains())
+            .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+
         AutoScores.Clear();
         AutoCandidates.Clear();
         foreach (var c in ComboStrategyCatalog.All) AutoCandidates.Add(new AutoCandidateRow(c.Name));
         AutoTargets.Clear();
-        foreach (var h in SelectedScope.GoalHosts()) AutoTargets.Add(h);
+        foreach (var h in goalHosts) AutoTargets.Add(h);
         CheckTargets.Clear();
         PassedStrategies.Clear();
         CurrentCandidateName = "";
@@ -644,7 +734,7 @@ public sealed class MainViewModel : ObservableObject
         try
         {
             SetAutoStatus($"Подбираю лучшую стратегию для «{ScopeTitle}»…");
-            var result = await _autoSelect.RunAsync(SelectedScope.GoalHosts(), _autoCts.Token);
+            var result = await _autoSelect.RunAsync(goalHosts, _autoCts.Token);
             if (result is null)
             {
                 SetAutoStatus("Не удалось подобрать стратегию.");
@@ -669,6 +759,77 @@ public sealed class MainViewModel : ObservableObject
             _autoCts?.Dispose();
             _autoCts = null;
             if (showWindow) AutoCheckFinished?.Invoke();
+        }
+    }
+
+    // ---- strategy generator (personal, assembled per-service) -------------
+
+    private bool _isGenerating;
+    public bool IsGenerating
+    {
+        get => _isGenerating;
+        private set { if (SetField(ref _isGenerating, value)) RaiseCommandStates(); }
+    }
+
+    /// <summary>
+    /// GENERATE a personal strategy (separate from auto-select): test a grid of TLS-desync bundles,
+    /// optimise Discord and YouTube separately, and assemble the best of each into one combo preset
+    /// marked ✨ Сгенерировано. Reuses the same live popup as auto-select.
+    /// </summary>
+    private async Task GenerateStrategyAsync()
+    {
+        if (IsGenerating || IsAutoSelecting) return;
+        if (!_updater.IsEngineInstalled) { SetAutoStatus("Движок ещё не установлен — дождитесь загрузки."); return; }
+
+        if (IsRunning)
+        {
+            AppendLog("Остановка движка для генерации стратегии…");
+            _engine.Stop();
+            await Task.Delay(700);
+        }
+
+        // Custom-target domains ride the catch-all (fallback) profile, so fold them into the Discord
+        // group — the generator then picks a fallback bundle that also works for the user's targets.
+        var discord = AutoScope.Discord.GoalHosts().Concat(_targets.AllDomains())
+            .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        var youtube = AutoScope.YouTube.GoalHosts();
+
+        AutoScores.Clear();
+        AutoCandidates.Clear();
+        foreach (var c in StrategyGeneratorService.Candidates) AutoCandidates.Add(new AutoCandidateRow(c.Name));
+        AutoTargets.Clear();
+        foreach (var h in discord.Concat(youtube).Distinct()) AutoTargets.Add(h);
+        CheckTargets.Clear();
+        PassedStrategies.Clear();
+        CurrentCandidateName = "";
+        _autoCursor = -1;
+        AutoProgress = 0;
+        AutoProgressText = $"0 / {AutoCandidates.Count}";
+
+        IsGenerating = true;
+        _genCts = new CancellationTokenSource();
+        AutoCheckStarted?.Invoke();
+        try
+        {
+            SetAutoStatus("Генерирую персональную стратегию под вашего провайдера…");
+            var preset = await _generator.GenerateAsync(discord, youtube, Settings.GameFilter, _genCts.Token);
+            if (preset is null) { SetAutoStatus("Не удалось сгенерировать стратегию."); return; }
+
+            _presets.AddUser(preset);
+            ReloadPresets();
+            SelectedPreset = Presets.FirstOrDefault(p => p.Name == preset.Name) ?? Presets.LastOrDefault();
+            SetAutoStatus($"Готово: собрана «{preset.Name}». Применил и запускаю обход.");
+            if (CanStart) Start();
+        }
+        catch (OperationCanceledException) { SetAutoStatus("Генерация остановлена."); }
+        catch (Exception ex) { SetAutoStatus("Ошибка генерации: " + ex.Message); }
+        finally
+        {
+            PublishSuccessfulScores();
+            IsGenerating = false;
+            _genCts?.Dispose();
+            _genCts = null;
+            AutoCheckFinished?.Invoke();
         }
     }
 
@@ -824,6 +985,8 @@ public sealed class MainViewModel : ObservableObject
         _hostlists.SeedDefaults();
         IpsetService.SeedTelegramDefault();   // so the Telegram-by-IP profile works on first run
         ReloadHostlists();
+        _engine.GameFilter = Settings.GameFilter;
+        _engine.BypassAllSites = Settings.BypassAllSites;
 
         if (_hostlists.Exists(ProxyListName))
             ProxyHostInput = _hostlists.ReadDomains(ProxyListName).FirstOrDefault() ?? "";
@@ -863,13 +1026,15 @@ public sealed class MainViewModel : ObservableObject
     {
         var latest = await _updater.FetchAppLatestAsync(CancellationToken.None);
         if (latest is null || !UpdaterService.IsAppUpdate(latest.Value.Tag)) return;
+        // Show the clean numeric version (e.g. "0.3.0"), not the raw tag ("Zapret2UI-0.3.0").
+        string ver = UpdaterService.ParseTagVersion(latest.Value.Tag)?.ToString() ?? latest.Value.Tag;
         OnUi(() =>
         {
             _appLatestUrl = latest.Value.Url;
-            AppUpdateText = $"Новая версия {latest.Value.Tag} — скачать";
+            AppUpdateText = $"Новая версия {ver} — скачать";
             AppUpdateAvailable = true;
             Notify?.Invoke("Доступно обновление",
-                $"Вышла новая версия ZapretUI {latest.Value.Tag}. Откройте страницу релиза, чтобы скачать.");
+                $"Вышла новая версия ZapretUI {ver}. Откройте страницу релиза, чтобы скачать.");
         });
     }
 
@@ -930,6 +1095,124 @@ public sealed class MainViewModel : ObservableObject
             await Task.Delay(50);
         await Task.Delay(250);
         if (CanStart) Start();
+    }
+
+    // ---- custom targets (Диагностика tab) ---------------------------------
+
+    private bool _showTargetPopup;
+    public bool ShowTargetPopup { get => _showTargetPopup; set => SetField(ref _showTargetPopup, value); }
+
+    private bool _targetIsNew = true;
+    public bool TargetIsNew { get => _targetIsNew; private set => SetField(ref _targetIsNew, value); }
+
+    private string _targetRootInput = "";
+    public string TargetRootInput { get => _targetRootInput; set => SetField(ref _targetRootInput, value); }
+
+    private string _targetDomainsText = "";
+    public string TargetDomainsText { get => _targetDomainsText; set => SetField(ref _targetDomainsText, value); }
+
+    private string _targetStatus = "";
+    public string TargetStatus { get => _targetStatus; private set => SetField(ref _targetStatus, value); }
+
+    private bool _isExpandingTarget;
+    public bool IsExpandingTarget
+    {
+        get => _isExpandingTarget;
+        private set
+        {
+            if (!SetField(ref _isExpandingTarget, value)) return;
+            ExpandTargetCommand.RaiseCanExecuteChanged();
+            SaveTargetCommand.RaiseCanExecuteChanged();
+        }
+    }
+
+    private string? _editingTargetName;
+
+    private void ReloadTargets()
+    {
+        CustomTargets.Clear();
+        foreach (var t in _targets.GetTargets()) CustomTargets.Add(t);
+    }
+
+    /// <summary>Diagnostics rows = the built-in service matrix + a "Свои цели" group (capped).</summary>
+    private void RebuildDiagRows()
+    {
+        DiagRows.Clear();
+        foreach (var r in DiagnosticsService.BuildRows()) DiagRows.Add(r);
+        foreach (var d in _targets.AllDomains().Take(30))
+            DiagRows.Add(new DiagRow { Group = "Свои цели", Name = d, Host = d });
+    }
+
+    private void OpenTargetPopup(CustomTarget? existing)
+    {
+        if (existing is null)
+        {
+            _editingTargetName = null;
+            TargetIsNew = true;
+            TargetRootInput = "";
+            TargetDomainsText = "";
+            TargetStatus = "Введите домен (например yandex.ru) и нажмите «Найти домены».";
+        }
+        else
+        {
+            _editingTargetName = existing.Name;
+            TargetIsNew = false;
+            TargetRootInput = existing.Name;
+            TargetDomainsText = string.Join('\n', _targets.ReadDomains(existing.Name));
+            TargetStatus = $"{existing.DomainCount} домен(ов). Можно отредактировать список или найти ещё.";
+        }
+        ShowTargetPopup = true;
+    }
+
+    private async Task ExpandTargetAsync()
+    {
+        string root = TargetService.Normalize(TargetRootInput);
+        if (root.Length == 0) { TargetStatus = "Сначала укажите корневой домен."; return; }
+        IsExpandingTarget = true;
+        TargetStatus = $"Ищу домены для «{root}» через crt.sh…";
+        try
+        {
+            var found = await _targets.ExpandAsync(root, 40, CancellationToken.None);
+            var have = TargetDomainsText.Split('\n').Select(s => s.Trim().ToLowerInvariant()).Where(s => s.Length > 0);
+            var merged = have.Concat(found).Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(d => d.Length).ThenBy(d => d, StringComparer.OrdinalIgnoreCase).ToList();
+            TargetDomainsText = string.Join('\n', merged);
+            TargetStatus = $"Найдено: {found.Count}. Всего в списке: {merged.Count}. Проверьте и сохраните.";
+        }
+        catch (Exception ex) { TargetStatus = "Не удалось получить домены: " + ex.Message; }
+        finally { IsExpandingTarget = false; }
+    }
+
+    private void SaveTarget()
+    {
+        string root = TargetService.Normalize(TargetRootInput);
+        if (root.Length == 0) { TargetStatus = "Укажите корневой домен."; return; }
+        var domains = TargetDomainsText.Split('\n').Select(s => s.Trim()).Where(s => s.Length > 0).ToList();
+        if (domains.Count == 0) domains.Add(root);
+
+        // root renamed → drop the previous file so it isn't orphaned
+        if (_editingTargetName is not null &&
+            !string.Equals(_editingTargetName, root, StringComparison.OrdinalIgnoreCase))
+            _targets.Delete(_editingTargetName);
+
+        _targets.Save(root, domains);
+        _editingTargetName = root;
+        TargetIsNew = false;
+        ReloadTargets();
+        RebuildDiagRows();
+        ShowTargetPopup = false;
+        Notify?.Invoke("Цель сохранена",
+            $"«{root}»: {domains.Count} домен(ов). Учитывается в диагностике, подборе и обходе.");
+        if (IsRunning) _ = ApplyStrategyAsync(); // relaunch so the bypass covers the new domains
+    }
+
+    private void DeleteTarget(CustomTarget? t)
+    {
+        if (t is null) return;
+        _targets.Delete(t.Name);
+        ReloadTargets();
+        RebuildDiagRows();
+        if (IsRunning) _ = ApplyStrategyAsync();
     }
 
     public async Task CheckAndUpdateAsync(bool silent)
@@ -1074,8 +1357,10 @@ public sealed class MainViewModel : ObservableObject
     {
         try { _diagCts?.Cancel(); } catch { }
         try { _autoCts?.Cancel(); } catch { }
+        try { _genCts?.Cancel(); } catch { }
         try { _monitor.Stop(); } catch { }
         try { _autoSelect.Dispose(); } catch { }
+        try { _generator.Dispose(); } catch { }
         try { _engine.Dispose(); } catch { }
     }
 
@@ -1109,8 +1394,10 @@ public sealed class MainViewModel : ObservableObject
         StopDiagnosticsCommand.RaiseCanExecuteChanged();
         RunAutoSelectCommand.RaiseCanExecuteChanged();
         StopAutoSelectCommand.RaiseCanExecuteChanged();
+        GenerateStrategyCommand.RaiseCanExecuteChanged();
         BuildDiscordIpsetCommand.RaiseCanExecuteChanged();
         BuildTelegramIpsetCommand.RaiseCanExecuteChanged();
+        HomeToggleCommand.RaiseCanExecuteChanged();
     }
 
     private static void OnUi(Action a)

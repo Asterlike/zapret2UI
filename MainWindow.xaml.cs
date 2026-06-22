@@ -1,6 +1,9 @@
 ﻿using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Media.Animation;
 using ZapretUI.Services;
 using ZapretUI.ViewModels;
 using Forms = System.Windows.Forms;
@@ -71,6 +74,23 @@ public partial class MainWindow : Window
     {
         if (e.PropertyName is nameof(MainViewModel.State) or nameof(MainViewModel.SelectedPreset))
             UpdateTrayForState(_vm.State);
+    }
+
+    // Fade + slight slide-up of the tab content when the user switches tabs.
+    private void OnTabsSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        // SelectionChanged also bubbles from inner ListBoxes — only react to the TabControl itself.
+        if (e.OriginalSource is not TabControl) return;
+        if (MainTabs.Template?.FindName("PART_SelectedContentHost", MainTabs) is not ContentPresenter host)
+            return;
+
+        var dur = TimeSpan.FromMilliseconds(220);
+        host.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, dur));
+        // Use a fresh (unfrozen) transform — the one baked into the template is sealed/frozen.
+        var tt = new TranslateTransform();
+        host.RenderTransform = tt;
+        tt.BeginAnimation(TranslateTransform.YProperty,
+            new DoubleAnimation(10, 0, dur) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } });
     }
 
     // ---- window caption ----------------------------------------------------

@@ -21,6 +21,10 @@ public sealed class HostlistService
                 .Select(n => n!)
                 // ipset-*.txt are resolved IP sets, not domain hostlists — hide them from the list UI.
                 .Where(n => !n.StartsWith("ipset-", StringComparison.OrdinalIgnoreCase))
+                // Custom-target machinery (managed on the Диагностика tab) — hide from the hostlist UI.
+                .Where(n => !n.StartsWith("target-", StringComparison.OrdinalIgnoreCase)
+                            && !n.Equals("targets", StringComparison.OrdinalIgnoreCase)
+                            && !n.Equals("exclude-eff", StringComparison.OrdinalIgnoreCase))
                 .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
                 .ToList();
         }
@@ -74,10 +78,10 @@ public sealed class HostlistService
     }
 
     /// <summary>The bundled "authored" lists, kept in sync with the code below.</summary>
-    public static readonly string[] BundledListNames = { "youtube", "discord", "telegram", "exclude" };
+    public static readonly string[] BundledListNames = { "youtube", "discord", "telegram", "exclude", "general" };
 
     /// <summary>Re-sync the bundled lists from code on EVERY launch, so domain updates reach existing
-    /// installs (the user shouldn't be stuck on an old 4-host version). These four are app-managed;
+    /// installs (the user shouldn't be stuck on an old 4-host version). These are app-managed;
     /// user-created lists and the "proxy" list are never touched here.</summary>
     public void SeedDefaults()
     {
@@ -85,6 +89,7 @@ public sealed class HostlistService
         Write("discord", string.Join('\n', DefaultDiscord));
         Write("telegram", string.Join('\n', DefaultTelegram));
         Write("exclude", string.Join('\n', DefaultExclude));
+        Write("general", string.Join('\n', DefaultGeneral));
     }
 
     // ---- bundled default lists (synced from Flowseal/zapret-discord-youtube, июнь 2026) ----
@@ -127,6 +132,20 @@ public sealed class HostlistService
         "telegram.space", "telega.one",
     };
 
+    /// <summary>General "everything else worth bypassing" domains (Flowseal list-general.txt, the
+    /// non-Discord part): Cloudflare ECH/edge, Twitch ecosystem (BTTV/FFZ/7TV), CDNs. The catch-all
+    /// profile already covers unknown SNIs, so this list is a reference users can attach explicitly.</summary>
+    private static readonly string[] DefaultGeneral =
+    {
+        "cloudflare-ech.com", "encryptedsni.com", "cloudflareaccess.com", "cloudflareapps.com",
+        "cloudflarebolt.com", "cloudflareclient.com", "cloudflareinsights.com", "cloudflareok.com",
+        "cloudflarepartners.com", "cloudflareportal.com", "cloudflarepreview.com", "cloudflareresolve.com",
+        "cloudflaressl.com", "cloudflarestatus.com", "cloudflarestorage.com", "cloudflarestream.com",
+        "cloudflaretest.com", "cloudfront.net",
+        "frankerfacez.com", "ffzap.com", "betterttv.net", "7tv.app", "7tv.io",
+        "localizeapi.com", "klipy.com",
+    };
+
     /// <summary>Domains that must NEVER be desynced (Flowseal list-exclude.txt) — banks, gov,
     /// big RU services, Microsoft/Steam/Riot/Epic, etc. Wired into catch-all profiles via
     /// --hostlist-exclude so a broad fallback strategy can't break them.</summary>
@@ -151,6 +170,58 @@ public sealed class HostlistService
         "dbo-dengi.online", "mtsdengi.ru", "psbank.ru", "bankline.ru", "rosbank.ru", "abr.ru",
         "rshb.ru", "sber.ru", "sberbank.com", "sberbank.ru", "cdn-tinkoff.ru", "tbank-online.com",
         "tbank.ru", "t-bank-app.ru", "tochka-tech.com", "tochka.com", "vtb.ru", "steamcommunity.com",
+        // --- Game services (extended): the game filter is port-based, but these domains are also
+        //     excluded so a catch-all desync never touches game logins/CDNs even with the filter ON.
+        "steampowered.com", "steamstatic.com", "steamcontent.com", "steamusercontent.com",
+        "steamserver.net", "valvesoftware.com", "steamgames.com",
+        "ea.com", "eaassets-a.akamaihd.net", "origin.com", "dice.se",
+        "battle.net", "battlenet.com.cn", "blizzard.com", "blz-contentstack.com",
+        "ubisoft.com", "ubi.com", "ubisoftconnect.com",
+        "rockstargames.com", "socialclub.rockstargames.com",
+        "playstation.com", "playstation.net", "sonyentertainmentnetwork.com",
+        "xbox.com", "nintendo.com", "nintendo.net", "nintendowifi.net",
+        "gog.com", "gog-statics.com", "mojang.com",
+        "wargaming.net", "faceit.com", "supercell.com",
+        "hoyoverse.com", "mihoyo.com", "yuanshen.com",
+        // --- Xbox / Microsoft sign-in (fixes "infinite Xbox login" e.g. in Forza). The token
+        //     endpoints live under *.xboxlive.com / live.com / microsoftonline.com (already above),
+        //     but the embedded sign-in web-view loads its assets from these CDNs — if the catch-all
+        //     desyncs their TLS the login page never finishes and spins forever.
+        "xboxservices.com", "msftauth.net", "msauth.net", "msftauthimages.net", "msauthimages.net",
+        "microsoftonline-p.com", "s-microsoft.com", "login.windows.net", "gamepass.com",
+        // --- Forza + Azure PlayFab (Forza Motorsport/Horizon backend & matchmaking).
+        "forzamotorsport.net", "forzaracing.com", "playfab.com", "playfabapi.com",
+        // --- Anti-cheat: mangled TLS here blocks game LAUNCH (not just login), so never desync.
+        "easyanticheat.net", "eac-cdn.com", "battleye.com",
+        // --- More launchers / publishers / online backends (auth, CDN, matchmaking) for the future.
+        "fortnite.com", "activision.com", "callofduty.com", "demonware.net",
+        "roblox.com", "rbxcdn.com", "2k.com", "take2games.com",
+        "bethesda.net", "bethesda.com", "zenimax.com", "easports.com",
+        "square-enix.com", "finalfantasyxiv.com", "bungie.net", "minecraftservices.com",
+        "pubg.com", "krafton.com", "garena.com", "levelinfinite.com",
+        "gaijin.net", "warthunder.com", "vkplay.ru", "hoyolab.com", "nvidiagrid.net",
+        // --- Riot full set (LoL/TFT/LoR/Wild Rift): pvp.net is the League login/chat backend.
+        "pvp.net", "teamfighttactics.com", "legendsofruneterra.com", "wildrift.com",
+        // --- NetEase (Marvel Rivals, Naraka; easebar = NetEase anti-cheat) + Kuro (Wuthering Waves).
+        "netease.com", "neteasegames.com", "easebar.com", "marvelrivals.com",
+        "kurogames.com", "kurogame.com",
+        // --- Other popular online games / publishers.
+        "warframe.com", "digitalextremes.com", "pathofexile.com",
+        "amazongames.com", "playlostark.com", "deadbydaylight.com", "bhvr.com",
+        "escapefromtarkov.com", "battlestategames.com", "halowaypoint.com",
+        "jagex.com", "arena.net", "guildwars2.com", "ncsoft.com",
+        "nexon.com", "nexon.net", "pearlabyss.com", "embark-studios.com",
+        "moonton.com", "mobilelegends.com",
+        // --- Anti-cheat (mangled TLS blocks game launch): Denuvo, Wellbia (Xigncode3), GameGuard.
+        "denuvo.com", "wellbia.com", "nprotect.com",
+        // --- Third-party multiplayer backends / netcode: one platform powers MANY indie & AAA
+        //     games (most don't run their own servers), so a single mangled host breaks multiplayer
+        //     everywhere. EOS (epicgames.dev) + Azure PlayFab (playfab*) are already covered above.
+        "photonengine.com", "exitgames.com",       // Photon — the biggest Unity/UE netcode SaaS
+        "unity.com", "unity3d.com", "vivox.com",    // Unity Gaming Services + Vivox in-game voice
+        "heroiclabs.com", "accelbyte.io",           // Nakama / AccelByte backends
+        // --- Dedicated game-server hosting / orchestration (rented community servers).
+        "nitrado.net", "gamefabric.com", "g-portal.com", "i3d.net", "edgegap.com",
     };
 
     /// <summary>Validate a hostlist name so it cannot escape the lists folder.</summary>

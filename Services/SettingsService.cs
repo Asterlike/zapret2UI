@@ -18,6 +18,17 @@ public sealed class AppSettings
 
     /// <summary>Background watchdog: silently re-pick a strategy if the bypass stops working.</summary>
     public bool AutoHeal { get; set; }
+
+    /// <summary>Game filter (Flowseal-style): when true, the bypass capture is widened to all high
+    /// ports (>1023) so throttled games get desynced too. When false (default), capture stays narrow
+    /// (80,443 + Discord voice) so game traffic is left untouched and games run natively.</summary>
+    public bool GameFilter { get; set; }
+
+    /// <summary>Bypass EVERY site (catch-all) vs allow-list. When false (default), only the explicit
+    /// lists (YouTube/Discord/Telegram) + your custom targets/hostlists are desynced — like Flowseal,
+    /// so games/apps not in any list never break. When true, all other TLS/QUIC is desynced too
+    /// (kept safe by the exclude list); convenient but may break a game/app that isn't excluded.</summary>
+    public bool BypassAllSites { get; set; }
 }
 
 /// <summary>Loads/saves <see cref="AppSettings"/> as settings.json.</summary>
