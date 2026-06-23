@@ -7,7 +7,7 @@ using ZapretUI.Models;
 namespace ZapretUI.Services;
 
 /// <summary>Per-endpoint outcome of a candidate (TLS 1.2 / 1.3).</summary>
-public sealed record AutoHostResult(string Host, DiagStatus Tls12, DiagStatus Tls13);
+public sealed record AutoHostResult(string Host, DiagStatus Tls12, DiagStatus Tls13, DiagStatus Https);
 
 /// <summary>Score of one candidate against the goal endpoints (lower Fail = better).</summary>
 public sealed record AutoScore(
@@ -35,8 +35,8 @@ public sealed class AutoSelectService : IDisposable
     public event Action<AutoScore>? ScoreReady;
     /// <summary>Fired with the candidate name right before it starts being probed.</summary>
     public event Action<string>? CandidateStarted;
-    /// <summary>Fired after each goal host is probed (host, TLS1.2 result, TLS1.3 result).</summary>
-    public event Action<string, DiagStatus, DiagStatus>? HostProbed;
+    /// <summary>Fired after each goal host is probed (host, TLS1.2, TLS1.3, HTTPS-GET result).</summary>
+    public event Action<string, DiagStatus, DiagStatus, DiagStatus>? HostProbed;
 
     private Process? _proc;
 
@@ -92,12 +92,14 @@ public sealed class AutoSelectService : IDisposable
         try
         {
             await Task.Delay(1500, ct); // let WinDivert attach
-            int total = hosts.Count * 2;
+            // 3 signals per host: TLS 1.2, TLS 1.3, and a full HTTPS GET (the request must actually
+            // complete, not just the handshake — a handshake-only check ranks "TLS OK but resets" too high).
+            int total = hosts.Count * 3;
             if (_proc is null || _proc.HasExited)
                 return new AutoScore(cand.Name, 0, total, total, cand,
-                    hosts.Select(h => new AutoHostResult(h, DiagStatus.Fail, DiagStatus.Fail)).ToList());
+                    hosts.Select(h => new AutoHostResult(h, DiagStatus.Fail, DiagStatus.Fail, DiagStatus.Fail)).ToList());
 
-            // Probe all hosts in parallel (both TLS versions concurrently) — the slow part is the
+            // Probe all hosts in parallel (all three checks concurrently) — the slow part is the
             // per-probe timeout, so this turns "sum of host times" into "the slowest host".
             using var gate = new SemaphoreSlim(8);
             var probes = hosts.Select(async host =>
@@ -107,14 +109,16 @@ public sealed class AutoSelectService : IDisposable
                 {
                     var p12 = NetProbe.TlsAsync(host, SslProtocols.Tls12, ct);
                     var p13 = NetProbe.TlsAsync(host, SslProtocols.Tls13, ct);
-                    await Task.WhenAll(p12, p13).ConfigureAwait(false);
-                    HostProbed?.Invoke(host, p12.Result, p13.Result);
-                    return new AutoHostResult(host, p12.Result, p13.Result);
+                    var ph = NetProbe.HttpsAsync(host, ct);
+                    await Task.WhenAll(p12, p13, ph).ConfigureAwait(false);
+                    HostProbed?.Invoke(host, p12.Result, p13.Result, ph.Result);
+                    return new AutoHostResult(host, p12.Result, p13.Result, ph.Result);
                 }
                 finally { gate.Release(); }
             });
             var rows = (await Task.WhenAll(probes).ConfigureAwait(false)).ToList();
-            int ok = rows.Sum(r => (r.Tls12 == DiagStatus.Ok ? 1 : 0) + (r.Tls13 == DiagStatus.Ok ? 1 : 0));
+            int ok = rows.Sum(r => (r.Tls12 == DiagStatus.Ok ? 1 : 0) + (r.Tls13 == DiagStatus.Ok ? 1 : 0)
+                                 + (r.Https == DiagStatus.Ok ? 1 : 0));
             return new AutoScore(cand.Name, ok, total - ok, total, cand, rows);
         }
         finally

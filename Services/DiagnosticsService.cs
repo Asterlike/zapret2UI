@@ -20,45 +20,40 @@ public sealed class DiagnosticsService
     /// one cell points at the exact subsystem the provider is breaking.</summary>
     public static List<DiagRow> BuildRows() => new()
     {
-        // ---- Discord (site + gateway + media/voice) ----
+        // Targets mirror Flowseal's blockcheck (его utils targets) — результаты ложатся 1:1 на то,
+        // что сообщество считает «рабочим»: проще понять, что реально пробивается, а что нет.
+        // ---- Discord ----
         new() { Group = "Discord",    Name = "Main (вход/API)",   Host = "discord.com" },
         new() { Group = "Discord",    Name = "Gateway (WS)",      Host = "gateway.discord.gg" },
         new() { Group = "Discord",    Name = "CDN",               Host = "cdn.discordapp.com" },
-        new() { Group = "Discord",    Name = "Медиа/вложения",    Host = "media.discordapp.net" },
-        new() { Group = "Discord",    Name = "Голос/стримы",      Host = "discord.media" },
-        new() { Group = "Discord",    Name = "Сервис-ссылки",     Host = "dis.gd" },
+        new() { Group = "Discord",    Name = "Updates",           Host = "updates.discord.com" },
+        // The Cloudflare bot-challenge the LOGIN page loads — if its HTTP cell fails, login won't pass.
+        new() { Group = "Discord",    Name = "Вход (CF-челлендж)", Host = "challenges.cloudflare.com" },
 
-        // ---- YouTube (web + player API + thumbs + video CDN + bot-guard) ----
+        // ---- YouTube ----
         new() { Group = "YouTube",    Name = "Web",               Host = "www.youtube.com" },
-        new() { Group = "YouTube",    Name = "Плеер API (InnerTube)", Host = "youtubei.googleapis.com" },
-        new() { Group = "YouTube",    Name = "Превью (ytimg)",    Host = "i.ytimg.com" },
-        new() { Group = "YouTube",    Name = "Видео CDN",         Host = "redirector.googlevideo.com" },
-        new() { Group = "YouTube",    Name = "Bot-guard (сбой)",  Host = "jnn-pa.googleapis.com" },
+        new() { Group = "YouTube",    Name = "Short",             Host = "youtu.be" },
+        new() { Group = "YouTube",    Name = "Image (ytimg)",     Host = "i.ytimg.com" },
+        new() { Group = "YouTube",    Name = "Video redirect",    Host = "redirector.googlevideo.com" },
 
-        // ---- Telegram — SNI/web part (TLS-probeable, fixable by zapret) ----
+        // ---- Telegram — наша фича (Flowseal его не тестит, но мы обходим веб/SNI) ----
         new() { Group = "Telegram",   Name = "Web-клиент",        Host = "web.telegram.org" },
         new() { Group = "Telegram",   Name = "API приложения",    Host = "api.telegram.org" },
         new() { Group = "Telegram",   Name = "Сайт/ссылки",       Host = "t.me" },
-        // MTProto DC by IP — reachability only (no TLS/SNI; throttle isn't measurable here):
-        new() { Group = "Telegram",   Name = "DC2 MTProto (IP)",  Host = "149.154.167.50", TcpOnly = true },
 
-        // ---- Cloudflare / ECH (key Flowseal target — encrypted SNI) ----
-        new() { Group = "Cloudflare", Name = "ECH (encrypted SNI)", Host = "cloudflare-ech.com" },
+        // ---- Cloudflare ----
         new() { Group = "Cloudflare", Name = "Web",               Host = "www.cloudflare.com" },
         new() { Group = "Cloudflare", Name = "CDN (cdnjs)",       Host = "cdnjs.cloudflare.com" },
 
-        // ---- Twitch-аддоны (эмодзи/чат — в общем хостлисте) ----
-        new() { Group = "Twitch-аддоны", Name = "7TV",            Host = "7tv.io" },
-        new() { Group = "Twitch-аддоны", Name = "BetterTTV",      Host = "betterttv.net" },
-        new() { Group = "Twitch-аддоны", Name = "FrankerFaceZ",   Host = "frankerfacez.com" },
-
-        // ---- Google (инфраструктура) ----
+        // ---- Google ----
         new() { Group = "Google",     Name = "Main",              Host = "www.google.com" },
         new() { Group = "Google",     Name = "Gstatic",           Host = "www.gstatic.com" },
 
-        // ---- DNS (доступность резолверов) ----
+        // ---- DNS (доступность резолверов, как у Flowseal) ----
         new() { Group = "DNS",        Name = "Cloudflare 1.1.1.1", Host = "1.1.1.1", PingOnly = true },
+        new() { Group = "DNS",        Name = "Cloudflare 1.0.0.1", Host = "1.0.0.1", PingOnly = true },
         new() { Group = "DNS",        Name = "Google 8.8.8.8",     Host = "8.8.8.8", PingOnly = true },
+        new() { Group = "DNS",        Name = "Google 8.8.4.4",     Host = "8.8.4.4", PingOnly = true },
         new() { Group = "DNS",        Name = "Quad9 9.9.9.9",      Host = "9.9.9.9", PingOnly = true },
     };
 
@@ -104,8 +99,10 @@ public sealed class DiagnosticsService
             return;
         }
 
+        // HTTP cell = a full HTTPS GET (not a bare port-80 reachability check): it catches the case
+        // where TLS handshakes fine but the request resets mid-stream (Discord/Cloudflare login).
         row.Http = DiagStatus.Running;
-        row.Http = await NetProbe.HttpAsync(row.Host, ct);
+        row.Http = await NetProbe.HttpsAsync(row.Host, ct);
 
         row.Tls12 = DiagStatus.Running;
         row.Tls12 = await NetProbe.TlsAsync(row.Host, SslProtocols.Tls12, ct);

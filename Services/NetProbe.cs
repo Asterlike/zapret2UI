@@ -10,8 +10,8 @@ namespace ZapretUI.Services;
 
 /// <summary>
 /// Low-level connectivity probes shared by the diagnostics matrix and the
-/// auto-selector. Each probe is a single real attempt against a host: an HTTP
-/// request on port 80, a TLS handshake (forced version) on 443, or a latency
+/// auto-selector. Each probe is a single real attempt against a host: a full HTTPS
+/// GET on 443, a TLS handshake (forced version) on 443, or a latency
 /// ping. They return <see cref="DiagStatus"/> so callers can both display and score.
 /// </summary>
 public static class NetProbe
@@ -61,25 +61,45 @@ public static class NetProbe
         catch { return DiagStatus.Fail; }
     }
 
-    public static async Task<DiagStatus> HttpAsync(string host, CancellationToken ct)
+    /// <summary>
+    /// Full HTTPS GET on 443: TLS handshake + a real request + reading a chunk of the BODY.
+    /// Many DPIs let the handshake and headers through, then RST the connection mid-stream (the
+    /// Discord-login signature: "200 (OK)" then ERR_CONNECTION_RESET / HTTP2_PING_FAILED). Peeking
+    /// only the status line therefore false-positives. We keep reading ~16 KB: a mid-stream reset
+    /// surfaces as a thrown read = Fail. (Still not a 100% login guarantee — login is a stateful
+    /// POST + JS-challenge flow; a reset that fires after 16 KB or only on POSTs can slip through.)
+    /// </summary>
+    public static async Task<DiagStatus> HttpsAsync(string host, CancellationToken ct)
     {
         try
         {
             using var tcp = new TcpClient();
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            cts.CancelAfter(TimeSpan.FromSeconds(4));
-            await tcp.ConnectAsync(host, 80, cts.Token);
+            cts.CancelAfter(TimeSpan.FromSeconds(6));
+            await tcp.ConnectAsync(host, 443, cts.Token);
 
-            var stream = tcp.GetStream();
+            using var ssl = new SslStream(tcp.GetStream(), false, (_, _, _, _) => true);
+            await ssl.AuthenticateAsClientAsync(
+                new SslClientAuthenticationOptions { TargetHost = host }, cts.Token);
+
             byte[] req = Encoding.ASCII.GetBytes(
                 $"GET / HTTP/1.1\r\nHost: {host}\r\nUser-Agent: ZapretUI\r\nConnection: close\r\n\r\n");
-            await stream.WriteAsync(req, cts.Token);
+            await ssl.WriteAsync(req, cts.Token);
 
-            var buf = new byte[64];
-            int read = await stream.ReadAsync(buf, cts.Token);
-            string head = Encoding.ASCII.GetString(buf, 0, Math.Max(0, read));
-            return read > 0 && head.StartsWith("HTTP/", StringComparison.Ordinal)
-                ? DiagStatus.Ok : DiagStatus.Fail;
+            var buf = new byte[8192];
+            int first = await ssl.ReadAsync(buf, cts.Token);
+            if (first <= 0 || !Encoding.ASCII.GetString(buf, 0, first).StartsWith("HTTP/", StringComparison.Ordinal))
+                return DiagStatus.Fail;
+
+            // Keep pulling the body so a mid-stream RST throws here (→ Fail) instead of a false OK.
+            int total = first;
+            while (total < 16384)
+            {
+                int n = await ssl.ReadAsync(buf, cts.Token);
+                if (n <= 0) break; // clean EOF (server closed after Connection: close)
+                total += n;
+            }
+            return DiagStatus.Ok;
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (OperationCanceledException) { return DiagStatus.Timeout; }

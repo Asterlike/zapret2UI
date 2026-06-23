@@ -46,14 +46,14 @@ public static class ComboStrategyCatalog
     .Concat(quic)
     .Concat(new[]
     {
-        // Discord voice (STUN + IP-discovery): fake with a QUIC-google blob, no ttl
-        // limiting. The voice server discards the QUIC garbage for its flow, so the
-        // SSRC is never poisoned (no NO_ROUTE) and the fake doesn't need to be kept
-        // short of the server — which makes it route-independent (ttl cutting is
-        // fragile across rotating voice IPs). Proven working path: Flowseal alt10.
+        // Discord voice (STUN + IP-discovery) on the FULL high UDP range 50000-65535
+        // (narrow 50000-50100 missed half the voice servers → 5000 ping). QUIC-google
+        // blob (junk for the voice flow → SSRC never poisoned) + ip_autottl so the fake
+        // dies on the provider DPI before the server (anti-drop), letting real RTP flow
+        // without throttle. repeats=2 — the current 5k-ping fix (Flowseal #12614).
         "--new",
-        "--filter-udp=19294-19344,50000-50100", "--filter-l7=discord,stun",
-          "--lua-desync=fake:blob=quic_google:repeats=6",
+        "--filter-udp=19294-19344,50000-65535", "--filter-l7=discord,stun",
+          "--lua-desync=fake:blob=quic_google:ip_autottl=-2,3-20:ip6_autottl=-2,3-20:repeats=2",
     })
     .ToList();
 
@@ -120,6 +120,17 @@ public static class ComboStrategyCatalog
             new[] { "--lua-desync=fake:blob=tls_google:tcp_md5:tcp_ts=1000:repeats=6",
                     "--lua-desync=wssize:wsize=1:scale=6" }, QuicFake11)),
 
+        // --- Flowseal ALT11/ALT12 ("fooling ts"): a fake (ts, repeats=8) PREPENDED to a multisplit
+        //     carrying a big byte-seqovl with a real google ClientHello pattern. The fake-then-seqovl
+        //     stack is distinct from the bare-seqovl candidates above; translated from general (ALT11/12).
+        new("ALT11/12: fake ts → multisplit seqovl 681", Build(
+            new[] { "--lua-desync=fake:blob=tls_google:tcp_ts=1000:repeats=8",
+                    "--lua-desync=multisplit:pos=1:seqovl=681:seqovl_pattern=tls_google:optional" }, QuicFake11)),
+
+        new("ALT: fake ts → multisplit seqovl 664", Build(
+            new[] { "--lua-desync=fake:blob=tls_google:tcp_ts=1000:repeats=8",
+                    "--lua-desync=multisplit:pos=1:seqovl=664:seqovl_pattern=tls_google:optional" }, QuicFake11)),
+
         // --- YouTube TCP (real preset): split ClientHello around the SNI with a
         //     real-CH seqovl pattern. The single best general-purpose TLS split.
         new("YT: multisplit 2,midsld-2 seqovl tls", Build(
@@ -128,7 +139,7 @@ public static class ComboStrategyCatalog
         // --- googlevideo (real preset): multi-marker multidisorder, reverse-order
         //     segments across host/sld/sni — defeats reassembly-by-seq DPI.
         new("YT googlevideo: multidisorder multi-pos", Build(
-            new[] { "--lua-desync=multidisorder:pos=1,host+2,sld+2,sld+5,sniext+1,sniext+2,endhost-2:seqovl=1" }, QuicFake6)),
+            new[] { "--lua-desync=multidisorder:pos=1,host+2,sld+2,sld+5,sniext+1,sniext+2,endhost-2" }, QuicFake6)),
 
         // --- fake + fooling families (broad coverage)
         new("FAKE md5sig + multidisorder midsld", Build(
@@ -142,10 +153,22 @@ public static class ComboStrategyCatalog
         new("fakedsplit md5sig midsld", Build(
             new[] { "--lua-desync=fakedsplit:pos=midsld:tcp_md5" }, QuicFake11)),
 
-        // --- hostfakesplit (real Example 2 ozon recipe): generates a fake host,
-        //     splits at it, interleaves fakes. Useful when SNI is the trigger.
+        // --- hostfakesplit: splits the ClientHello around the SNI and injects a FAKE host segment
+        //     (www.google.com) so the DPI sees a google connection and can't reassemble the real
+        //     Discord SNI. On reassembling DPIs (where plain split/seqovl fail) this is often the
+        //     ONLY family that passes login — so several variants are in the pool.
         new("hostfakesplit ts md5", Build(
             new[] { "--lua-desync=hostfakesplit:host=www.google.com:tcp_ts=-1000:tcp_md5:repeats=4" }, QuicFake6)),
+
+        new("hostfakesplit md5 ×6", Build(
+            new[] { "--lua-desync=hostfakesplit:host=www.google.com:tcp_md5:repeats=6" }, QuicFake6)),
+
+        new("hostfakesplit + wssize", Build(
+            new[] { "--lua-desync=hostfakesplit:host=www.google.com:tcp_ts=-1000:tcp_md5:repeats=4",
+                    "--lua-desync=wssize:wsize=1:scale=6" }, QuicFake6)),
+
+        new("hostfakesplit MS-host", Build(
+            new[] { "--lua-desync=hostfakesplit:host=www.microsoft.com:tcp_ts=-1000:tcp_md5:repeats=4" }, QuicFake6)),
 
         // --- proven Discord stack (badseq/dupsid + split at sld+1)
         new("DC: fake badseq dupsid → multisplit sld+1", Build(

@@ -119,11 +119,11 @@ public sealed class MainViewModel : ObservableObject
         _diag.Status += s => OnUi(() => DiagStatusText = s);
         _autoSelect.Status += s => OnUi(() => SetAutoStatus(s));
         _autoSelect.CandidateStarted += name => OnUi(() => MarkCandidateRunning(name));
-        _autoSelect.HostProbed += (host, t12, t13) => OnUi(() => OnHostProbed(host, t12, t13));
+        _autoSelect.HostProbed += (host, t12, t13, https) => OnUi(() => OnHostProbed(host, t12, t13, https));
         _autoSelect.ScoreReady += sc => OnUi(() => ApplyCandidateScore(sc));
         _generator.Status += s => OnUi(() => SetAutoStatus(s));
         _generator.CandidateStarted += name => OnUi(() => MarkCandidateRunning(name));
-        _generator.HostProbed += (host, t12, t13) => OnUi(() => OnHostProbed(host, t12, t13));
+        _generator.HostProbed += (host, t12, t13, https) => OnUi(() => OnHostProbed(host, t12, t13, https));
         _generator.ScoreReady += sc => OnUi(() => ApplyCandidateScore(sc));
         _monitor.ConnectivityLost += () => OnUi(() => _ = AutoHealAsync());
     }
@@ -661,11 +661,11 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
-    private void OnHostProbed(string host, DiagStatus tls12, DiagStatus tls13)
+    private void OnHostProbed(string host, DiagStatus tls12, DiagStatus tls13, DiagStatus https)
     {
         foreach (var t in CheckTargets)
         {
-            if (t.Host == host) { t.Tls12 = tls12; t.Tls13 = tls13; return; }
+            if (t.Host == host) { t.Tls12 = tls12; t.Tls13 = tls13; t.Http = https; return; }
         }
     }
 
@@ -678,7 +678,7 @@ public sealed class MainViewModel : ObservableObject
         // where OnHostProbed never fired).
         foreach (var h in score.HostList)
             foreach (var t in CheckTargets)
-                if (t.Host == h.Host) { t.Tls12 = h.Tls12; t.Tls13 = h.Tls13; break; }
+                if (t.Host == h.Host) { t.Tls12 = h.Tls12; t.Tls13 = h.Tls13; t.Http = h.Https; break; }
 
         // Accumulate strategies that worked, best first, into the right panel.
         if (score is { Ok: > 0, Strategy: not null })

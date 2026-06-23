@@ -73,18 +73,25 @@
                                             <Grid>
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="*"/>
-                                                    <ColumnDefinition Width="118"/>
-                                                    <ColumnDefinition Width="118"/>
+                                                    <ColumnDefinition Width="92"/>
+                                                    <ColumnDefinition Width="92"/>
+                                                    <ColumnDefinition Width="92"/>
                                                 </Grid.ColumnDefinitions>
                                                 <TextBlock Grid.Column="0" Text="{Binding Host}" VerticalAlignment="Center"
                                                            FontSize="12.5" TextTrimming="CharacterEllipsis"/>
                                                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                                    <TextBlock Text="HTTP " Style="{StaticResource Muted}" FontSize="11"/>
+                                                    <TextBlock Text="{Binding Http, Converter={StaticResource DiagText}}"
+                                                               Foreground="{Binding Http, Converter={StaticResource DiagBrush}}"
+                                                               FontWeight="SemiBold" FontSize="11.5"/>
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                                                     <TextBlock Text="TLS 1.2 " Style="{StaticResource Muted}" FontSize="11"/>
                                                     <TextBlock Text="{Binding Tls12, Converter={StaticResource DiagText}}"
                                                                Foreground="{Binding Tls12, Converter={StaticResource DiagBrush}}"
                                                                FontWeight="SemiBold" FontSize="11.5"/>
                                                 </StackPanel>
-                                                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                                <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
                                                     <TextBlock Text="TLS 1.3 " Style="{StaticResource Muted}" FontSize="11"/>
                                                     <TextBlock Text="{Binding Tls13, Converter={StaticResource DiagText}}"
                                                                Foreground="{Binding Tls13, Converter={StaticResource DiagBrush}}"

@@ -19,7 +19,7 @@ public sealed class StrategyGeneratorService : IDisposable
     /// <summary>Fired with the candidate name right before it starts being probed.</summary>
     public event Action<string>? CandidateStarted;
     /// <summary>Fired after each goal host is probed (host, TLS1.2, TLS1.3).</summary>
-    public event Action<string, DiagStatus, DiagStatus>? HostProbed;
+    public event Action<string, DiagStatus, DiagStatus, DiagStatus>? HostProbed;
     /// <summary>Fired with the candidate's overall score (for the live popup).</summary>
     public event Action<AutoScore>? ScoreReady;
 
@@ -36,21 +36,46 @@ public sealed class StrategyGeneratorService : IDisposable
         new("Сплит по имени", new[] { "--lua-desync=multisplit:pos=1,sniext,midsld,endhost" }),
         new("Дизордер по имени", new[] { "--lua-desync=multidisorder:pos=1,sniext,midsld,endhost" }),
         new("Дизордер 88×5", new[] { "--lua-desync=multidisorder:pos=88,176,264,352,440" }),
+        // Multi-position multidisorder around host/sld/sni markers — on reassembling DPIs (drop fakes,
+        // beaten by reordering) this scored best in field tests. Was only in autoselect; now in generation.
+        new("Дизордер по host/sld/sni", new[] { "--lua-desync=multidisorder:pos=1,host+2,sld+2,sld+5,sniext+1,sniext+2,endhost-2" }),
         new("Фейк md5 + сплит", new[] { "--lua-desync=fake:blob=tls_google:tcp_md5:repeats=6",
                                         "--lua-desync=multisplit:pos=1,midsld" }),
         new("Фейк ts + дизордер", new[] { "--lua-desync=fake:blob=tls_google:tcp_ts=1000:repeats=6",
                                           "--lua-desync=multidisorder:pos=1,midsld" }),
         new("seqovl-перекрытие", new[] { "--lua-desync=multisplit:pos=2,midsld-2:seqovl=681:seqovl_pattern=tls_google:optional" }),
-        new("Фейк autottl + сплит", new[] { "--lua-desync=fake:blob=tls_google:ip_autottl=-1,3-20:ip_ttl=6:repeats=6",
+        new("Фейк autottl + сплит", new[] { "--lua-desync=fake:blob=tls_google:ip_autottl=-2,3-20:ip6_autottl=-2,3-20:repeats=6",
                                             "--lua-desync=multisplit:pos=1,midsld" }),
         new("fakeddisorder md5", new[] { "--lua-desync=fakeddisorder:pos=1:blob=tls_google:tcp_md5:repeats=6" }),
         new("Фейк md5/seq + дизордер", new[] { "--lua-desync=fake:blob=tls_google:tcp_md5:tcp_seq=-10000:repeats=6",
                                                "--lua-desync=multidisorder:pos=1,midsld" }),
+        // hostfakesplit = the unique lever: splits the ClientHello around the SNI and injects a FAKE
+        // host segment (www.google.com), so the DPI sees a google connection and can't reassemble the
+        // real Discord SNI. On DPIs that reassemble fragments (where plain split/seqovl fail) this is
+        // often the ONLY thing that passes login — so we give the pool several variants of it.
         new("hostfakesplit", new[] { "--lua-desync=hostfakesplit:host=www.google.com:tcp_ts=-1000:tcp_md5:repeats=4" }),
+        new("hostfakesplit md5 ×6", new[] { "--lua-desync=hostfakesplit:host=www.google.com:tcp_md5:repeats=6" }),
+        new("hostfakesplit + wssize", new[] { "--lua-desync=hostfakesplit:host=www.google.com:tcp_ts=-1000:tcp_md5:repeats=4",
+                                              "--lua-desync=wssize:wsize=1:scale=6" }),
+        new("hostfakesplit MS-host", new[] { "--lua-desync=hostfakesplit:host=www.microsoft.com:tcp_ts=-1000:tcp_md5:repeats=4" }),
         new("Фейк badsum + сплит", new[] { "--lua-desync=fake:blob=tls_google:badsum:repeats=6",
                                            "--lua-desync=multisplit:pos=1,midsld" }),
         new("Фейк ts + fakedsplit", new[] { "--lua-desync=fake:blob=tls_google:tcp_ts=1000:repeats=6",
                                             "--lua-desync=fakedsplit:tcp_ts=1000" }),
+        // Окно (wssize) — заставляет сервер дробить ответ; ключевой рычаг под упрямый вход Discord
+        // (в сообществе «помогает в 99% случаев»). Раньше был только в автоподборе — добавлен в генерацию.
+        new("Окно wssize + seqovl", new[] { "--lua-desync=multisplit:pos=2,midsld-2:seqovl=1:seqovl_pattern=tls_google:optional",
+                                            "--lua-desync=wssize:wsize=1:scale=6" }),
+        // Сильный «пробойник» входа: fake с badack(-66000)+ts_up (ts_up обязателен при tcp_ack) и
+        // большой seqovl с реальным ClientHello как паттерном.
+        new("Фейк ack66k ts_up + seqovl", new[] { "--lua-desync=fake:blob=tls_google:tcp_ack=-66000:tcp_ts_up:tls_mod=rnd:repeats=2",
+                                                  "--lua-desync=multisplit:pos=2,midsld-2:seqovl=700:seqovl_pattern=tls_google:optional" }),
+        // Flowseal ALT11/ALT12 («fooling ts»): fake (ts, repeats=8) ПЕРЕД multisplit с большим seqovl
+        // и реальным google-ClientHello как паттерном. Стэкнутый комбо, которого в пуле не было.
+        new("ALT11/12: fake ts → seqovl 681", new[] { "--lua-desync=fake:blob=tls_google:tcp_ts=1000:repeats=8",
+                                                      "--lua-desync=multisplit:pos=1:seqovl=681:seqovl_pattern=tls_google:optional" }),
+        new("ALT: fake ts → seqovl 664", new[] { "--lua-desync=fake:blob=tls_google:tcp_ts=1000:repeats=8",
+                                                 "--lua-desync=multisplit:pos=1:seqovl=664:seqovl_pattern=tls_google:optional" }),
     };
 
     /// <summary>
@@ -91,16 +116,17 @@ public sealed class StrategyGeneratorService : IDisposable
                     await gate.WaitAsync(ct).ConfigureAwait(false);
                     try
                     {
-                        DiagStatus t12 = DiagStatus.Fail, t13 = DiagStatus.Fail;
+                        DiagStatus t12 = DiagStatus.Fail, t13 = DiagStatus.Fail, https = DiagStatus.Fail;
                         if (up)
                         {
                             var p12 = NetProbe.TlsAsync(host, SslProtocols.Tls12, ct);
                             var p13 = NetProbe.TlsAsync(host, SslProtocols.Tls13, ct);
-                            await Task.WhenAll(p12, p13).ConfigureAwait(false);
-                            t12 = p12.Result; t13 = p13.Result;
+                            var ph = NetProbe.HttpsAsync(host, ct);
+                            await Task.WhenAll(p12, p13, ph).ConfigureAwait(false);
+                            t12 = p12.Result; t13 = p13.Result; https = ph.Result;
                         }
-                        HostProbed?.Invoke(host, t12, t13);
-                        return new AutoHostResult(host, t12, t13);
+                        HostProbed?.Invoke(host, t12, t13, https);
+                        return new AutoHostResult(host, t12, t13, https);
                     }
                     finally { gate.Release(); }
                 });
@@ -112,12 +138,14 @@ public sealed class StrategyGeneratorService : IDisposable
                 await Task.Delay(300, CancellationToken.None);
             }
 
-            int discordOk = rows.Where(r => discordHosts.Contains(r.Host))
-                                 .Sum(r => (r.Tls12 == DiagStatus.Ok ? 1 : 0) + (r.Tls13 == DiagStatus.Ok ? 1 : 0));
-            int youtubeOk = rows.Where(r => youtubeHosts.Contains(r.Host))
-                                 .Sum(r => (r.Tls12 == DiagStatus.Ok ? 1 : 0) + (r.Tls13 == DiagStatus.Ok ? 1 : 0));
-            int total = allHosts.Count * 2;
-            int okAll = rows.Sum(r => (r.Tls12 == DiagStatus.Ok ? 1 : 0) + (r.Tls13 == DiagStatus.Ok ? 1 : 0));
+            // 3 signals per host now: TLS 1.2 + TLS 1.3 + full HTTPS GET (the request must complete,
+            // not just the handshake — so a candidate that connects but resets ranks below one that loads).
+            static int Hits(AutoHostResult r) => (r.Tls12 == DiagStatus.Ok ? 1 : 0)
+                + (r.Tls13 == DiagStatus.Ok ? 1 : 0) + (r.Https == DiagStatus.Ok ? 1 : 0);
+            int discordOk = rows.Where(r => discordHosts.Contains(r.Host)).Sum(Hits);
+            int youtubeOk = rows.Where(r => youtubeHosts.Contains(r.Host)).Sum(Hits);
+            int total = allHosts.Count * 3;
+            int okAll = rows.Sum(Hits);
             // Carry the candidate as a full, saveable combo so the popup lists it under "прошли проверку"
             // and the user can save ANY of them as a preset (not just the final assembled best).
             var candStrategy = new ComboStrategy(cand.Name, args);

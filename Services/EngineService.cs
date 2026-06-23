@@ -59,8 +59,10 @@ public sealed class EngineService : IDisposable
 
         // {WF_TCP}/{WF_UDP}: WinDivert capture width. Game filter ON → all high ports (games + media);
         // OFF (default) → narrow (80,443 + Discord voice ranges) so game traffic is left untouched.
+        // Discord voice spans the WHOLE 50000-65535 UDP range — capturing only 50000-50100 misses
+        // half the voice servers, which shows up as a permanent 5000 ping.
         string wfTcp = gameFilter ? "--wf-tcp-out=80,443-65535" : "--wf-tcp-out=80,443";
-        string wfUdp = gameFilter ? "--wf-udp-out=443-65535" : "--wf-udp-out=443,19294-19344,50000-50100";
+        string wfUdp = gameFilter ? "--wf-udp-out=443-65535" : "--wf-udp-out=443,19294-19344,50000-65535";
 
         string hostlistArg = !string.IsNullOrWhiteSpace(hostlistPath)
             ? $"--hostlist={hostlistPath}"

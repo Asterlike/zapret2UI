@@ -18,4 +18,8 @@ public sealed class CheckTargetRow : ObservableObject
 
     private DiagStatus _tls13 = DiagStatus.Pending;
     public DiagStatus Tls13 { get => _tls13; set => SetField(ref _tls13, value); }
+
+    // Full HTTPS GET — the request actually completes, not just the handshake.
+    private DiagStatus _http = DiagStatus.Pending;
+    public DiagStatus Http { get => _http; set => SetField(ref _http, value); }
 }

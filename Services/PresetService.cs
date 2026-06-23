@@ -191,12 +191,14 @@ public sealed class PresetService
                 "--wf-raw-part=@{WF}\\windivert_part.quic_initial_ietf.txt",
                 "--blob=quic_google:@{FILES}\\fake\\quic_initial_www_google_com.bin",
                 "--blob=tls_google:@{FILES}\\fake\\tls_clienthello_www_google_com.bin",
-                // discord.media control socket (TLS) — лёгкая разрезка, чтобы пускало в войс.
-                "--filter-tcp=443-65535", "--filter-l7=tls", "{EXCLUDE:exclude}", "--out-range=-d10", "--payload=tls_client_hello",
+                // discord.media control socket (TLS) — лёгкая разрезка, чтобы пускало в войс. Скоупим
+                // строго по discord (не catch-all), иначе профиль выпиливается в режиме «только списки».
+                "--filter-tcp=443-65535", "--filter-l7=tls", "{HOSTLIST:discord}", "--out-range=-d10", "--payload=tls_client_hello",
                   "--lua-desync=multisplit:pos=2,midsld-2:seqovl=1:seqovl_pattern=tls_google:optional",
                 "--new",
-                // Голос: discord+stun → фейк QUIC-блобом, без ttl-ограничения.
-                "--filter-udp=19294-19344,50000-50100", "--filter-l7=discord,stun",
+                // Голос: discord+stun на ВСЁМ диапазоне 50000-65535 → фейк QUIC-блобом, без ttl-ограничения
+                // (route-independent альтернатива анти-дропу из комбо — пробуйте, если autottl не зашёл).
+                "--filter-udp=19294-19344,50000-65535", "--filter-l7=discord,stun",
                   "--lua-desync=fake:blob=quic_google:repeats=6",
             }
         },
@@ -270,17 +272,23 @@ public sealed class PresetService
         a.Add("--new");
         a.AddRange(new[] { "--filter-udp=443-65535", "--filter-l7=quic", "{HOSTLIST:youtube}", "--payload=quic_initial",
                            "--lua-desync=fake:blob=quic_google:repeats=11" });
+        // 4b) QUIC Discord (по SNI) → google-фейк. cdn/media.discordapp по HTTP/3: без отдельного
+        //     профиля медиа/вложения не грузятся в режиме «только списки» (там catch-all QUIC отключён).
+        a.Add("--new");
+        a.AddRange(new[] { "--filter-udp=443-65535", "--filter-l7=quic", "{HOSTLIST:discord}", "--payload=quic_initial",
+                           "--lua-desync=fake:blob=quic_google:repeats=11" });
         // 5) QUIC остальное → дефолтный фейк. Тоже catch-all → исключаем чувствительные домены.
         a.Add("--new");
         a.AddRange(new[] { "--filter-udp=443-65535", "--filter-l7=quic", "{EXCLUDE:exclude}", "--payload=quic_initial",
                            "--lua-desync=fake:blob=fake_default_quic:repeats=6" });
-        // 6) Голос Discord (STUN + IP-discovery): фейк QUIC-блобом google. Голосовой сервер
-        //    отбрасывает QUIC как мусор для своего потока → SSRC не портится, нет NO_ROUTE,
-        //    поэтому ttl НЕ режем (route-independent). Проверенный рабочий путь — Flowseal alt10:
-        //    --filter-l7=discord,stun → fake quic_initial_www_google_com, repeats=6.
+        // 6) Голос Discord (STUN + IP-discovery). Порты войса — ВЕСЬ высокий диапазон 50000-65535
+        //    (узкий 50000-50100 пропускал половину войс-серверов → вечный 5000 пинг). Фейк QUIC-блобом
+        //    google (мусор для войс-потока → SSRC не портится) + ip_autottl: фейк умирает на DPI
+        //    провайдера, не доходя до сервера (анти-дроп), поэтому реальный RTP идёт без троттлинга.
+        //    repeats=2 — лёгкий, как в актуальном фиксе 5к-пинга (Flowseal #12614 «Anti-Drop»).
         a.Add("--new");
-        a.AddRange(new[] { "--filter-udp=19294-19344,50000-50100", "--filter-l7=discord,stun",
-                           "--lua-desync=fake:blob=quic_google:repeats=6" });
+        a.AddRange(new[] { "--filter-udp=19294-19344,50000-65535", "--filter-l7=discord,stun",
+                           "--lua-desync=fake:blob=quic_google:ip_autottl=-2,3-20:ip6_autottl=-2,3-20:repeats=2" });
 
         return a;
     }

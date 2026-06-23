@@ -116,6 +116,10 @@ public sealed class HostlistService
         "discordmerch.com", "discord-activities.com", "discordactivities.com",
         "discordsays.com", "discordsez.com", "discordpartygames.com",
         "discord-attachments-uploads-prd.storage.googleapis.com",
+        // Cloudflare Turnstile widget — Discord's login bot-challenge loads from here
+        // (challenges.cloudflare.com). In allow-list mode it wasn't desynced by anything, so the
+        // challenge couldn't render → login stuck on net::ERR_CONNECTION_RESET. Ride the Discord desync.
+        "challenges.cloudflare.com",
     };
 
     /// <summary>Telegram-owned SNI domains (curated). zapret matches subdomains, so apex covers
