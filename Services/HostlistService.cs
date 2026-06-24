@@ -228,12 +228,6 @@ public sealed class HostlistService
         "nitrado.net", "gamefabric.com", "g-portal.com", "i3d.net", "edgegap.com",
     };
 
-    /// <summary>Validate a hostlist name so it cannot escape the lists folder.</summary>
-    public static bool IsValidName(string name) =>
-        !string.IsNullOrWhiteSpace(name) &&
-        name.IndexOfAny(Path.GetInvalidFileNameChars()) < 0 &&
-        !name.Contains("..");
-
     private static string NormalizeNewlines(string s) =>
         s.Replace("\r\n", "\n").Replace('\r', '\n');
 }

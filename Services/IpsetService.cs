@@ -145,15 +145,24 @@ public sealed class IpsetService
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             StandardOutputEncoding = Encoding.ASCII,
+            StandardInputEncoding = Encoding.ASCII, // match stdout: domains/IPs are ASCII, no code-page mojibake
         };
         using var p = new Process { StartInfo = psi };
         p.Start();
-
-        var outTask = p.StandardOutput.ReadToEndAsync(ct);
-        await p.StandardInput.WriteAsync(stdin);
-        p.StandardInput.Close();
-        string outp = await outTask;
-        await p.WaitForExitAsync(ct);
-        return outp;
+        try
+        {
+            var outTask = p.StandardOutput.ReadToEndAsync(ct);
+            await p.StandardInput.WriteAsync(stdin);
+            p.StandardInput.Close();
+            string outp = await outTask;
+            await p.WaitForExitAsync(ct);
+            return outp;
+        }
+        finally
+        {
+            // Disposing a Process doesn't terminate it: on cancellation/exception kill the child
+            // (mdig/ip2net) so it can't linger after we've stopped reading its output.
+            try { if (!p.HasExited) p.Kill(entireProcessTree: true); } catch { }
+        }
     }
 }

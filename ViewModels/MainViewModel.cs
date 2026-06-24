@@ -989,7 +989,19 @@ public sealed class MainViewModel : ObservableObject
         _engine.BypassAllSites = Settings.BypassAllSites;
 
         if (_hostlists.Exists(ProxyListName))
+        {
             ProxyHostInput = _hostlists.ReadDomains(ProxyListName).FirstOrDefault() ?? "";
+            // Re-resolve the proxy IP at startup so ipset-proxy.txt is never missing or stale. If it
+            // vanished, {IPSET:proxy} resolves to nothing and the proxy profile degrades into a global
+            // TLS catch-all (which the allow-list safety net then drops → proxy goes silent). Also
+            // picks up a rotated proxy IP without the user re-entering the host. Best-effort.
+            var proxyHost = ProxyHostInput;
+            if (proxyHost.Length > 0)
+                _ = Task.Run(async () =>
+                {
+                    try { await _ipset.BuildProxyIpsetAsync(proxyHost, CancellationToken.None); } catch { }
+                });
+        }
 
         SelectedPreset = Presets.FirstOrDefault(p => p.Name == Settings.ActivePresetName)
                          ?? Presets.FirstOrDefault();

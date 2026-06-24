@@ -45,7 +45,11 @@ public sealed class SettingsService
         try
         {
             AppPaths.EnsureCreated();
-            File.WriteAllText(AppPaths.SettingsFile, JsonSerializer.Serialize(Settings, JsonOpts));
+            // Temp-file + atomic replace: a crash mid-write can't corrupt settings.json (which Load
+            // would then reject, resetting every setting to defaults).
+            string tmp = AppPaths.SettingsFile + ".tmp";
+            File.WriteAllText(tmp, JsonSerializer.Serialize(Settings, JsonOpts));
+            File.Move(tmp, AppPaths.SettingsFile, overwrite: true);
         }
         catch { /* non-fatal */ }
     }
@@ -58,6 +62,11 @@ public sealed class SettingsService
                 Settings = JsonSerializer.Deserialize<AppSettings>(
                     File.ReadAllText(AppPaths.SettingsFile)) ?? new AppSettings();
         }
-        catch { Settings = new AppSettings(); }
+        catch
+        {
+            Settings = new AppSettings();
+            // Preserve the unreadable file instead of overwriting it on the next Save.
+            try { File.Move(AppPaths.SettingsFile, AppPaths.SettingsFile + ".bak", overwrite: true); } catch { }
+        }
     }
 }

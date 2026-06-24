@@ -48,9 +48,13 @@ public partial class MainWindow
         mmi.ptMaxSize.X = work.right - work.left;
         mmi.ptMaxSize.Y = work.bottom - work.top;
 
-        // Keep the user-defined minimum window size on maximize-tracking too.
-        mmi.ptMinTrackSize.X = (int)880;
-        mmi.ptMinTrackSize.Y = (int)580;
+        // Keep the user-defined minimum window size on maximize-tracking too. WM_GETMINMAXINFO is in
+        // physical pixels, so scale the logical (DIP) minimum by the monitor DPI — otherwise on a
+        // >100% display the enforced minimum is smaller than the XAML MinWidth/MinHeight.
+        double scale = GetDpiForWindow(hwnd) / 96.0;
+        if (scale <= 0) scale = 1.0;
+        mmi.ptMinTrackSize.X = (int)(880 * scale);
+        mmi.ptMinTrackSize.Y = (int)(580 * scale);
 
         Marshal.StructureToPtr(mmi, lParam, true);
     }
@@ -62,6 +66,9 @@ public partial class MainWindow
 
     [DllImport("user32.dll")]
     private static extern bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFO lpmi);
+
+    [DllImport("user32.dll")]
+    private static extern uint GetDpiForWindow(IntPtr hwnd);
 
     [StructLayout(LayoutKind.Sequential)]
     private struct POINT { public int X; public int Y; }

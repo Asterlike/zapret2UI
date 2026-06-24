@@ -75,7 +75,22 @@ public sealed class DiagnosticsService
             }
             finally { gate.Release(); }
         });
-        await Task.WhenAll(tasks);
+        try
+        {
+            await Task.WhenAll(tasks);
+        }
+        finally
+        {
+            // Stop pressed mid-probe leaves cells stuck on "Running" (their await threw on cancel).
+            // Give every unfinished cell a terminal state so the UI doesn't spin forever.
+            foreach (var r in rows)
+            {
+                if (r.Ping == DiagStatus.Running) r.Ping = DiagStatus.Timeout;
+                if (r.Http == DiagStatus.Running) r.Http = DiagStatus.Timeout;
+                if (r.Tls12 == DiagStatus.Running) r.Tls12 = DiagStatus.Timeout;
+                if (r.Tls13 == DiagStatus.Running) r.Tls13 = DiagStatus.Timeout;
+            }
+        }
 
         ct.ThrowIfCancellationRequested();
         Status?.Invoke("Диагностика завершена.");

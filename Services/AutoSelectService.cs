@@ -130,6 +130,8 @@ public sealed class AutoSelectService : IDisposable
 
     private void StartEngine(ComboStrategy cand)
     {
+        StopEngine(); // defensive: never leave a previous candidate's winws2 alive (two engines
+                      // would fight over WinDivert and poison every subsequent probe).
         var preset = new Preset { Name = cand.Name, Args = cand.Args };
         var psi = new ProcessStartInfo
         {
@@ -142,7 +144,11 @@ public sealed class AutoSelectService : IDisposable
             StandardOutputEncoding = Encoding.UTF8,
             StandardErrorEncoding = Encoding.UTF8,
         };
-        foreach (var a in EngineService.BuildArguments(preset, null)) psi.ArgumentList.Add(a);
+        // Probe with bypassAll=true: catalog candidates ARE global catch-alls by design, so the
+        // goal hosts must actually be desynced during the test. (The saved preset is re-scoped by
+        // ToPreset, and the allow-list safety net only applies to the running, saved preset.)
+        foreach (var a in EngineService.BuildArguments(preset, null, gameFilter: false, bypassAll: true, forLaunch: true))
+            psi.ArgumentList.Add(a);
 
         var p = new Process { StartInfo = psi };
         p.OutputDataReceived += (_, _) => { };
@@ -180,11 +186,40 @@ public sealed class AutoSelectService : IDisposable
     }
 
     /// <summary>Build a saveable preset from a chosen combo strategy.</summary>
-    public static Preset ToPreset(ComboStrategy s, AutoScope scope) => new()
+    public static Preset ToPreset(ComboStrategy s, AutoScope scope)
     {
-        Name = $"Автоподбор: {scope.Title()} [{s.Name}]",
-        Description = $"Стратегия «{s.Name}», подобранная авто-тестером как лучшая для «{scope.Title()}».",
-        Args = new List<string>(s.Args),
-        IsBuiltIn = false,
-    };
+        // The catalog candidate is a GLOBAL catch-all: its TLS/QUIC profiles carry no --hostlist, so
+        // they desync EVERY site. Saved verbatim the running preset mangles non-listed sites (Steam,
+        // dota2, …) — and since it has no --hostlist-exclude, allow-list mode ("область обхода ВЫКЛ")
+        // can't scope it either. Re-route just its TLS desync bundle through the SNI-scoped combo
+        // (discord/youtube hostlists + an exclude'd catch-all), exactly like the built-in/generated
+        // presets, so the scope toggle governs it the same way. Generator strategies are already
+        // scoped → fall back to their args verbatim if no TLS bundle is found.
+        var tls = ExtractTlsBundle(s.Args);
+        return new Preset
+        {
+            Name = $"Автоподбор: {scope.Title()} [{s.Name}]",
+            Description = $"Стратегия «{s.Name}», подобранная авто-тестером как лучшая для «{scope.Title()}».",
+            Args = tls.Count > 0
+                ? PresetService.BuildComboArgs(tls.ToArray(), tls.ToArray(), tls.ToArray())
+                : new List<string>(s.Args),
+            IsBuiltIn = false,
+        };
+    }
+
+    /// <summary>Pull the TLS-profile desyncs out of a catalog strategy — the --lua-desync lines inside
+    /// its --filter-l7=tls profile (from that marker to the next --new). Used to re-scope a global
+    /// candidate into the per-SNI combo when saving it as a preset.</summary>
+    private static List<string> ExtractTlsBundle(IReadOnlyList<string> args)
+    {
+        var tls = new List<string>();
+        bool inTls = false;
+        foreach (var a in args)
+        {
+            if (a == "--new") { if (inTls) break; continue; }
+            if (a == "--filter-l7=tls") { inTls = true; continue; }
+            if (inTls && a.StartsWith("--lua-desync=", StringComparison.Ordinal)) tls.Add(a);
+        }
+        return tls;
+    }
 }

@@ -107,17 +107,22 @@ public sealed class TargetService
         catch { /* non-fatal */ }
     }
 
-    /// <summary>Strip scheme/path/port from user input, leaving a bare host.</summary>
+    /// <summary>Strip scheme/path/port from user input, leaving a bare host. Returns "" for anything
+    /// that can't be a safe file-name component (the host becomes target-&lt;name&gt;.txt).</summary>
     public static string Normalize(string input)
     {
         string s = (input ?? "").Trim().ToLowerInvariant();
         if (s.Length == 0) return "";
         int scheme = s.IndexOf("://", StringComparison.Ordinal);
         if (scheme >= 0) s = s[(scheme + 3)..];
-        s = s.Split('/', '?', '#')[0];
+        s = s.Split('/', '\\', '?', '#')[0];     // also split on '\' so it can't escape the lists folder
         int colon = s.IndexOf(':');
         if (colon >= 0) s = s[..colon];
-        return s.Trim('.');
+        s = s.Trim('.');
+        // The result is used to build a file path — reject path traversal / invalid file-name chars.
+        if (s.Length == 0 || s.Contains("..") || s.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+            return "";
+        return s;
     }
 
     /// <summary>

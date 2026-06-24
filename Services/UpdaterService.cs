@@ -376,6 +376,8 @@ public sealed class UpdaterService
     private static void VerifyBinaries(string stageDir, Dictionary<string, string> hashes)
     {
         string arch = AppPaths.ReleaseArchFolder;
+        int verified = 0;
+        bool winwsVerified = false;
         // Windows binaries were staged flat at the root of stageDir.
         foreach (var file in Directory.EnumerateFiles(stageDir, "*", SearchOption.TopDirectoryOnly))
         {
@@ -388,7 +390,18 @@ public sealed class UpdaterService
             if (!string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException(
                     $"Контрольная сумма не совпала для {name}. Загрузка повреждена или подменена.");
+            verified++;
+            if (name.Equals("winws2.exe", StringComparison.OrdinalIgnoreCase)) winwsVerified = true;
         }
+
+        // Fail closed: a manifest was provided (caller only calls us when hashes.Count > 0), so it must
+        // actually cover what we staged. Zero matches = the manifest doesn't line up with the release →
+        // we verified nothing. And if the manifest lists winws2.exe, that match is mandatory — otherwise
+        // a tampered engine binary could install just because its name wasn't a manifest key.
+        bool manifestHasWinws = hashes.Keys.Any(k => k.EndsWith("winws2.exe", StringComparison.OrdinalIgnoreCase));
+        if (verified == 0 || (manifestHasWinws && !winwsVerified))
+            throw new InvalidOperationException(
+                "Не удалось проверить целостность движка по манифесту sha256 — установка отменена.");
     }
 
     private static void InstallStaged(string stageDir)

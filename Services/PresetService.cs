@@ -53,7 +53,11 @@ public sealed class PresetService
         try
         {
             AppPaths.EnsureCreated();
-            File.WriteAllText(AppPaths.PresetsFile, JsonSerializer.Serialize(UserPresets, JsonOpts));
+            // Write to a temp file then atomically replace: a crash mid-write can't truncate the real
+            // presets.json (which Load would then reject, wiping every user preset).
+            string tmp = AppPaths.PresetsFile + ".tmp";
+            File.WriteAllText(tmp, JsonSerializer.Serialize(UserPresets, JsonOpts));
+            File.Move(tmp, AppPaths.PresetsFile, overwrite: true);
         }
         catch { /* non-fatal */ }
     }
@@ -73,7 +77,13 @@ public sealed class PresetService
                 }
             }
         }
-        catch { UserPresets = new(); }
+        catch
+        {
+            UserPresets = new();
+            // Keep the unreadable file aside instead of letting the next Save overwrite it with an
+            // empty list — the user can recover their presets from the .bak.
+            try { File.Move(AppPaths.PresetsFile, AppPaths.PresetsFile + ".bak", overwrite: true); } catch { }
+        }
     }
 
     // ---- built-in strategies ----------------------------------------------
@@ -260,7 +270,11 @@ public sealed class PresetService
         if (proxyTls is not null)
         {
             a.Add("--new");
-            a.AddRange(new[] { "--filter-tcp=443-65535", "{IPSET:proxy}", "--filter-l7=tls", "--out-range=-d10", "--payload=tls_client_hello" });
+            // Port 1-65535, not 443-65535: this profile is already pinned to the proxy IP via
+            // {IPSET:proxy}, so a wide port range is safe (it can only touch the proxy server) and it
+            // covers MTProxy servers listening below 443. The old 443-65535 silently skipped those →
+            // the FakeTLS handshake was never desynced → DPI blocked it → "0/10, не подключается".
+            a.AddRange(new[] { "--filter-tcp=1-65535", "{IPSET:proxy}", "--filter-l7=tls", "--out-range=-d10", "--payload=tls_client_hello" });
             a.AddRange(proxyTls);
         }
         // 3) Остальной TLS (вкл. hCaptcha и пр.). Catch-all — поэтому исключаем чувствительные

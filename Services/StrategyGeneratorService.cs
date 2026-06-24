@@ -173,6 +173,8 @@ public sealed class StrategyGeneratorService : IDisposable
 
     private void StartEngine(List<string> comboArgs, bool gameFilter)
     {
+        StopEngine(); // defensive: never leave the previous candidate's winws2 alive (two engines
+                      // would fight over WinDivert and poison every subsequent probe).
         var preset = new Preset { Name = "generator", Args = comboArgs };
         var psi = new ProcessStartInfo
         {
@@ -185,7 +187,7 @@ public sealed class StrategyGeneratorService : IDisposable
             StandardOutputEncoding = Encoding.UTF8,
             StandardErrorEncoding = Encoding.UTF8,
         };
-        foreach (var a in EngineService.BuildArguments(preset, null, gameFilter)) psi.ArgumentList.Add(a);
+        foreach (var a in EngineService.BuildArguments(preset, null, gameFilter, forLaunch: true)) psi.ArgumentList.Add(a);
 
         var p = new Process { StartInfo = psi };
         p.OutputDataReceived += (_, _) => { };

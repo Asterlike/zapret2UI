@@ -33,7 +33,10 @@ public sealed class MonitorService
 
     public void Stop()
     {
-        try { _cts?.Cancel(); _cts?.Dispose(); } catch { }
+        // Cancel but don't Dispose: the running LoopAsync may still be awaiting Task.Delay on this
+        // token, and disposing the CTS out from under it can surface as ObjectDisposedException
+        // instead of a clean cancel. No CancelAfter/wait-handle is used, so GC reclaims the CTS.
+        try { _cts?.Cancel(); } catch { }
         _cts = null;
     }
 
@@ -58,6 +61,7 @@ public sealed class MonitorService
             }
         }
         catch (OperationCanceledException) { /* stopped */ }
+        catch (ObjectDisposedException) { /* CTS torn down during stop */ }
     }
 
     /// <summary>Healthy when every watched endpoint completes a TLS handshake.</summary>

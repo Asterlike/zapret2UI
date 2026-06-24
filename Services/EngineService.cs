@@ -46,9 +46,12 @@ public sealed class EngineService : IDisposable
 
     public bool IsRunning => State == EngineState.Running;
 
-    /// <summary>Build the full winws2 argument list for a preset (for preview/launch).</summary>
+    /// <summary>Build the full winws2 argument list for a preset (for preview/launch).
+    /// <paramref name="forLaunch"/> must be true ONLY for a real engine start: it lets the
+    /// effective-exclude list be materialised to disk. The preview path passes false so that
+    /// merely showing the command line never writes a file.</summary>
     public static List<string> BuildArguments(Preset preset, string? hostlistPath,
-        bool gameFilter = false, bool bypassAll = false)
+        bool gameFilter = false, bool bypassAll = false, bool forLaunch = false)
     {
         var args = new List<string>
         {
@@ -79,7 +82,7 @@ public sealed class EngineService : IDisposable
         // for a filtered copy; if there are no targets, the original exclude is used unchanged.
         // Only needed when actually bypassing everything — in allow-list mode the catch-all is
         // re-scoped/dropped afterwards (see ScopeCatchAllToTargets), so the exclude is irrelevant.
-        string excludeName = bypassAll ? EffectiveExcludeName() : "exclude";
+        string excludeName = bypassAll ? EffectiveExcludeName(forLaunch) : "exclude";
 
         foreach (var raw in preset.Args)
         {
@@ -114,11 +117,16 @@ public sealed class EngineService : IDisposable
     }
 
     /// <summary>
-    /// Allow-list mode: every profile carrying a <c>--hostlist-exclude</c> is a catch-all
-    /// ("desync everything except these"). Re-point it at the user's custom targets
-    /// (<c>--hostlist=&lt;targets&gt;</c>) so they still bypass, or drop the whole profile when there
-    /// are no targets. Profiles are delimited by <c>--new</c>; the catch-all is never the first
-    /// profile, so dropping it together with its leading <c>--new</c> keeps the arg list valid.
+    /// Allow-list mode: neutralise every "catch-all" profile so non-listed sites are never touched.
+    /// A catch-all is a broad TLS/QUIC/HTTP desync that isn't pinned to a hostlist/ipset — either it
+    /// carries <c>--hostlist-exclude</c> ("desync everything except these"), or it's a BARE
+    /// <c>--filter-l7=tls/quic/http</c> with no list at all (e.g. a proxy profile whose
+    /// <c>{IPSET:proxy}</c> resolved to nothing, or a stale global auto-select preset). Exclude
+    /// catch-alls are re-pointed at the user's custom targets (<c>--hostlist=&lt;targets&gt;</c>) so
+    /// those still bypass; bare globals carry no scope intent and are dropped. Profiles are delimited
+    /// by <c>--new</c>; dropping one together with its leading <c>--new</c> keeps the arg list valid.
+    /// The FIRST segment is always kept — it holds the global setup (<c>--wf-*</c>, blobs) plus the
+    /// first real profile.
     /// </summary>
     private static List<string> ScopeCatchAllToTargets(List<string> args)
     {
@@ -128,19 +136,30 @@ public sealed class EngineService : IDisposable
 
         var result = new List<string>();
         var profile = new List<string>();
+        bool first = true;
 
         void Flush()
         {
             if (profile.Count == 0) return;
             int ex = profile.FindIndex(a => a.StartsWith("--hostlist-exclude=", StringComparison.Ordinal));
-            if (ex < 0)
-                result.AddRange(profile);                       // normal (listed) profile — keep
-            else if (hasTargets)
+            bool scoped = profile.Any(a => a.StartsWith("--hostlist=", StringComparison.Ordinal)
+                                        || a.StartsWith("--ipset=", StringComparison.Ordinal));
+            // Bare global = a broad protocol desync with no list pinning it (and not the first segment,
+            // which carries the global setup args + first real profile).
+            bool bareGlobal = !first && ex < 0 && !scoped && profile.Any(a =>
+                a.StartsWith("--filter-l7=", StringComparison.Ordinal) &&
+                (a.Contains("tls", StringComparison.Ordinal) || a.Contains("quic", StringComparison.Ordinal)
+                 || a.Contains("http", StringComparison.Ordinal)));
+            first = false;
+
+            if (ex < 0 && !bareGlobal)
+                result.AddRange(profile);                       // normal (listed/scoped) profile — keep
+            else if (ex >= 0 && hasTargets)
             {
-                profile[ex] = $"--hostlist={targetsPath}";       // catch-all → targets-only
+                profile[ex] = $"--hostlist={targetsPath}";       // exclude catch-all → targets-only
                 result.AddRange(profile);
             }
-            // else: catch-all with no targets → drop the whole profile (incl. its leading --new)
+            // else: exclude catch-all without targets, OR any bare global → drop the whole profile.
             profile.Clear();
         }
 
@@ -218,10 +237,12 @@ public sealed class EngineService : IDisposable
 
     /// <summary>
     /// Returns the exclude-list name the catch-all profiles should use. When the user has custom
-    /// targets, writes <c>exclude-eff.txt</c> = exclude.txt minus the target domains and returns
-    /// "exclude-eff" so the active strategy desyncs those domains; otherwise returns "exclude".
+    /// targets, returns "exclude-eff" (= exclude.txt minus the target domains) so the active strategy
+    /// desyncs those domains; otherwise "exclude". The exclude-eff.txt file is (re)written ONLY when
+    /// <paramref name="write"/> is true (a real launch) — never from the preview path. When not
+    /// writing, the eff name is claimed only if the file already exists, so the preview stays honest.
     /// </summary>
-    private static string EffectiveExcludeName()
+    private static string EffectiveExcludeName(bool write)
     {
         try
         {
@@ -234,14 +255,19 @@ public sealed class EngineService : IDisposable
                 StringComparer.OrdinalIgnoreCase);
             if (targets.Count == 0) return "exclude";
 
-            var kept = File.ReadAllLines(excludePath)
-                .Where(line =>
-                {
-                    string t = line.Trim().ToLowerInvariant();
-                    return t.Length == 0 || !targets.Contains(t);
-                });
-            File.WriteAllLines(Path.Combine(AppPaths.ListsDir, "exclude-eff.txt"), kept);
-            return "exclude-eff";
+            string effPath = Path.Combine(AppPaths.ListsDir, "exclude-eff.txt");
+            if (write)
+            {
+                var kept = File.ReadAllLines(excludePath)
+                    .Where(line =>
+                    {
+                        string t = line.Trim().ToLowerInvariant();
+                        return t.Length == 0 || !targets.Contains(t);
+                    });
+                File.WriteAllLines(effPath, kept);
+                return "exclude-eff";
+            }
+            return File.Exists(effPath) ? "exclude-eff" : "exclude";
         }
         catch { return "exclude"; }
     }
@@ -279,7 +305,7 @@ public sealed class EngineService : IDisposable
                 StandardOutputEncoding = Encoding.UTF8,
                 StandardErrorEncoding = Encoding.UTF8,
             };
-            foreach (var a in BuildArguments(preset, hostlistPath, GameFilter, BypassAllSites))
+            foreach (var a in BuildArguments(preset, hostlistPath, GameFilter, BypassAllSites, forLaunch: true))
                 psi.ArgumentList.Add(a);
 
             OpenLogFile(preset);
@@ -436,8 +462,9 @@ public sealed class EngineService : IDisposable
                 finally { Marshal.FreeHGlobal(buf); }
             }
 
-            if (_job != IntPtr.Zero)
-                AssignProcessToJobObject(_job, proc.Handle);
+            if (_job != IntPtr.Zero && !AssignProcessToJobObject(_job, proc.Handle))
+                Emit("Предупреждение: не удалось привязать движок к job-объекту — " +
+                     "автозакрытие при падении приложения может не сработать.");
         }
         catch { /* best-effort; graceful Stop() still handles a clean exit */ }
     }
