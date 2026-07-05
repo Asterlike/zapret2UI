@@ -54,8 +54,16 @@ public sealed class AutostartService
                 RedirectStandardError = true,
             };
             using var p = Process.Start(psi)!;
-            string output = p.StandardOutput.ReadToEnd() + p.StandardError.ReadToEnd();
-            p.WaitForExit(10000);
+            // Drain both pipes concurrently (in the background) so neither can stall the other, then
+            // wait for exit — reading only one pipe sequentially is the classic two-pipe deadlock.
+            var outTask = p.StandardOutput.ReadToEndAsync();
+            var errTask = p.StandardError.ReadToEndAsync();
+            if (!p.WaitForExit(10000))
+            {
+                try { p.Kill(entireProcessTree: true); } catch { }
+                return (-1, "schtasks не ответил вовремя.");
+            }
+            string output = outTask.GetAwaiter().GetResult() + errTask.GetAwaiter().GetResult();
             return (p.ExitCode, output);
         }
         catch (Exception ex)

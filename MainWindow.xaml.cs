@@ -22,6 +22,7 @@ public partial class MainWindow : Window
     private Drawing.Icon? _iconRunning;
     private bool _reallyClose;
     private EngineState _lastState = EngineState.Stopped;
+    private readonly ToastNotifier _toasts = new();
 
     public MainWindow()
     {
@@ -30,7 +31,7 @@ public partial class MainWindow : Window
 
         _vm.LogLines.CollectionChanged += OnLogChanged;
         _vm.PropertyChanged += OnVmPropertyChanged;
-        _vm.Notify += (title, msg) => _tray?.ShowBalloonTip(3500, title, msg, Forms.ToolTipIcon.Info);
+        _vm.Notify += (title, msg) => ShowToast(title, msg);
         _vm.AutoCheckStarted += OnAutoCheckStarted;
         _vm.AutoCheckFinished += OnAutoCheckFinished;
         Loaded += OnLoaded;
@@ -74,6 +75,34 @@ public partial class MainWindow : Window
     {
         if (e.PropertyName is nameof(MainViewModel.State) or nameof(MainViewModel.SelectedPreset))
             UpdateTrayForState(_vm.State);
+        else if (e.PropertyName == nameof(MainViewModel.UiScale))
+            ApplyUiScale(_vm.UiScale);
+    }
+
+    // ---- app-wide UI scale (DPI-independent zoom) --------------------------
+
+    /// <summary>Scales the whole UI via a LayoutTransform on the content root, on top of the OS DPI
+    /// scaling. The borderless drag region and the window's min/target size are grown with it so the
+    /// enlarged content isn't clipped and dragging still lines up with the visible caption bar.</summary>
+    private void ApplyUiScale(double scale)
+    {
+        scale = Math.Clamp(scale, 1.0, 2.5);
+        ContentRoot.LayoutTransform = scale == 1.0 ? Transform.Identity : new ScaleTransform(scale, scale);
+
+        var chrome = System.Windows.Shell.WindowChrome.GetWindowChrome(this);
+        if (chrome is not null) chrome.CaptionHeight = 46 * scale;
+
+        MinWidth = 880 * scale;
+        MinHeight = 580 * scale;
+
+        if (WindowState == WindowState.Normal)
+        {
+            var wa = SystemParameters.WorkArea;
+            Width = Math.Min(1280 * scale, wa.Width);
+            Height = Math.Min(720 * scale, wa.Height);
+            Left = wa.Left + (wa.Width - Width) / 2;
+            Top = wa.Top + (wa.Height - Height) / 2;
+        }
     }
 
     // Fade + slight slide-up of the tab content when the user switches tabs.
@@ -122,13 +151,16 @@ public partial class MainWindow : Window
 
     private void OnAutoCheckStarted()
     {
-        if (_checkWindow is not null) return;
+        // A review popup left open from a previous run is reused — just bring it forward.
+        if (_checkWindow is not null) { _checkWindow.Activate(); return; }
         _checkWindow = new CheckWindow { Owner = this, DataContext = _vm };
         _checkWindow.Closed += (_, _) => _checkWindow = null;
         _checkWindow.Show();
     }
 
-    private void OnAutoCheckFinished() => _checkWindow?.CloseFromVm();
+    // Don't close the popup when the run finishes — it stays open for review so the user can save/apply
+    // strategies from it. Just bring it forward so they notice it's done.
+    private void OnAutoCheckFinished() => _checkWindow?.Activate();
 
     // ---- tray --------------------------------------------------------------
 
@@ -175,12 +207,24 @@ public partial class MainWindow : Window
         if (_trayToggle is not null)
             _trayToggle.Text = running ? "Остановить обход" : "Запустить обход";
 
-        // Balloon only on settled transitions.
+        // Our own corner toast on settled transitions (replaces the Windows balloon tips).
         if (state == EngineState.Running && _lastState != EngineState.Running)
-            _tray.ShowBalloonTip(2500, "Zapret UI", "Обход DPI запущен", Forms.ToolTipIcon.Info);
+            ShowToast("Zapret UI", "Обход включён");
         else if (state == EngineState.Stopped && _lastState is EngineState.Running or EngineState.Stopping)
-            _tray.ShowBalloonTip(2500, "Zapret UI", "Обход DPI остановлен", Forms.ToolTipIcon.Info);
+            ShowToast("Zapret UI", "Обход выключен");
         _lastState = state;
+    }
+
+    /// <summary>Show one of our corner toasts, honouring the notifications + sound settings. Safe to
+    /// call from any thread (marshals to the UI thread). Replaces the old Windows tray balloon tips.</summary>
+    private void ShowToast(string title, string message)
+    {
+        if (!_vm.Settings.NotificationsEnabled) return;
+        if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(() => ShowToast(title, message)); return; }
+        // A notification is non-critical: Notify runs inline inside _engine.Start() (via SetState),
+        // so a throw here would abort the launch. Never let a toast break the caller.
+        try { _toasts.Show(title, message, _vm.Settings.NotificationSound); }
+        catch { /* toast is best-effort */ }
     }
 
     private static Drawing.Icon? LoadIcon(string name)

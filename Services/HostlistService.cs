@@ -78,16 +78,15 @@ public sealed class HostlistService
     }
 
     /// <summary>The bundled "authored" lists, kept in sync with the code below.</summary>
-    public static readonly string[] BundledListNames = { "youtube", "discord", "telegram", "exclude", "general" };
+    public static readonly string[] BundledListNames = { "youtube", "discord", "exclude", "general" };
 
     /// <summary>Re-sync the bundled lists from code on EVERY launch, so domain updates reach existing
     /// installs (the user shouldn't be stuck on an old 4-host version). These are app-managed;
-    /// user-created lists and the "proxy" list are never touched here.</summary>
+    /// user-created lists are never touched here.</summary>
     public void SeedDefaults()
     {
         Write("youtube", string.Join('\n', DefaultYoutube));
         Write("discord", string.Join('\n', DefaultDiscord));
-        Write("telegram", string.Join('\n', DefaultTelegram));
         Write("exclude", string.Join('\n', DefaultExclude));
         Write("general", string.Join('\n', DefaultGeneral));
     }
@@ -97,8 +96,14 @@ public sealed class HostlistService
     /// <summary>YouTube/Google domains (Flowseal list-google.txt).</summary>
     private static readonly string[] DefaultYoutube =
     {
-        "yt3.ggpht.com", "yt4.ggpht.com", "yt3.googleusercontent.com", "googlevideo.com",
-        "jnn-pa.googleapis.com", "stable.dl2.discordapp.net", "wide-youtube.l.google.com",
+        "yt3.ggpht.com", "yt4.ggpht.com", "ggpht.com", "yt3.googleusercontent.com", "googlevideo.com",
+        // googlevideo streams also rotate through the gvt1/2/3 edge CDNs; without these the throttle
+        // survives on the media path even when youtube.com works (RU CDN rotation, июль 2026).
+        "gvt1.com", "gvt2.com", "gvt3.com",
+        // NB: stable.dl2.discordapp.net was here in the upstream Flowseal list-google, but it's a Discord
+        // distro CDN — it belongs to (and is already covered by) the discord list's "discordapp.net"
+        // (subdomains match automatically). Kept out of youtube so the Discord profile owns it.
+        "jnn-pa.googleapis.com", "wide-youtube.l.google.com",
         "youtube-nocookie.com", "youtube-ui.l.google.com", "youtube.com",
         "youtubeembeddedplayer.googleapis.com", "youtubekids.com", "youtube.googleapis.com",
         "youtubei.googleapis.com", "youtu.be", "yt-video-upload.l.google.com", "ytimg.com",
@@ -120,20 +125,12 @@ public sealed class HostlistService
         // (challenges.cloudflare.com). In allow-list mode it wasn't desynced by anything, so the
         // challenge couldn't render → login stuck on net::ERR_CONNECTION_RESET. Ride the Discord desync.
         "challenges.cloudflare.com",
-    };
-
-    /// <summary>Telegram-owned SNI domains (curated). zapret matches subdomains, so apex covers
-    /// all *.telegram.org. NOTE: this only helps the SNI/web parts (web client, site, login,
-    /// telegra.ph, HTTPS CDN). The desktop/mobile app's media goes over MTProto to DC IPs (no SNI)
-    /// — that path is handled by the telegram ipset, see IpsetService.BuildTelegramIpsetAsync.</summary>
-    private static readonly string[] DefaultTelegram =
-    {
-        "telegram.org", "t.me", "telegram.me", "tx.me", "teleg.xyz",
-        "telegra.ph", "graph.org", "telesco.pe", "comments.app",
-        "fragment.com", "contest.com", "quiz.directory",
-        "tg.dev", "tg.org", "tgram.org", "torg.org", "telegramapp.org",
-        "cdn-telegram.org", "telegram-cdn.org", "tdesktop.com",
-        "telegram.space", "telega.one",
+        // ECH (Encrypted ClientHello): Discord is behind Cloudflare, which forces ECH. When the browser
+        // uses ECH the real SNI (discord.com) is ENCRYPTED, so winws2's SNI-routed desync never fires and
+        // the site won't open — even though the plaintext-SNI probe reports ✓ (a false positive). The
+        // browser's OUTER SNI for a Cloudflare-ECH handshake is one of these public names, so routing them
+        // through the Discord desync lets the ECH handshake be bypassed without disabling ECH client-side.
+        "cloudflare-ech.com", "encryptedsni.com",
     };
 
     /// <summary>General "everything else worth bypassing" domains (Flowseal list-general.txt, the

@@ -23,7 +23,9 @@ public sealed class MainViewModel : ObservableObject
     private readonly StrategyGeneratorService _generator = new();
     private readonly TargetService _targets = new();
     private readonly IpsetService _ipset = new();
+    private readonly ExclusionService _exclusions = new();
     private readonly MonitorService _monitor = new();
+    private readonly TelegramProxyService _tgProxy = new();
     private CancellationTokenSource? _diagCts;
     private CancellationTokenSource? _autoCts;
     private CancellationTokenSource? _genCts;
@@ -42,6 +44,8 @@ public sealed class MainViewModel : ObservableObject
     {
         _engine.StateChanged += s => OnUi(() => State = s);
         _engine.LogLine += AppendLog;
+        _tgProxy.LogLine += AppendLog;
+        _tgProxy.StateChanged += () => OnUi(OnTelegramProxyStateChanged);
 
         StartCommand = new RelayCommand(_ => Start(), _ => CanStart);
         StopCommand = new RelayCommand(_ => _engine.Stop(), _ => CanStop);
@@ -66,8 +70,11 @@ public sealed class MainViewModel : ObservableObject
 
         SimpleToggleCommand = new RelayCommand(_ => SimpleToggle(),
             _ => !IsUpdating && !IsAutoSelecting && (IsRunning || CanStart));
-        SmartPickCommand = new RelayCommand(async _ => await RunAutoSelectAsync(),
-            _ => !IsAutoSelecting && !IsUpdating && _updater.IsEngineInstalled);
+        // Simple-mode "Переподобрать под провайдера": build a PERSONAL per-service combo (generator),
+        // not the quick catalog auto-select — the catalog applies one strategy to everything and can't
+        // cover Discord + YouTube when they need different desyncs, which is the whole "нет пресета под всё".
+        SmartPickCommand = new RelayCommand(async _ => await GenerateStrategyAsync(),
+            _ => !IsAutoSelecting && !IsGenerating && !IsUpdating && _updater.IsEngineInstalled);
         SetSimpleModeCommand = new RelayCommand(_ => IsSimpleMode = true);
         SetAdvancedModeCommand = new RelayCommand(_ => IsSimpleMode = false);
         GoToSettingsCommand = new RelayCommand(_ => { IsSimpleMode = false; SelectedTabIndex = SettingsTabIndex; });
@@ -76,7 +83,7 @@ public sealed class MainViewModel : ObservableObject
             _ => (IsSimpleMode ? SimpleToggleCommand : ToggleCommand).Execute(null),
             _ => (IsSimpleMode ? SimpleToggleCommand : ToggleCommand).CanExecute(null));
 
-        RunDiagnosticsCommand = new RelayCommand(async _ => await RunDiagnosticsAsync(), _ => !IsDiagnosing);
+        RunDiagnosticsCommand = new RelayCommand(async _ => await RunDiagnosticsAsync(), _ => !IsDiagnosing && !IsAutoRunning);
         StopDiagnosticsCommand = new RelayCommand(_ => _diagCts?.Cancel(), _ => IsDiagnosing);
         RunAutoSelectCommand = new RelayCommand(async _ => await RunAutoSelectAsync(),
             _ => !IsAutoSelecting && !IsDiagnosing && !IsUpdating && _updater.IsEngineInstalled);
@@ -86,19 +93,19 @@ public sealed class MainViewModel : ObservableObject
             _ => !IsAutoSelecting && !IsGenerating && !IsDiagnosing && !IsUpdating && _updater.IsEngineInstalled);
         ApplyScoreCommand = new RelayCommand(p => ApplyScore(p as AutoScore),
             p => (p as AutoScore)?.CanApply == true);
+        ApplyScoreAndStartCommand = new RelayCommand(async p => await ApplyScoreAndStartAsync(p as AutoScore),
+            p => (p as AutoScore)?.CanApply == true && !IsAutoRunning);
         BuildDiscordIpsetCommand = new RelayCommand(async _ => await BuildIpsetAsync(),
             _ => !IsBuildingIpset && _updater.IsEngineInstalled);
-        BuildTelegramIpsetCommand = new RelayCommand(async _ => await BuildTelegramIpsetAsync(),
-            _ => !IsBuildingIpset);
-        ApplyProxyHostCommand = new RelayCommand(async _ => await ApplyProxyHostAsync(),
-            _ => !IsBuildingIpset);
-        OpenProxyPromptCommand = new RelayCommand(_ => ShowProxyPopup = true);
-        CloseProxyPromptCommand = new RelayCommand(_ => ShowProxyPopup = false);
+        ApplyExclusionsCommand = new RelayCommand(async _ => await ApplyExclusionsAsync(),
+            _ => !IsApplyingExclusions);
         TogglePresetArgsCommand = new RelayCommand(_ => ShowPresetArgs = !ShowPresetArgs);
         OpenHowItWorksCommand = new RelayCommand(_ => ShowHowItWorks = true);
         CloseHowItWorksCommand = new RelayCommand(_ => ShowHowItWorks = false);
-        EnableTelegramCommand = new RelayCommand(_ => EnableTelegram(),
-            _ => !IsUpdating && _updater.IsEngineInstalled);
+        // Telegram card → built-in tg-ws-proxy (needs no winws2 engine and no admin rights).
+        EnableTelegramCommand = new RelayCommand(_ => ToggleTelegramProxy());
+        OpenTelegramProxyLinkCommand = new RelayCommand(_ => OpenUrl(_tgProxy.ProxyLink));
+        CopyTelegramProxyLinkCommand = new RelayCommand(_ => CopyToClipboard(_tgProxy.ProxyLink));
         OpenAppReleaseCommand = new RelayCommand(_ => OpenUrl(_appLatestUrl));
 
         // ---- custom targets (Диагностика tab) ----
@@ -140,9 +147,6 @@ public sealed class MainViewModel : ObservableObject
     /// <summary>User-defined bypass targets, shown on the Диагностика tab (left column).</summary>
     public ObservableCollection<CustomTarget> CustomTargets { get; } = new();
 
-    /// <summary>Successful strategies, shown in the Диагностика tab after a run finishes.</summary>
-    public ObservableCollection<AutoScore> AutoScores { get; } = new();
-
     /// <summary>Live per-candidate rows, shown in the popup while a run is in progress.</summary>
     public ObservableCollection<AutoCandidateRow> AutoCandidates { get; } = new();
 
@@ -154,6 +158,15 @@ public sealed class MainViewModel : ObservableObject
 
     /// <summary>Strategies that passed (Ok &gt; 0), accumulating live (popup right panel).</summary>
     public ObservableCollection<AutoScore> PassedStrategies { get; } = new();
+
+    /// <summary>Per-service «РАБОТАЕТ / ЧАСТИЧНО / НЕ РАБОТАЕТ» verdict for the CHOSEN strategy, shown
+    /// as big chips when a run finishes — the visible validation (built from the real HTTP/2 reach
+    /// of the applied strategy + the no-bypass baseline).</summary>
+    public ObservableCollection<ServiceVerdict> Verdicts { get; } = new();
+
+    /// <summary>No-bypass reachability of the goal hosts, measured once at the start of a run
+    /// (host → reachable). Lets the verdict say "разблокировано обходом" vs "и так работал".</summary>
+    private Dictionary<string, bool> _baseline = new(StringComparer.OrdinalIgnoreCase);
 
     // ---- commands ----------------------------------------------------------
 
@@ -180,15 +193,15 @@ public sealed class MainViewModel : ObservableObject
     public RelayCommand StopAutoSelectCommand { get; }
     public RelayCommand GenerateStrategyCommand { get; }
     public RelayCommand ApplyScoreCommand { get; }
+    public RelayCommand ApplyScoreAndStartCommand { get; }
     public RelayCommand BuildDiscordIpsetCommand { get; }
-    public RelayCommand BuildTelegramIpsetCommand { get; }
-    public RelayCommand ApplyProxyHostCommand { get; }
-    public RelayCommand OpenProxyPromptCommand { get; }
-    public RelayCommand CloseProxyPromptCommand { get; }
+    public RelayCommand ApplyExclusionsCommand { get; }
     public RelayCommand TogglePresetArgsCommand { get; }
     public RelayCommand OpenHowItWorksCommand { get; }
     public RelayCommand CloseHowItWorksCommand { get; }
     public RelayCommand EnableTelegramCommand { get; }
+    public RelayCommand OpenTelegramProxyLinkCommand { get; }
+    public RelayCommand CopyTelegramProxyLinkCommand { get; }
     public RelayCommand OpenAppReleaseCommand { get; }
     public RelayCommand GoToSettingsCommand { get; }
     public RelayCommand HomeToggleCommand { get; }
@@ -215,6 +228,8 @@ public sealed class MainViewModel : ObservableObject
                 OnPropertyChanged(nameof(DiagEngineNote));
                 // Once the engine is fully stopped, nothing is running anymore.
                 if (value == EngineState.Stopped) RunningPreset = null;
+                // Engine came up with a preset → remember it for this network (re-suggested next time).
+                if (value == EngineState.Running) RememberNetworkStrategy();
                 OnPropertyChanged(nameof(IsStrategyChangePending));
                 OnPropertyChanged(nameof(RunStatusText));
                 UpdateMonitor();
@@ -224,8 +239,7 @@ public sealed class MainViewModel : ObservableObject
     }
 
     public bool IsRunning => State == EngineState.Running;
-    public bool CanStart => State == EngineState.Stopped && !IsUpdating && _updater.IsEngineInstalled
-        && !(SelectedPreset?.RequiresProxyHost == true && !ProxyHostConfigured);
+    public bool CanStart => State == EngineState.Stopped && !IsUpdating && _updater.IsEngineInstalled;
     public bool CanStop => State is EngineState.Running or EngineState.Starting;
 
     // ---- presets -----------------------------------------------------------
@@ -247,9 +261,6 @@ public sealed class MainViewModel : ObservableObject
                 OnPropertyChanged(nameof(IsStrategyChangePending));
                 OnPropertyChanged(nameof(RunStatusText));
                 OnPropertyChanged(nameof(CanStart));
-                OnPropertyChanged(nameof(ShowProxyHostPrompt));
-                // Pop the proxy-host prompt automatically when a proxy preset is picked without a host.
-                if (value?.RequiresProxyHost == true && !ProxyHostConfigured) ShowProxyPopup = true;
                 RaiseCommandStates();
             }
         }
@@ -313,7 +324,7 @@ public sealed class MainViewModel : ObservableObject
         SelectedPreset is null
             ? ""
             : EngineService.PreviewCommandLine(SelectedPreset, ActiveHostlistPath, Settings.GameFilter,
-                                               Settings.BypassAllSites);
+                                               Settings.BypassAllSites, Settings.DisableQuic);
 
     // ---- hostlists ---------------------------------------------------------
 
@@ -400,9 +411,9 @@ public sealed class MainViewModel : ObservableObject
 
     public string SimpleGoalHint => SelectedScope switch
     {
-        AutoScope.Discord => "Подбор оптимизируется под Discord.",
-        AutoScope.YouTube => "Подбор оптимизируется под YouTube.",
-        _ => "Подбор ищет одну стратегию, рабочую сразу для Discord и YouTube.",
+        AutoScope.Discord => "Ищем стратегию под Discord.",
+        AutoScope.YouTube => "Ищем стратегию под YouTube.",
+        _ => "Ищем одну стратегию сразу под Discord и YouTube.",
     };
 
     // ---- settings toggles (bound to checkboxes) ----------------------------
@@ -412,6 +423,50 @@ public sealed class MainViewModel : ObservableObject
         get => Settings.AutoUpdateEngine;
         set { Settings.AutoUpdateEngine = value; _settingsSvc.Save(); OnPropertyChanged(); }
     }
+
+    /// <summary>Show the app's own corner toasts (start/stop, auto-heal).</summary>
+    public bool NotificationsEnabled
+    {
+        get => Settings.NotificationsEnabled;
+        set { Settings.NotificationsEnabled = value; _settingsSvc.Save(); OnPropertyChanged(); }
+    }
+
+    /// <summary>Play a soft sound with each toast notification.</summary>
+    public bool NotificationSound
+    {
+        get => Settings.NotificationSound;
+        set { Settings.NotificationSound = value; _settingsSvc.Save(); OnPropertyChanged(); }
+    }
+
+    // ---- UI scale (DPI-independent zoom; applied by MainWindow via a ScaleTransform) -------
+    public double UiScale
+    {
+        get => Settings.UiScale is >= 1.0 and <= 2.5 ? Settings.UiScale : 1.0;
+        set
+        {
+            double v = Math.Clamp(Math.Round(value, 2), 1.0, 2.5);
+            if (Math.Abs(UiScale - v) < 0.001) return;
+            Settings.UiScale = v;
+            _settingsSvc.Save();
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(UiScalePercentText));
+            OnPropertyChanged(nameof(Scale100));
+            OnPropertyChanged(nameof(Scale125));
+            OnPropertyChanged(nameof(Scale150));
+            OnPropertyChanged(nameof(Scale175));
+            OnPropertyChanged(nameof(Scale200));
+        }
+    }
+
+    public string UiScalePercentText => $"{(int)Math.Round(UiScale * 100)}%";
+
+    // Discrete scale presets bound to themed chips (mutually exclusive RadioButtons).
+    public bool Scale100 { get => NearScale(1.0); set { if (value) UiScale = 1.0; } }
+    public bool Scale125 { get => NearScale(1.25); set { if (value) UiScale = 1.25; } }
+    public bool Scale150 { get => NearScale(1.5); set { if (value) UiScale = 1.5; } }
+    public bool Scale175 { get => NearScale(1.75); set { if (value) UiScale = 1.75; } }
+    public bool Scale200 { get => NearScale(2.0); set { if (value) UiScale = 2.0; } }
+    private bool NearScale(double v) => Math.Abs(UiScale - v) < 0.001;
 
     public bool AutostartEnabled
     {
@@ -477,6 +532,23 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
+    /// <summary>"QUIC off": drop the desynced services' HTTP/3 so the browser falls back to TCP/H2.
+    /// Turn on where the ISP/TSPU throttles QUIC. Relaunches a running engine so it takes effect now.</summary>
+    public bool DisableQuic
+    {
+        get => Settings.DisableQuic;
+        set
+        {
+            if (value == Settings.DisableQuic) return;
+            Settings.DisableQuic = value;
+            _settingsSvc.Save();
+            _engine.DisableQuic = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(CommandPreview));
+            if (IsRunning) _ = ApplyStrategyAsync(); // relaunch so QUIC handling changes now
+        }
+    }
+
     /// <summary>Run the watchdog only while the engine is up and auto-heal is on.</summary>
     private void UpdateMonitor()
     {
@@ -487,12 +559,35 @@ public sealed class MainViewModel : ObservableObject
     /// <summary>Watchdog tripped: silently re-pick the best strategy and restart.</summary>
     private async Task AutoHealAsync()
     {
-        if (IsAutoSelecting || IsUpdating) return;
-        Notify?.Invoke("Zapret UI", "Обход перестал работать — подбираю заново…");
-        AppendLog("Авто-починка: обход перестал отвечать, перезапускаю подбор.");
+        if (IsAutoRunning || IsUpdating) return;
+        Notify?.Invoke("Zapret UI", "Обход упал — переподбор…");
+        AppendLog("Авто-починка: обход не отвечает, переподбор.");
         await RunAutoSelectAsync(showWindow: false);
         if (IsRunning)
-            Notify?.Invoke("Zapret UI", "Обход восстановлен автоматически.");
+            Notify?.Invoke("Zapret UI", "Обход восстановлен.");
+    }
+
+    /// <summary>Remember which strategy is running on the CURRENT network (local fingerprint) so it can
+    /// be re-suggested next time we're on that network. Computed off the UI thread (ARP can block for a
+    /// moment on a cache miss); the settings write is marshaled back. Best-effort — no fingerprint (e.g.
+    /// offline) just skips it.</summary>
+    private void RememberNetworkStrategy()
+    {
+        string? name = _engine.ActivePreset?.Name;
+        if (string.IsNullOrEmpty(name)) return;
+        _ = Task.Run(() =>
+        {
+            string? fp = NetworkFingerprint.Current();
+            if (fp is null) return;
+            OnUi(() =>
+            {
+                Settings.NetworkStrategies[fp] = name;
+                // Cap growth: drop one old entry once the map gets large (rare).
+                if (Settings.NetworkStrategies.Count > 40)
+                    Settings.NetworkStrategies.Remove(Settings.NetworkStrategies.Keys.First());
+                _settingsSvc.Save();
+            });
+        });
     }
 
     // ---- simple / advanced mode -------------------------------------------
@@ -524,40 +619,121 @@ public sealed class MainViewModel : ObservableObject
         set => SetField(ref _selectedTabIndex, value);
     }
 
-    /// <summary>Index of the Настройки tab (Главная,Стратегии,Хостлисты,Диагностика,Журнал,Настройки).</summary>
-    private const int SettingsTabIndex = 5;
+    /// <summary>Index of the Настройки tab (Главная,Стратегии,Хостлисты,Диагностика,Журнал,Telegram,Настройки).</summary>
+    private const int SettingsTabIndex = 6;
 
     /// <summary>The preset the Simple-mode one-click button applies (combined Discord+YouTube).</summary>
     public Preset? RecommendedPreset =>
         Presets.FirstOrDefault(p => p.IsRecommended) ?? Presets.FirstOrDefault();
 
-    private string _simpleStatus = "Нажмите «Включить обход» — приложение применит рекомендуемый набор и запустит DPI-обход.";
+    private string _simpleStatus = "";
     public string SimpleStatus { get => _simpleStatus; private set => SetField(ref _simpleStatus, value); }
 
     private void SimpleToggle()
     {
-        if (IsRunning) { _engine.Stop(); SimpleStatus = "Обход остановлен."; return; }
+        if (IsRunning) { _engine.Stop(); SimpleStatus = ""; return; }
 
         var preset = RecommendedPreset;
         if (preset is null) { SimpleStatus = "Движок ещё не установлен — дождитесь загрузки."; return; }
         SelectedPreset = preset;
-        SimpleStatus = $"Запускаю обход: «{preset.Name}».";
+        SimpleStatus = $"Стратегия: «{preset.Name}»";
         Start();
     }
 
-    /// <summary>The main Telegram-via-proxy preset for the Simple-mode Telegram card.</summary>
-    public Preset? TelegramProxyPreset => Presets.FirstOrDefault(p => p.RequiresProxyHost);
+    // ---- built-in Telegram proxy (native tg-ws-proxy) ----------------------
 
-    /// <summary>Simple-mode one-click for Telegram: select the proxy preset; ask for the host if it's
-    /// missing (selecting it auto-opens the popup), otherwise (re)start the engine on it.</summary>
-    private void EnableTelegram()
+    /// <summary>True while the local MTProto→WebSocket proxy is listening.</summary>
+    public bool IsTelegramProxyRunning => _tgProxy.IsRunning;
+
+    /// <summary>Two-way binding for the Telegram toggle switch next to the main button (shown in both
+    /// modes): setting it starts/stops the proxy. The setter re-notifies so a start failure (busy port)
+    /// flips the switch back to off instead of leaving it stuck on.</summary>
+    public bool IsTelegramProxyEnabled
     {
-        var preset = TelegramProxyPreset;
-        if (preset is null) { SimpleStatus = "Движок ещё не установлен — дождитесь загрузки."; return; }
-        SelectedPreset = preset; // setter auto-opens the proxy-host popup when no host is configured
-        if (!ProxyHostConfigured) { ShowProxyPopup = true; SimpleStatus = "Укажите хост вашего прокси для Telegram."; return; }
-        if (IsRunning) { _ = ApplyStrategyAsync(); } else { Start(); }
-        SimpleStatus = $"Telegram через ваш прокси: «{preset.Name}».";
+        get => _tgProxy.IsRunning;
+        set
+        {
+            if (value == _tgProxy.IsRunning) return;
+            if (value) _tgProxy.Start(); else _tgProxy.Stop();
+            OnPropertyChanged();
+        }
+    }
+
+    /// <summary>Endpoint to enter in Telegram → Настройки → Прокси (server:port).</summary>
+    public string TelegramProxyEndpoint => $"{_tgProxy.Host}:{_tgProxy.Port}";
+
+    /// <summary>The MTProto secret (dd-prefixed) shown next to the endpoint.</summary>
+    public string TelegramProxySecret => "dd" + _tgProxy.SecretHex;
+
+    private string _telegramProxyStatus = "Выключено. Нажмите «Включить», затем «Открыть в Telegram».";
+    public string TelegramProxyStatus { get => _telegramProxyStatus; private set => SetField(ref _telegramProxyStatus, value); }
+
+    /// <summary>Label for the Telegram card's toggle button.</summary>
+    public string TelegramProxyButtonText => _tgProxy.IsRunning ? "Выключить прокси" : "Включить прокси";
+
+    /// <summary>Start/stop the built-in Telegram proxy from the Telegram card.</summary>
+    private void ToggleTelegramProxy()
+    {
+        if (_tgProxy.IsRunning) _tgProxy.Stop();
+        else _tgProxy.Start();
+    }
+
+    /// <summary>Local listener port for the built-in Telegram proxy (the «Telegram» tab). Persisted; a
+    /// change is applied at once — if the proxy is running it's restarted so it rebinds to the new port
+    /// (a busy port still falls back to the next free one at bind time).</summary>
+    public int TelegramProxyPort
+    {
+        get => _tgProxy.Port;
+        set
+        {
+            if (value is < 1 or > 65535 || value == _tgProxy.Port) return;
+            Settings.TgProxyPort = value;
+            _settingsSvc.Save();
+            bool wasRunning = _tgProxy.IsRunning;
+            if (wasRunning) _tgProxy.Stop();
+            _tgProxy.Configure(value, Settings.TgProxySecret);
+            if (wasRunning) _tgProxy.Start();
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(TelegramProxyEndpoint));
+        }
+    }
+
+    /// <summary>Whether to auto-start the built-in Telegram proxy on app launch.</summary>
+    public bool TelegramProxyAutostart
+    {
+        get => Settings.TgProxyAutostart;
+        set
+        {
+            if (Settings.TgProxyAutostart == value) return;
+            Settings.TgProxyAutostart = value;
+            _settingsSvc.Save();
+            OnPropertyChanged();
+        }
+    }
+
+    private void RefreshTelegramProxyStatus()
+    {
+        TelegramProxyStatus = _tgProxy.IsRunning
+            ? $"Запущен на {TelegramProxyEndpoint}. В Telegram: Настройки → Данные и память → Прокси, " +
+              "или нажмите «Открыть в Telegram»."
+            : _tgProxy.StartError ?? "Выключено. Нажмите «Включить», затем «Открыть в Telegram».";
+        OnPropertyChanged(nameof(IsTelegramProxyRunning));
+        OnPropertyChanged(nameof(IsTelegramProxyEnabled)); // keep the Home toggle (both modes) in sync with real state
+        OnPropertyChanged(nameof(TelegramProxyButtonText));
+        OnPropertyChanged(nameof(TelegramProxyEndpoint)); // the bound port can change on a busy-port fallback
+        OnPropertyChanged(nameof(TelegramProxyPort));     // …so reflect that in the port box too
+    }
+
+    private void OnTelegramProxyStateChanged()
+    {
+        // Persist the auto-generated secret the first time so the tg:// link stays stable across runs.
+        if (string.IsNullOrEmpty(Settings.TgProxySecret))
+        {
+            Settings.TgProxySecret = _tgProxy.SecretHex;
+            _settingsSvc.Save();
+        }
+        RefreshTelegramProxyStatus();
+        SimpleStatus = _tgProxy.IsRunning ? "Прокси Telegram запущен." : "Прокси Telegram остановлен.";
     }
 
     // ---- diagnostics (endpoint matrix) ------------------------------------
@@ -623,7 +799,88 @@ public sealed class MainViewModel : ObservableObject
     public bool IsAutoSelecting
     {
         get => _isAutoSelecting;
-        private set { if (SetField(ref _isAutoSelecting, value)) RaiseCommandStates(); }
+        private set { if (SetField(ref _isAutoSelecting, value)) { RaiseCommandStates(); RaiseAutoRunState(); } }
+    }
+
+    /// <summary>True while EITHER the auto-selector or the generator is running — drives the review
+    /// popup between its "running" and "done" states (the popup stays open when a run finishes).</summary>
+    public bool IsAutoRunning => IsAutoSelecting || IsGenerating;
+
+    public string AutoPopupTitle => IsAutoRunning
+        ? (IsGenerating ? "Генерация стратегии" : "Подбор стратегии")
+        : "Готово — выберите стратегию";
+
+    public string AutoPopupSubtitle => IsAutoRunning
+        ? "Слева — проверка целей текущей стратегией. Справа — стратегии, прошедшие проверку."
+        : "Проверка завершена. Наведите на нужную и нажмите «Сохранить в пресеты» — окно не закроется само.";
+
+    private void RaiseAutoRunState()
+    {
+        OnPropertyChanged(nameof(IsAutoRunning));
+        OnPropertyChanged(nameof(AutoPopupTitle));
+        OnPropertyChanged(nameof(AutoPopupSubtitle));
+    }
+
+    /// <summary>Measure the goal hosts' reachability WITHOUT any bypass (the engine is stopped at this
+    /// point). Lets the final verdict distinguish "разблокировано обходом" from "и так открывалось",
+    /// so the user sees what the strategy actually changed. Best-effort: failures leave it empty.</summary>
+    private static async Task<Dictionary<string, bool>> MeasureBaselineAsync(IReadOnlyList<string> hosts, CancellationToken ct)
+    {
+        try
+        {
+            using var gate = new SemaphoreSlim(8);
+            var rows = await Task.WhenAll(hosts.Select(async h =>
+            {
+                await gate.WaitAsync(ct).ConfigureAwait(false);
+                try { return await NetProbe.ProbeHostAsync(h, ct).ConfigureAwait(false); }
+                finally { gate.Release(); }
+            }));
+            return rows.ToDictionary(r => r.Host, r => r.Https == DiagStatus.Ok, StringComparer.OrdinalIgnoreCase);
+        }
+        catch { return new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase); }
+    }
+
+    private static bool IsDiscordHost(string h) =>
+        h.Contains("discord", StringComparison.OrdinalIgnoreCase) ||
+        h.Equals("challenges.cloudflare.com", StringComparison.OrdinalIgnoreCase);
+    private static bool IsYouTubeHost(string h) =>
+        h.Contains("youtube", StringComparison.OrdinalIgnoreCase) ||
+        h.Contains("youtu.be", StringComparison.OrdinalIgnoreCase) ||
+        h.Contains("ytimg", StringComparison.OrdinalIgnoreCase) ||
+        h.Contains("googlevideo", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Build the visible per-service verdict from the CHOSEN strategy's real HTTP/2 results.</summary>
+    private void BuildVerdicts(IReadOnlyList<AutoHostResult> rows)
+    {
+        Verdicts.Clear();
+        AddVerdict("Discord", rows.Where(r => IsDiscordHost(r.Host)).ToList());
+        AddVerdict("YouTube", rows.Where(r => IsYouTubeHost(r.Host)).ToList());
+        AddVerdict("Ваши сайты", rows.Where(r => !IsDiscordHost(r.Host) && !IsYouTubeHost(r.Host)).ToList());
+    }
+
+    private void AddVerdict(string service, IReadOnlyList<AutoHostResult> rows)
+    {
+        if (rows.Count == 0) return;
+        int total = rows.Count;
+        int ok = rows.Count(r => r.Https == DiagStatus.Ok);       // real page-load signal
+        int baseOk = rows.Count(r => _baseline.TryGetValue(r.Host, out var b) && b);
+
+        var status = ok == total ? DiagStatus.Ok : ok > 0 ? DiagStatus.Timeout : DiagStatus.Fail;
+        string label = ok == total ? "РАБОТАЕТ" : ok > 0 ? "ЧАСТИЧНО" : "НЕ РАБОТАЕТ";
+
+        string note;
+        if (ok == 0) note = "ни одна цель не открывается";
+        else if (ok > baseOk) note = baseOk == 0 ? "разблокировано обходом" : "часть разблокирована обходом";
+        else if (baseOk == total && _baseline.Count > 0) note = "открывается и без обхода";
+        else note = "";
+
+        Verdicts.Add(new ServiceVerdict
+        {
+            Service = service,
+            StatusText = label,
+            Status = status,
+            Detail = $"{ok}/{total} целей грузятся" + (note.Length > 0 ? " · " + note : ""),
+        });
     }
 
     private string _autoStatusText = "Выберите цель и нажмите «Подобрать лучшую» — найдём стратегию с наименьшим числом ошибок.";
@@ -716,13 +973,13 @@ public sealed class MainViewModel : ObservableObject
         var goalHosts = SelectedScope.GoalHosts().Concat(_targets.AllDomains())
             .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
 
-        AutoScores.Clear();
         AutoCandidates.Clear();
         foreach (var c in ComboStrategyCatalog.All) AutoCandidates.Add(new AutoCandidateRow(c.Name));
         AutoTargets.Clear();
         foreach (var h in goalHosts) AutoTargets.Add(h);
         CheckTargets.Clear();
         PassedStrategies.Clear();
+        Verdicts.Clear();
         CurrentCandidateName = "";
         _autoCursor = -1;
         AutoProgress = 0;
@@ -733,7 +990,10 @@ public sealed class MainViewModel : ObservableObject
         if (showWindow) AutoCheckStarted?.Invoke();
         try
         {
-            SetAutoStatus($"Подбираю лучшую стратегию для «{ScopeTitle}»…");
+            SetAutoStatus("Замер базовой доступности без обхода…");
+            _baseline = await MeasureBaselineAsync(goalHosts, _autoCts.Token);
+
+            SetAutoStatus($"Подбор лучшей стратегии для «{ScopeTitle}»…");
             var result = await _autoSelect.RunAsync(goalHosts, _autoCts.Token);
             if (result is null)
             {
@@ -742,19 +1002,18 @@ public sealed class MainViewModel : ObservableObject
             }
 
             var (strategy, score) = result.Value;
+            BuildVerdicts(score.HostList);
             var preset = AutoSelectService.ToPreset(strategy, SelectedScope);
             _presets.AddUser(preset);
             ReloadPresets();
             SelectedPreset = Presets.FirstOrDefault(p => p.Name == preset.Name) ?? Presets.LastOrDefault();
-            SetAutoStatus($"Лучшая: «{strategy.Name}» — {score.Detail}. Применил и запускаю обход.");
+            SetAutoStatus($"Готово: «{strategy.Name}» — {score.Detail}. Запуск.");
             if (CanStart) Start();
         }
         catch (OperationCanceledException) { SetAutoStatus("Подбор остановлен."); }
         catch (Exception ex) { SetAutoStatus("Ошибка подбора: " + ex.Message); }
         finally
         {
-            // Surface only the strategies that worked in the main tab, best first.
-            PublishSuccessfulScores();
             IsAutoSelecting = false;
             _autoCts?.Dispose();
             _autoCts = null;
@@ -768,7 +1027,7 @@ public sealed class MainViewModel : ObservableObject
     public bool IsGenerating
     {
         get => _isGenerating;
-        private set { if (SetField(ref _isGenerating, value)) RaiseCommandStates(); }
+        private set { if (SetField(ref _isGenerating, value)) { RaiseCommandStates(); RaiseAutoRunState(); } }
     }
 
     /// <summary>
@@ -794,13 +1053,13 @@ public sealed class MainViewModel : ObservableObject
             .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         var youtube = AutoScope.YouTube.GoalHosts();
 
-        AutoScores.Clear();
         AutoCandidates.Clear();
         foreach (var c in StrategyGeneratorService.Candidates) AutoCandidates.Add(new AutoCandidateRow(c.Name));
         AutoTargets.Clear();
         foreach (var h in discord.Concat(youtube).Distinct()) AutoTargets.Add(h);
         CheckTargets.Clear();
         PassedStrategies.Clear();
+        Verdicts.Clear();
         CurrentCandidateName = "";
         _autoCursor = -1;
         AutoProgress = 0;
@@ -809,23 +1068,29 @@ public sealed class MainViewModel : ObservableObject
         IsGenerating = true;
         _genCts = new CancellationTokenSource();
         AutoCheckStarted?.Invoke();
+        var genHosts = discord.Concat(youtube).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
         try
         {
-            SetAutoStatus("Генерирую персональную стратегию под вашего провайдера…");
-            var preset = await _generator.GenerateAsync(discord, youtube, Settings.GameFilter, _genCts.Token);
-            if (preset is null) { SetAutoStatus("Не удалось сгенерировать стратегию."); return; }
+            SetAutoStatus("Замер базовой доступности без обхода…");
+            _baseline = await MeasureBaselineAsync(genHosts, _genCts.Token);
 
+            SetAutoStatus("Генерация персональной стратегии под провайдера…");
+            var gen = await _generator.GenerateAsync(discord, youtube, Settings.GameFilter, _genCts.Token);
+            if (gen is null) { SetAutoStatus("Не удалось сгенерировать стратегию."); return; }
+
+            var (preset, finalRows) = gen;
+            BuildVerdicts(finalRows);
             _presets.AddUser(preset);
+            SaveTopLeaderboard();   // ★ auto-save the 3 best candidates of this run (with their scores)
             ReloadPresets();
             SelectedPreset = Presets.FirstOrDefault(p => p.Name == preset.Name) ?? Presets.LastOrDefault();
-            SetAutoStatus($"Готово: собрана «{preset.Name}». Применил и запускаю обход.");
+            SetAutoStatus($"Готово: «{preset.Name}». Запуск.");
             if (CanStart) Start();
         }
         catch (OperationCanceledException) { SetAutoStatus("Генерация остановлена."); }
         catch (Exception ex) { SetAutoStatus("Ошибка генерации: " + ex.Message); }
         finally
         {
-            PublishSuccessfulScores();
             IsGenerating = false;
             _genCts?.Dispose();
             _genCts = null;
@@ -833,17 +1098,33 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
-    /// <summary>After a run, fill the tab's list with the candidates that worked (best first).</summary>
-    private void PublishSuccessfulScores()
+    /// <summary>Auto-save the 3 best candidate strategies from the just-finished generation as ★ presets
+    /// named with their score (e.g. «★ Топ №1 · 9/10 · hostfakesplit vk.com»), replacing the previous
+    /// trio so the saved leaderboard and its scores stay current. Candidates carry a full runnable combo
+    /// (<see cref="AutoScore.Strategy"/>), so each saved preset is directly applicable.</summary>
+    private void SaveTopLeaderboard()
     {
-        AutoScores.Clear();
-        var ok = AutoCandidates
-            .Where(c => c.IsDone && c.Score is { Ok: > 0 })
-            .Select(c => c.Score!)
-            .OrderByDescending(s => s.Ratio)
-            .ThenBy(s => s.Fail)
-            .ToList();
-        foreach (var s in ok) AutoScores.Add(s);
+        var top = PassedStrategies
+            .Where(s => s.CanApply && s.Ok > 0)
+            .OrderByDescending(s => s.Ratio).ThenByDescending(s => s.Ok)
+            .Take(3).ToList();
+        if (top.Count == 0) return;
+
+        var presets = new List<Preset>();
+        for (int i = 0; i < top.Count; i++)
+        {
+            var s = top[i];
+            int score10 = (int)Math.Round(s.Ratio * 10);
+            presets.Add(new Preset
+            {
+                Name = $"★ Топ №{i + 1} · {score10}/10 · {s.Name}",
+                Description = $"Автосохранено при генерации {DateTime.Now:dd.MM HH:mm}: набрал {s.Ok}/{s.Total} " +
+                              $"проверок ({score10}/10). Тройка обновляется при каждой новой генерации.",
+                Args = new List<string>(s.Strategy!.Args),
+                IsBuiltIn = false,
+            });
+        }
+        _presets.ReplaceAutoLeaderboard(presets);
     }
 
     // ---- ipset (IP-based bypass) ------------------------------------------
@@ -864,12 +1145,12 @@ public sealed class MainViewModel : ObservableObject
         IsBuildingIpset = true;
         try
         {
-            IpsetStatus = "Резолвлю домены Discord и собираю IP-подсети…";
+            IpsetStatus = "Определяю IP-подсети Discord…";
             var domains = _hostlists.Exists("discord")
                 ? _hostlists.ReadDomains("discord")
                 : new List<string> { "discord.com", "gateway.discord.gg", "cdn.discordapp.com", "discord.media", "discordapp.net" };
             var res = await _ipset.BuildDiscordIpsetAsync(domains, CancellationToken.None);
-            IpsetStatus = $"Готово: собрано {res.Subnets} подсетей. Теперь работает пресет «Discord — по IP (ipset)».";
+            IpsetStatus = $"Готово: {res.Subnets} подсетей. Подключите список через {{IPSET}} в своей стратегии.";
             OnPropertyChanged(nameof(CommandPreview));
         }
         catch (Exception ex)
@@ -882,89 +1163,44 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
-    private string _telegramIpsetStatus = "Соберите IP-список Telegram (официальный фид) для обхода приложения по IP. Веб лечит хостлист telegram, медиа приложения — без гарантий.";
-    public string TelegramIpsetStatus { get => _telegramIpsetStatus; private set => SetField(ref _telegramIpsetStatus, value); }
+    // ---- Defender / firewall exclusions -----------------------------------
 
-    private async Task BuildTelegramIpsetAsync()
+    private bool _isApplyingExclusions;
+    public bool IsApplyingExclusions
     {
-        if (IsBuildingIpset) return;
-        IsBuildingIpset = true;
+        get => _isApplyingExclusions;
+        private set { if (SetField(ref _isApplyingExclusions, value)) RaiseCommandStates(); }
+    }
+
+    private string _exclusionsStatus =
+        "Добавит приложение и движок в исключения Защитника Windows и правила брандмауэра, чтобы их не блокировали.";
+    public string ExclusionsStatus { get => _exclusionsStatus; private set => SetField(ref _exclusionsStatus, value); }
+
+    private async Task ApplyExclusionsAsync()
+    {
+        if (IsApplyingExclusions) return;
+        IsApplyingExclusions = true;
         try
         {
-            TelegramIpsetStatus = "Загружаю официальный список подсетей Telegram…";
-            var res = await _ipset.BuildTelegramIpsetAsync(CancellationToken.None);
-            TelegramIpsetStatus = $"Готово: {res.Subnets} подсетей. Профиль Telegram-MTProto в комбо-пресетах теперь активен (best-effort).";
-            OnPropertyChanged(nameof(CommandPreview));
+            ExclusionsStatus = "Добавление исключений…";
+            var res = await _exclusions.ApplyAsync();
+            ExclusionsStatus = (res.AllOk
+                ? "Готово — всё добавлено:\n"
+                : "Готово частично (что-то не удалось — нужны права администратора / сторонний антивирус):\n") + res.Summary;
         }
         catch (Exception ex)
         {
-            TelegramIpsetStatus = "Не удалось собрать список Telegram: " + ex.Message;
+            ExclusionsStatus = "Не удалось добавить исключения: " + ex.Message;
         }
         finally
         {
-            IsBuildingIpset = false;
+            IsApplyingExclusions = false;
         }
     }
-
-    // ---- ee-MTProxy host (Path 2: scope the Telegram desync to the user's proxy IP) ------
-
-    private const string ProxyListName = "proxy";
-
-    private string _proxyHostInput = "";
-    /// <summary>Bound to the inline "enter your proxy host" field (the «Хост» from Telegram's proxy settings).</summary>
-    public string ProxyHostInput { get => _proxyHostInput; set => SetField(ref _proxyHostInput, value); }
-
-    /// <summary>True once a proxy host is saved (list "proxy" non-empty) — gates RequiresProxyHost presets.</summary>
-    public bool ProxyHostConfigured =>
-        _hostlists.Exists(ProxyListName) && _hostlists.ReadDomains(ProxyListName).Count > 0;
-
-    /// <summary>Show the "enter your proxy host" prompt: only for a RequiresProxyHost preset with no host yet.</summary>
-    public bool ShowProxyHostPrompt => SelectedPreset?.RequiresProxyHost == true && !ProxyHostConfigured;
-
-    private string _proxyHostStatus = "";
-    public string ProxyHostStatus { get => _proxyHostStatus; private set => SetField(ref _proxyHostStatus, value); }
-
-    private bool _showProxyPopup;
-    /// <summary>Whether the modal "enter your proxy host" popup overlay is shown.</summary>
-    public bool ShowProxyPopup { get => _showProxyPopup; set => SetField(ref _showProxyPopup, value); }
 
     private bool _showHowItWorks;
     /// <summary>Whether the "how it works / app tour" instruction modal is shown.</summary>
     public bool ShowHowItWorks { get => _showHowItWorks; set => SetField(ref _showHowItWorks, value); }
-
-    /// <summary>Save the entered proxy host (list "proxy") and resolve it into ipset-proxy.txt, so the
-    /// combo's proxy profile can scope its desync to that IP. Enables the connect button on success.</summary>
-    private async Task ApplyProxyHostAsync()
-    {
-        var host = (ProxyHostInput ?? "").Trim();
-        if (host.Length == 0)
-        {
-            ProxyHostStatus = "Введите хост прокси (поле «Хост» из настроек прокси в Telegram).";
-            return;
-        }
-        try
-        {
-            ProxyHostStatus = "Резолвлю IP прокси…";
-            _hostlists.Write(ProxyListName, host);
-            if (!Hostlists.Contains(ProxyListName)) Hostlists.Add(ProxyListName);
-            var res = await _ipset.BuildProxyIpsetAsync(host, CancellationToken.None);
-            ProxyHostStatus = $"Готово: {res.Subnets} IP. Прокси «{host}» сохранён — подключение доступно. " +
-                              "Изменить позже — на вкладке «Хостлисты», список «proxy».";
-            OnUi(() =>
-            {
-                OnPropertyChanged(nameof(ProxyHostConfigured));
-                OnPropertyChanged(nameof(ShowProxyHostPrompt));
-                OnPropertyChanged(nameof(CanStart));
-                OnPropertyChanged(nameof(CommandPreview));
-                ShowProxyPopup = false; // host saved → close the modal
-                RaiseCommandStates();
-            });
-        }
-        catch (Exception ex)
-        {
-            ProxyHostStatus = "Не удалось сохранить прокси: " + ex.Message;
-        }
-    }
 
     /// <summary>Save a specific tried candidate as a preset and make it active.</summary>
     private void ApplyScore(AutoScore? score)
@@ -974,7 +1210,17 @@ public sealed class MainViewModel : ObservableObject
         _presets.AddUser(preset);
         ReloadPresets();
         SelectedPreset = Presets.FirstOrDefault(p => p.Name == preset.Name) ?? Presets.LastOrDefault();
-        SetAutoStatus($"Сохранено как пресет «{preset.Name}» и выбрано активным. Нажмите «Запустить».");
+        SetAutoStatus($"Сохранено как стратегия «{preset.Name}». Нажмите «Запустить».");
+    }
+
+    /// <summary>Save a candidate as a preset AND start it (or restart with it if already running) —
+    /// the one-click "use this one" action from the review popup.</summary>
+    private async Task ApplyScoreAndStartAsync(AutoScore? score)
+    {
+        if (score?.Strategy is null) return;
+        ApplyScore(score);
+        if (IsRunning) await ApplyStrategyAsync();
+        else if (CanStart) Start();
     }
 
     // ---- lifecycle ---------------------------------------------------------
@@ -983,28 +1229,34 @@ public sealed class MainViewModel : ObservableObject
     {
         ReloadPresets();
         _hostlists.SeedDefaults();
-        IpsetService.SeedTelegramDefault();   // so the Telegram-by-IP profile works on first run
         ReloadHostlists();
         _engine.GameFilter = Settings.GameFilter;
         _engine.BypassAllSites = Settings.BypassAllSites;
+        _engine.DisableQuic = Settings.DisableQuic;
 
-        if (_hostlists.Exists(ProxyListName))
+        // Built-in Telegram proxy: restore the persisted port/secret (or persist a fresh one) so the
+        // tg:// link is stable across runs; the proxy itself is started on demand from the card.
+        _tgProxy.Configure(Settings.TgProxyPort, Settings.TgProxySecret);
+        if (string.IsNullOrEmpty(Settings.TgProxySecret))
         {
-            ProxyHostInput = _hostlists.ReadDomains(ProxyListName).FirstOrDefault() ?? "";
-            // Re-resolve the proxy IP at startup so ipset-proxy.txt is never missing or stale. If it
-            // vanished, {IPSET:proxy} resolves to nothing and the proxy profile degrades into a global
-            // TLS catch-all (which the allow-list safety net then drops → proxy goes silent). Also
-            // picks up a rotated proxy IP without the user re-entering the host. Best-effort.
-            var proxyHost = ProxyHostInput;
-            if (proxyHost.Length > 0)
-                _ = Task.Run(async () =>
-                {
-                    try { await _ipset.BuildProxyIpsetAsync(proxyHost, CancellationToken.None); } catch { }
-                });
+            Settings.TgProxySecret = _tgProxy.SecretHex;
+            _settingsSvc.Save();
         }
+        RefreshTelegramProxyStatus();
+        OnPropertyChanged(nameof(TelegramProxyEndpoint));
+        OnPropertyChanged(nameof(TelegramProxySecret));
+        if (Settings.TgProxyAutostart) _tgProxy.Start();
 
-        SelectedPreset = Presets.FirstOrDefault(p => p.Name == Settings.ActivePresetName)
+        // Per-network memory: prefer the strategy that last worked on THIS network (local fingerprint),
+        // then the persisted last-active preset, then the first available.
+        string? fp = await Task.Run(NetworkFingerprint.Current);
+        var recalledPreset = fp is not null && Settings.NetworkStrategies.TryGetValue(fp, out var rn)
+            ? Presets.FirstOrDefault(p => p.Name == rn) : null;
+        SelectedPreset = recalledPreset
+                         ?? Presets.FirstOrDefault(p => p.Name == Settings.ActivePresetName)
                          ?? Presets.FirstOrDefault();
+        if (recalledPreset is not null)
+            SimpleStatus = $"Стратегия для этой сети: «{recalledPreset.Name}»";
         if (Settings.ActiveHostlist is not null && _hostlists.Exists(Settings.ActiveHostlist))
             SelectedHostlist = Settings.ActiveHostlist;
         else
@@ -1054,6 +1306,12 @@ public sealed class MainViewModel : ObservableObject
     {
         try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true }); }
         catch { /* no browser / blocked — ignore */ }
+    }
+
+    private void CopyToClipboard(string text)
+    {
+        try { Clipboard.SetText(text); SimpleStatus = "Ссылка на прокси скопирована."; }
+        catch { /* clipboard busy — ignore */ }
     }
 
     private void ReloadPresets()
@@ -1181,10 +1439,12 @@ public sealed class MainViewModel : ObservableObject
         string root = TargetService.Normalize(TargetRootInput);
         if (root.Length == 0) { TargetStatus = "Сначала укажите корневой домен."; return; }
         IsExpandingTarget = true;
-        TargetStatus = $"Ищу домены для «{root}» через crt.sh…";
+        TargetStatus = $"Ищу домены для «{root}»…";
         try
         {
-            var found = await _targets.ExpandAsync(root, 40, CancellationToken.None);
+            // Progress<T> marshals back to this (UI) thread, so live status updates are safe to bind.
+            var progress = new Progress<string>(msg => TargetStatus = msg);
+            var found = await _targets.ExpandAsync(root, 40, progress, CancellationToken.None);
             var have = TargetDomainsText.Split('\n').Select(s => s.Trim().ToLowerInvariant()).Where(s => s.Length > 0);
             var merged = have.Concat(found).Distinct(StringComparer.OrdinalIgnoreCase)
                 .OrderBy(d => d.Length).ThenBy(d => d, StringComparer.OrdinalIgnoreCase).ToList();
@@ -1254,7 +1514,12 @@ public sealed class MainViewModel : ObservableObject
                 {
                     AppendLog("Остановка движка для обновления…");
                     _engine.Stop();
-                    await Task.Delay(800);
+                    // Wait for winws2 to FULLY exit before overwriting engine files (a File.Copy over a
+                    // running winws2.exe throws) and before CanStart lets us relaunch — poll instead of a
+                    // fixed delay, like ApplyStrategyAsync does.
+                    for (int i = 0; i < 60 && State != EngineState.Stopped; i++)
+                        await Task.Delay(50);
+                    await Task.Delay(200);
                 }
 
                 var progress = new Progress<UpdateProgress>(p =>
@@ -1316,13 +1581,6 @@ public sealed class MainViewModel : ObservableObject
         if (SelectedHostlist is null) return;
         _hostlists.Write(SelectedHostlist, HostlistContent);
         AppendLog($"Список «{SelectedHostlist}» сохранён.");
-        // The "proxy" list is the source for ipset-proxy.txt — re-resolve so the combo's
-        // proxy profile points at the current IP after an edit here.
-        if (string.Equals(SelectedHostlist, ProxyListName, StringComparison.OrdinalIgnoreCase))
-        {
-            ProxyHostInput = _hostlists.ReadDomains(ProxyListName).FirstOrDefault() ?? "";
-            _ = ApplyProxyHostAsync();
-        }
     }
 
     private void AddDomain()
@@ -1373,6 +1631,7 @@ public sealed class MainViewModel : ObservableObject
         try { _monitor.Stop(); } catch { }
         try { _autoSelect.Dispose(); } catch { }
         try { _generator.Dispose(); } catch { }
+        try { _tgProxy.Stop(); } catch { }
         try { _engine.Dispose(); } catch { }
     }
 
@@ -1408,8 +1667,9 @@ public sealed class MainViewModel : ObservableObject
         StopAutoSelectCommand.RaiseCanExecuteChanged();
         GenerateStrategyCommand.RaiseCanExecuteChanged();
         BuildDiscordIpsetCommand.RaiseCanExecuteChanged();
-        BuildTelegramIpsetCommand.RaiseCanExecuteChanged();
+        ApplyExclusionsCommand.RaiseCanExecuteChanged();
         HomeToggleCommand.RaiseCanExecuteChanged();
+        ApplyScoreAndStartCommand.RaiseCanExecuteChanged();
     }
 
     private static void OnUi(Action a)

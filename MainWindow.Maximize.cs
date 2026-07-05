@@ -19,9 +19,10 @@ public partial class MainWindow
     {
         var handle = new WindowInteropHelper(this).Handle;
         HwndSource.FromHwnd(handle)?.AddHook(WindowProc);
+        ApplyUiScale(_vm.UiScale); // restore the persisted UI zoom before the window is shown
     }
 
-    private static IntPtr WindowProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+    private IntPtr WindowProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
         if (msg == WM_GETMINMAXINFO)
         {
@@ -31,7 +32,7 @@ public partial class MainWindow
         return IntPtr.Zero;
     }
 
-    private static void AdjustMaximizedBounds(IntPtr hwnd, IntPtr lParam)
+    private void AdjustMaximizedBounds(IntPtr hwnd, IntPtr lParam)
     {
         IntPtr monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
         if (monitor == IntPtr.Zero) return;
@@ -48,13 +49,14 @@ public partial class MainWindow
         mmi.ptMaxSize.X = work.right - work.left;
         mmi.ptMaxSize.Y = work.bottom - work.top;
 
-        // Keep the user-defined minimum window size on maximize-tracking too. WM_GETMINMAXINFO is in
-        // physical pixels, so scale the logical (DIP) minimum by the monitor DPI — otherwise on a
-        // >100% display the enforced minimum is smaller than the XAML MinWidth/MinHeight.
-        double scale = GetDpiForWindow(hwnd) / 96.0;
-        if (scale <= 0) scale = 1.0;
-        mmi.ptMinTrackSize.X = (int)(880 * scale);
-        mmi.ptMinTrackSize.Y = (int)(580 * scale);
+        // Keep the current minimum window size on maximize-tracking too. WM_GETMINMAXINFO is in physical
+        // pixels, so scale the logical (DIP) minimum by the monitor DPI — otherwise on a >100% display
+        // the enforced minimum is smaller than the live MinWidth/MinHeight. MinWidth/MinHeight already
+        // include the app-wide UI zoom (see ApplyUiScale), so this tracks that too.
+        double dpi = GetDpiForWindow(hwnd) / 96.0;
+        if (dpi <= 0) dpi = 1.0;
+        mmi.ptMinTrackSize.X = (int)(MinWidth * dpi);
+        mmi.ptMinTrackSize.Y = (int)(MinHeight * dpi);
 
         Marshal.StructureToPtr(mmi, lParam, true);
     }

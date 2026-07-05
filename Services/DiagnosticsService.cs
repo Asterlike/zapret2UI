@@ -36,11 +36,6 @@ public sealed class DiagnosticsService
         new() { Group = "YouTube",    Name = "Image (ytimg)",     Host = "i.ytimg.com" },
         new() { Group = "YouTube",    Name = "Video redirect",    Host = "redirector.googlevideo.com" },
 
-        // ---- Telegram — наша фича (Flowseal его не тестит, но мы обходим веб/SNI) ----
-        new() { Group = "Telegram",   Name = "Web-клиент",        Host = "web.telegram.org" },
-        new() { Group = "Telegram",   Name = "API приложения",    Host = "api.telegram.org" },
-        new() { Group = "Telegram",   Name = "Сайт/ссылки",       Host = "t.me" },
-
         // ---- Cloudflare ----
         new() { Group = "Cloudflare", Name = "Web",               Host = "www.cloudflare.com" },
         new() { Group = "Cloudflare", Name = "CDN (cdnjs)",       Host = "cdnjs.cloudflare.com" },
@@ -114,10 +109,11 @@ public sealed class DiagnosticsService
             return;
         }
 
-        // HTTP cell = a full HTTPS GET (not a bare port-80 reachability check): it catches the case
-        // where TLS handshakes fine but the request resets mid-stream (Discord/Cloudflare login).
+        // HTTP cell = a real browser-like HTTP/2 request (ALPN, Chrome UA, marker-checked), not a bare
+        // port-80 reachability check: it catches the case where TLS handshakes fine but the request
+        // resets mid-stream or returns a stub (Discord/Cloudflare login).
         row.Http = DiagStatus.Running;
-        row.Http = await NetProbe.HttpsAsync(row.Host, ct);
+        row.Http = await NetProbe.ReachAsync(row.Host, ct);
 
         row.Tls12 = DiagStatus.Running;
         row.Tls12 = await NetProbe.TlsAsync(row.Host, SslProtocols.Tls12, ct);

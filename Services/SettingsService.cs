@@ -25,10 +25,40 @@ public sealed class AppSettings
     public bool GameFilter { get; set; }
 
     /// <summary>Bypass EVERY site (catch-all) vs allow-list. When false (default), only the explicit
-    /// lists (YouTube/Discord/Telegram) + your custom targets/hostlists are desynced — like Flowseal,
+    /// lists (YouTube/Discord) + your custom targets/hostlists are desynced — like Flowseal,
     /// so games/apps not in any list never break. When true, all other TLS/QUIC is desynced too
     /// (kept safe by the exclude list); convenient but may break a game/app that isn't excluded.</summary>
     public bool BypassAllSites { get; set; }
+
+    /// <summary>Drop the desynced services' QUIC (HTTP/3) so the browser falls back to TCP/H2. Turn on
+    /// where the ISP/TSPU throttles or drops QUIC (YouTube stutters over HTTP/3 but is fine over TCP).</summary>
+    public bool DisableQuic { get; set; }
+
+    /// <summary>Per-network memory: a local network fingerprint (see <see cref="NetworkFingerprint"/>) →
+    /// the last strategy that ran there. Lets the app re-suggest a known-good preset when you return to
+    /// a network, instead of the generic default. Keyed locally; no external calls, no IPs stored.</summary>
+    public Dictionary<string, string> NetworkStrategies { get; set; } = new();
+
+    /// <summary>Local listen port for the built-in Telegram MTProto→WS proxy (TelegramProxyService).</summary>
+    public int TgProxyPort { get; set; } = 1443;
+
+    /// <summary>Persisted MTProto secret (32 hex chars) so the tg:// proxy link stays stable across
+    /// runs. Empty on first run; filled in once the proxy is configured/started.</summary>
+    public string TgProxySecret { get; set; } = "";
+
+    /// <summary>Start the built-in Telegram proxy automatically on app launch.</summary>
+    public bool TgProxyAutostart { get; set; }
+
+    /// <summary>App-wide UI zoom (1.0–2.5), applied on TOP of the OS DPI scaling via a ScaleTransform.
+    /// Lets the whole interface be enlarged on high-res/4K panels where Windows scaling is set low and
+    /// everything looks tiny — independent of the system DPI. 1.0 = no extra zoom.</summary>
+    public double UiScale { get; set; } = 1.0;
+
+    /// <summary>Show the app's own corner toast notifications (start/stop, auto-heal). Off = no popups.</summary>
+    public bool NotificationsEnabled { get; set; } = true;
+
+    /// <summary>Play a soft sound with each toast notification. Off = silent toasts.</summary>
+    public bool NotificationSound { get; set; } = true;
 }
 
 /// <summary>Loads/saves <see cref="AppSettings"/> as settings.json.</summary>

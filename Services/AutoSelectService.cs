@@ -1,12 +1,11 @@
 using System.Diagnostics;
 using System.IO;
-using System.Security.Authentication;
 using System.Text;
 using ZapretUI.Models;
 
 namespace ZapretUI.Services;
 
-/// <summary>Per-endpoint outcome of a candidate (TLS 1.2 / 1.3).</summary>
+/// <summary>Per-endpoint outcome of a candidate (TLS 1.2 / 1.3 + full HTTPS GET).</summary>
 public sealed record AutoHostResult(string Host, DiagStatus Tls12, DiagStatus Tls13, DiagStatus Https);
 
 /// <summary>Score of one candidate against the goal endpoints (lower Fail = better).</summary>
@@ -68,12 +67,16 @@ public sealed class AutoSelectService : IDisposable
             catch (Exception ex)
             {
                 score = new AutoScore(cand.Name + " — ошибка: " + ex.Message,
-                    0, goalHosts.Count * 2, goalHosts.Count * 2, cand);
+                    0, goalHosts.Count * 3, goalHosts.Count * 3, cand);
             }
             ScoreReady?.Invoke(score);
 
-            if (bestScore is null || score.Fail < bestScore.Fail ||
-                (score.Fail == bestScore.Fail && score.Ok > bestScore.Ok))
+            // Rank by a weighted success count (a completed HTTPS GET counts far more than a bare
+            // handshake), then break ties by fewest raw failures — so a config that actually loads
+            // pages beats one that only handshakes and resets.
+            if (bestScore is null
+                || WeightedOk(score) > WeightedOk(bestScore)
+                || (WeightedOk(score) == WeightedOk(bestScore) && score.Fail < bestScore.Fail))
             {
                 best = cand;
                 bestScore = score;
@@ -85,6 +88,13 @@ public sealed class AutoSelectService : IDisposable
 
         return best is not null && bestScore is not null ? (best, bestScore) : null;
     }
+
+    // Weighted success used only for ranking (the AutoScore shown to the user keeps raw check counts):
+    // TLS 1.2 / 1.3 handshakes = 1 each, a full HTTPS GET = 3, so "the page loads" dominates the pick.
+    private static int WeightedOk(AutoScore s)
+        => s.HostList.Sum(r => (r.Tls12 == DiagStatus.Ok ? 1 : 0)
+                             + (r.Tls13 == DiagStatus.Ok ? 1 : 0)
+                             + (r.Https == DiagStatus.Ok ? 3 : 0));
 
     private async Task<AutoScore> EvaluateAsync(ComboStrategy cand, IReadOnlyList<string> hosts, CancellationToken ct)
     {
@@ -107,12 +117,9 @@ public sealed class AutoSelectService : IDisposable
                 await gate.WaitAsync(ct).ConfigureAwait(false);
                 try
                 {
-                    var p12 = NetProbe.TlsAsync(host, SslProtocols.Tls12, ct);
-                    var p13 = NetProbe.TlsAsync(host, SslProtocols.Tls13, ct);
-                    var ph = NetProbe.HttpsAsync(host, ct);
-                    await Task.WhenAll(p12, p13, ph).ConfigureAwait(false);
-                    HostProbed?.Invoke(host, p12.Result, p13.Result, ph.Result);
-                    return new AutoHostResult(host, p12.Result, p13.Result, ph.Result);
+                    var r = await NetProbe.ProbeHostAsync(host, ct).ConfigureAwait(false);
+                    HostProbed?.Invoke(host, r.Tls12, r.Tls13, r.Https);
+                    return r;
                 }
                 finally { gate.Release(); }
             });

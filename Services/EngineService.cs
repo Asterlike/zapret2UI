@@ -22,6 +22,10 @@ public sealed class EngineService : IDisposable
     // normal Stop()/Dispose() path never runs and would otherwise orphan winws2 + WinDivert.
     private IntPtr _job = IntPtr.Zero;
 
+    // Enables Windows TCP timestamps for the duration of a run (and restores the prior value on stop),
+    // so the tcp_ts/tcp_ts_up fooling used by most presets isn't a silent no-op. See TcpTimestampsService.
+    private readonly TcpTimestampsService _tsTune = new();
+
     public EngineState State { get; private set; } = EngineState.Stopped;
 
     /// <summary>Flowseal-style game filter: widen the WF capture to all high ports (&gt;1023) when true.
@@ -34,6 +38,11 @@ public sealed class EngineService : IDisposable
     /// so games/apps not in any list are never touched. True = bypass every site (catch-all, kept
     /// safe by the exclude list). Set from settings by the VM; consumed by <see cref="Start"/>.</summary>
     public bool BypassAllSites { get; set; }
+
+    /// <summary>When true, the desynced services' QUIC (HTTP/3) is DROPPED so the browser falls back to
+    /// TCP/H2 (which the TLS profiles handle). The July-2026 TSPU drops QUIC v1 to :443 with payload
+    /// ≥1001 bytes — there the fake-QUIC bypass can't win, but forcing TCP does. Set from settings.</summary>
+    public bool DisableQuic { get; set; }
 
     /// <summary>The preset that is currently running (null when stopped).</summary>
     public Preset? ActivePreset { get; private set; }
@@ -51,20 +60,32 @@ public sealed class EngineService : IDisposable
     /// effective-exclude list be materialised to disk. The preview path passes false so that
     /// merely showing the command line never writes a file.</summary>
     public static List<string> BuildArguments(Preset preset, string? hostlistPath,
-        bool gameFilter = false, bool bypassAll = false, bool forLaunch = false)
+        bool gameFilter = false, bool bypassAll = false, bool disableQuic = false, bool forLaunch = false)
     {
         var args = new List<string>
         {
-            // Mandatory: load the bundled Lua libraries (helpers + strategy library).
+            // Mandatory: load the bundled Lua libraries, in the SAME order and set as the canonical
+            // zapret2 launch (init.d/.../functions): base helpers, the DPI-attack verbs, AND the
+            // automation/orchestration library. zapret-auto.lua is where the orchestrators live
+            // (circular/repeater/stopif/condition) — without it winws2 rejects e.g. the adaptive
+            // circular preset with "desync function 'circular' does not exist" (exit 87). It's inert
+            // for presets that don't use an orchestrator, so it's safe to always load.
             "--lua-init=@" + Path.Combine(AppPaths.LuaDir, "zapret-lib.lua"),
             "--lua-init=@" + Path.Combine(AppPaths.LuaDir, "zapret-antidpi.lua"),
+            "--lua-init=@" + Path.Combine(AppPaths.LuaDir, "zapret-auto.lua"),
         };
 
-        // {WF_TCP}/{WF_UDP}: WinDivert capture width. Game filter ON → all high ports (games + media);
-        // OFF (default) → narrow (80,443 + Discord voice ranges) so game traffic is left untouched.
-        // Discord voice spans the WHOLE 50000-65535 UDP range — capturing only 50000-50100 misses
-        // half the voice servers, which shows up as a permanent 5000 ping.
-        string wfTcp = gameFilter ? "--wf-tcp-out=80,443-65535" : "--wf-tcp-out=80,443";
+        // {WF_TCP}/{WF_UDP}: WinDivert capture width (the ports the kernel hands to winws2 — a profile's
+        // --filter-tcp can only match what was captured). TCP is ALWAYS 80,443-65535: the per-service
+        // profiles filter --filter-tcp=443-65535, and Discord media/CDN + HTTPS on non-443 ports live on
+        // high TCP ports, so a narrow 80,443 capture would silently starve those filters (a green :443
+        // checker probe hides it — and the auto-select catalog already tests with the wide capture, so a
+        // narrow runtime capture = "green on test, dead in practice"). Non-listed traffic stays safe via
+        // SNI/hostlist scoping (allow-list mode drops the catch-alls), NOT via a narrow capture — so
+        // widening TCP can't touch games. The game filter only widens UDP to all high ports; the default
+        // UDP is QUIC(443) + STUN + the WHOLE Discord voice range 50000-65535 (a narrower voice range
+        // shows up as a permanent 5000 ping).
+        string wfTcp = "--wf-tcp-out=80,443-65535";
         string wfUdp = gameFilter ? "--wf-udp-out=443-65535" : "--wf-udp-out=443,19294-19344,50000-65535";
 
         string hostlistArg = !string.IsNullOrWhiteSpace(hostlistPath)
@@ -113,7 +134,55 @@ public sealed class EngineService : IDisposable
         // Allow-list mode (default): the catch-all "all other TLS/QUIC" profiles are what break
         // non-listed games/apps. Re-scope them to the user's custom targets, or drop them, so only
         // the explicit lists + targets get desynced (like Flowseal).
-        return bypassAll ? args : ScopeCatchAllToTargets(args);
+        var scoped = bypassAll ? args : ScopeCatchAllToTargets(args);
+        // "QUIC off": force the desynced services onto TCP by dropping their QUIC instead of faking it.
+        return disableQuic ? ForceQuicDrop(scoped) : scoped;
+    }
+
+    /// <summary>
+    /// Rewrite every QUIC profile (<c>--filter-l7=quic</c>) so its desync becomes a plain
+    /// <c>--lua-desync=drop</c>: winws2 drops the outbound QUIC ClientHello, the browser gives up on
+    /// HTTP/3 and falls back to TCP/H2 (handled by the TLS profiles). Used when the TSPU kills QUIC v1
+    /// anyway, so a fake-QUIC bypass is pointless. The Discord VOICE profile (<c>--filter-l7=discord,stun</c>,
+    /// not <c>quic</c>) is left untouched — dropping it would kill voice. Profiles are delimited by
+    /// <c>--new</c>; the filter/payload/hostlist args are kept, only the <c>--lua-desync=</c> line(s) change.
+    /// </summary>
+    private static List<string> ForceQuicDrop(List<string> args)
+    {
+        var result = new List<string>();
+        var profile = new List<string>();
+
+        void Flush()
+        {
+            if (profile.Count == 0) return;
+            bool isQuic = profile.Any(a =>
+                a.StartsWith("--filter-l7=", StringComparison.Ordinal) &&
+                a.Contains("quic", StringComparison.Ordinal));
+            if (isQuic)
+            {
+                bool dropAdded = false;
+                foreach (var a in profile)
+                {
+                    if (a.StartsWith("--lua-desync=", StringComparison.Ordinal))
+                    {
+                        if (!dropAdded) { result.Add("--lua-desync=drop"); dropAdded = true; }
+                        // drop the remaining fake desync lines of this QUIC profile
+                    }
+                    else result.Add(a);
+                }
+                if (!dropAdded) result.Add("--lua-desync=drop");
+            }
+            else result.AddRange(profile);
+            profile.Clear();
+        }
+
+        foreach (var a in args)
+        {
+            if (a == "--new") Flush();
+            profile.Add(a);
+        }
+        Flush();
+        return result;
     }
 
     /// <summary>
@@ -145,11 +214,15 @@ public sealed class EngineService : IDisposable
             bool scoped = profile.Any(a => a.StartsWith("--hostlist=", StringComparison.Ordinal)
                                         || a.StartsWith("--ipset=", StringComparison.Ordinal));
             // Bare global = a broad protocol desync with no list pinning it (and not the first segment,
-            // which carries the global setup args + first real profile).
+            // which carries the global setup args + first real profile). Match PARSED comma-tokens of
+            // --filter-l7, not a substring: so a proto name that merely contains "tls"/"quic"/"http"
+            // can't be misclassified, and the voice profile (--filter-l7=discord,stun) is never a bare
+            // global (dropping it would kill voice).
             bool bareGlobal = !first && ex < 0 && !scoped && profile.Any(a =>
                 a.StartsWith("--filter-l7=", StringComparison.Ordinal) &&
-                (a.Contains("tls", StringComparison.Ordinal) || a.Contains("quic", StringComparison.Ordinal)
-                 || a.Contains("http", StringComparison.Ordinal)));
+                a["--filter-l7=".Length..]
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .Any(p => p is "tls" or "quic" or "http"));
             first = false;
 
             if (ex < 0 && !bareGlobal)
@@ -274,10 +347,10 @@ public sealed class EngineService : IDisposable
 
     /// <summary>Human-readable preview of the command line that will be launched.</summary>
     public static string PreviewCommandLine(Preset preset, string? hostlistPath,
-        bool gameFilter = false, bool bypassAll = false)
+        bool gameFilter = false, bool bypassAll = false, bool disableQuic = false)
     {
         var sb = new StringBuilder("winws2.exe");
-        foreach (var a in BuildArguments(preset, hostlistPath, gameFilter, bypassAll))
+        foreach (var a in BuildArguments(preset, hostlistPath, gameFilter, bypassAll, disableQuic))
             sb.Append(a.Contains(' ') ? $" \"{a}\"" : $" {a}");
         return sb.ToString();
     }
@@ -305,7 +378,7 @@ public sealed class EngineService : IDisposable
                 StandardOutputEncoding = Encoding.UTF8,
                 StandardErrorEncoding = Encoding.UTF8,
             };
-            foreach (var a in BuildArguments(preset, hostlistPath, GameFilter, BypassAllSites, forLaunch: true))
+            foreach (var a in BuildArguments(preset, hostlistPath, GameFilter, BypassAllSites, DisableQuic, forLaunch: true))
                 psi.ArgumentList.Add(a);
 
             OpenLogFile(preset);
@@ -331,6 +404,10 @@ public sealed class EngineService : IDisposable
 
             // Tie winws2 to the kill-on-close job so it can never outlive this app process.
             EnsureJobAndAssign(proc);
+
+            // Turn on TCP timestamps for the session so tcp_ts/tcp_ts_up fooling actually applies
+            // (Windows leaves them "allowed" by default → the fake never dies). Restored on stop.
+            _tsTune.EnableForSession(Emit);
 
             _proc = proc;
             ActivePreset = preset;
@@ -372,6 +449,9 @@ public sealed class EngineService : IDisposable
             int? code = null;
             try { code = _proc?.ExitCode; } catch { }
             Emit($"=== Движок остановлен (код {code?.ToString() ?? "?"}) ===");
+
+            // Restore the TCP timestamps setting we flipped at start (no-op if it was already enabled).
+            _tsTune.RestoreAfterSession(Emit);
 
             _proc?.Dispose();
             _proc = null;

@@ -49,13 +49,15 @@ public sealed class MonitorService
             {
                 await Task.Delay(TimeSpan.FromSeconds(TickSeconds), ct);
                 bool ok = await HealthyAsync(ct);
-                Tick?.Invoke(ok);
+                // Isolate subscriber callbacks: a throw from a UI handler (marshaled synchronously) must
+                // not kill the watchdog loop or surface as an unobserved task exception.
+                try { Tick?.Invoke(ok); } catch { /* subscriber threw — keep watching */ }
                 if (ok) { fails = 0; continue; }
 
                 if (++fails >= FailsToHeal)
                 {
                     fails = 0;
-                    ConnectivityLost?.Invoke();
+                    try { ConnectivityLost?.Invoke(); } catch { /* subscriber threw — keep watching */ }
                     await Task.Delay(TimeSpan.FromSeconds(BackoffSeconds), ct); // let the heal settle
                 }
             }

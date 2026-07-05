@@ -26,6 +26,11 @@ public static class ComboStrategyCatalog
         "--lua-init=fake_default_tls = tls_mod(fake_default_tls,'rnd,rndsni')",
         "--blob=quic_google:@{FILES}\\fake\\quic_initial_www_google_com.bin",
         "--blob=tls_google:@{FILES}\\fake\\tls_clienthello_www_google_com.bin",
+        // Отечественные фейк-блобы (ClientHello vk.com / sberbank.ru) — ТСПУ вайтлистит домашний
+        // трафик, поэтому фейк «под vk/сбер» выживает там, где google-фейк режется (тренд 2026).
+        "--blob=tls_vk:@{FILES}\\fake\\tls_clienthello_vk_com.bin",
+        "--blob=tls_sber:@{FILES}\\fake\\tls_clienthello_sberbank_ru.bin",
+        "--blob=tls_gos:@{FILES}\\fake\\tls_clienthello_gosuslugi_ru.bin",
         "--wf-raw-part=@{WF}\\windivert_part.stun.txt",
         "--wf-raw-part=@{WF}\\windivert_part.quic_initial_ietf.txt",
         // HTTP (shared across variants)
@@ -90,7 +95,7 @@ public static class ComboStrategyCatalog
         //     byte count like in multisplit. The old `seqovl=652` silently
         //     cancelled itself (652 >= split pos), so the overlap did nothing.
         new("DC legacy: fake ts → multidisorder sld seqovl", Build(
-            new[] { "--lua-desync=fake:blob=tls_google:repeats=6:tcp_ts=1000",
+            new[] { "--lua-desync=fake:blob=tls_google:repeats=6:tcp_ts=-1000",
                     "--lua-desync=multidisorder_legacy:pos=1,sld+2,midsld:seqovl=sld+1:seqovl_pattern=tls_google:optional" }, QuicFake6)),
 
         // --- The discord.media recipe (high TCP ports): syndata in the SYN, the
@@ -117,19 +122,19 @@ public static class ComboStrategyCatalog
                     "--lua-desync=wssize:wsize=1:scale=6" }, QuicFake6)),
 
         new("Окно wssize 1:6 + fake ts md5", Build(
-            new[] { "--lua-desync=fake:blob=tls_google:tcp_md5:tcp_ts=1000:repeats=6",
+            new[] { "--lua-desync=fake:blob=tls_google:tcp_md5:tcp_ts=-1000:repeats=6",
                     "--lua-desync=wssize:wsize=1:scale=6" }, QuicFake11)),
 
         // --- Flowseal ALT11/ALT12 ("fooling ts"): a fake (ts, repeats=8) PREPENDED to a multisplit
         //     carrying a big byte-seqovl with a real google ClientHello pattern. The fake-then-seqovl
         //     stack is distinct from the bare-seqovl candidates above; translated from general (ALT11/12).
         new("ALT11/12: fake ts → multisplit seqovl 681", Build(
-            new[] { "--lua-desync=fake:blob=tls_google:tcp_ts=1000:repeats=8",
-                    "--lua-desync=multisplit:pos=1:seqovl=681:seqovl_pattern=tls_google:optional" }, QuicFake11)),
+            new[] { "--lua-desync=fake:blob=tls_google:tcp_ts=-1000:repeats=8",
+                    "--lua-desync=multisplit:pos=1,midsld:seqovl=681:seqovl_pattern=tls_google:optional" }, QuicFake11)),
 
         new("ALT: fake ts → multisplit seqovl 664", Build(
-            new[] { "--lua-desync=fake:blob=tls_google:tcp_ts=1000:repeats=8",
-                    "--lua-desync=multisplit:pos=1:seqovl=664:seqovl_pattern=tls_google:optional" }, QuicFake11)),
+            new[] { "--lua-desync=fake:blob=tls_google:tcp_ts=-1000:repeats=8",
+                    "--lua-desync=multisplit:pos=1,midsld:seqovl=664:seqovl_pattern=tls_google:optional" }, QuicFake11)),
 
         // --- YouTube TCP (real preset): split ClientHello around the SNI with a
         //     real-CH seqovl pattern. The single best general-purpose TLS split.
@@ -140,6 +145,12 @@ public static class ComboStrategyCatalog
         //     segments across host/sld/sni — defeats reassembly-by-seq DPI.
         new("YT googlevideo: multidisorder multi-pos", Build(
             new[] { "--lua-desync=multidisorder:pos=1,host+2,sld+2,sld+5,sniext+1,sniext+2,endhost-2" }, QuicFake6)),
+
+        // --- YouTube current community recipe (июль 2026): a dupsid-fooled fake ahead of a rich
+        //     SNI-marker multidisorder. Verbs/markers verified against the local engine lua.
+        new("YT актуальный: fake dupsid → multidisorder SNI", Build(
+            new[] { "--lua-desync=fake:blob=tls_google:tls_mod=rnd,dupsid:repeats=6",
+                    "--lua-desync=multidisorder:pos=1,sniext+1,host+1,midsld-2,midsld,endhost-1" }, QuicFake11)),
 
         // --- fake + fooling families (broad coverage)
         new("FAKE md5sig + multidisorder midsld", Build(
@@ -169,6 +180,45 @@ public static class ComboStrategyCatalog
 
         new("hostfakesplit MS-host", Build(
             new[] { "--lua-desync=hostfakesplit:host=www.microsoft.com:tcp_ts=-1000:tcp_md5:repeats=4" }, QuicFake6)),
+
+        // --- Отечественный фейк (тренд 2026: sonicdpi ozon.ru, Flowseal dbankcloud_ru). ТСПУ вайтлистит
+        //     домашний трафик, поэтому фейковый SNI/ClientHello «под vk/ozon» переживает там, где
+        //     google-фейк режется. host= — просто строка-домен (blob не нужен); tls_vk — реальный
+        //     ClientHello vk.com из поставки движка.
+        new("hostfakesplit VK-host ts md5", Build(
+            new[] { "--lua-desync=hostfakesplit:host=vk.com:tcp_ts=-1000:tcp_md5:repeats=4" }, QuicFake6)),
+
+        new("hostfakesplit ozon.ru md5 ×6", Build(
+            new[] { "--lua-desync=hostfakesplit:host=ozon.ru:tcp_md5:repeats=6" }, QuicFake6)),
+
+        new("DC отеч.: fake VK-CH md5 → multidisorder", Build(
+            new[] { "--lua-desync=fake:blob=tls_vk:tcp_md5:ip_autottl=-2,3-20:repeats=6",
+                    "--lua-desync=multidisorder:pos=1,midsld" }, QuicFake11)),
+
+        new("DC отеч.: fake Sber-CH md5 → multidisorder", Build(
+            new[] { "--lua-desync=fake:blob=tls_sber:tcp_md5:ip_autottl=-2,3-20:repeats=6",
+                    "--lua-desync=multidisorder:pos=1,midsld" }, QuicFake11)),
+
+        // Ещё отечественные SNI (gateway-safe hostfakesplit) + gosuslugi-фейк — шире перебор под РФ.
+        new("hostfakesplit Sber-host ts md5", Build(
+            new[] { "--lua-desync=hostfakesplit:host=sberbank.ru:tcp_ts=-1000:tcp_md5:repeats=4" }, QuicFake6)),
+
+        new("hostfakesplit Gos-host ts md5", Build(
+            new[] { "--lua-desync=hostfakesplit:host=gosuslugi.ru:tcp_ts=-1000:tcp_md5:repeats=4" }, QuicFake6)),
+
+        new("DC отеч.: fake Gos-CH md5 → multidisorder", Build(
+            new[] { "--lua-desync=fake:blob=tls_gos:tcp_md5:ip_autottl=-2,3-20:repeats=6",
+                    "--lua-desync=multidisorder:pos=1,midsld" }, QuicFake11)),
+
+        // Flowseal ALT10/ALT11 (переводы на nfqws2) — gateway-friendly fake:ts прайм. ALT10 = чистый
+        // двойной fake (google + vk); ALT11 = fake:ts + multisplit seqovl. Часто пробивают гейтвей/медиа.
+        new("Flowseal ALT10: двойной fake ts", Build(
+            new[] { "--lua-desync=fake:blob=tls_google:tcp_ts=-1000:repeats=6",
+                    "--lua-desync=fake:blob=tls_vk:tcp_ts=-1000:repeats=6" }, QuicFake6)),
+
+        new("Flowseal ALT11: fake ts → seqovl", Build(
+            new[] { "--lua-desync=fake:blob=tls_google:tcp_ts=-1000:repeats=6",
+                    "--lua-desync=multisplit:pos=1,midsld:seqovl=681:seqovl_pattern=tls_google:optional" }, QuicFake6)),
 
         // --- proven Discord stack (badseq/dupsid + split at sld+1)
         new("DC: fake badseq dupsid → multisplit sld+1", Build(

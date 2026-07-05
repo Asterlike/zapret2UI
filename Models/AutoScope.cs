@@ -2,10 +2,9 @@ namespace ZapretUI.Models;
 
 /// <summary>What the auto-selector optimises for: a strategy that works for both
 /// services at once, or just one of them.
-/// NOTE: Telegram is intentionally NOT a scope — autoselect scores by a TLS handshake to the
-/// goal host, but Telegram's web/SNI layer already works while the native MTProto app (and
-/// especially an ee-MTProxy) can't be validated by any handshake probe (a TCP connect succeeds
-/// even when throttled). Including it produced false "6/8 OK" results, so it was removed.</summary>
+/// NOTE: Telegram is intentionally NOT a scope — it isn't handled by a DPI desync at all but by the
+/// built-in tg-ws-proxy (TelegramProxyService). Autoselect scores by a TLS handshake to the goal
+/// host, which can't validate a proxied MTProto path anyway, so Telegram stays out of the picker.</summary>
 public enum AutoScope { Both, Discord, YouTube }
 
 public static class AutoScopeExt

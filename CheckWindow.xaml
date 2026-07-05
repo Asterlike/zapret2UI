@@ -2,14 +2,45 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Подбор стратегии"
-        Width="880" Height="640"
+        Width="920" Height="660" MinWidth="720" MinHeight="480"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
-        ResizeMode="NoResize" WindowStartupLocation="CenterOwner"
-        ShowInTaskbar="False">
+        ResizeMode="CanResize" WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False" Loaded="OnLoaded">
+
+    <Window.Resources>
+        <!-- Self-contained expand chevron (ChevronToggle/IconFont are MainWindow-local; keep this window
+             independent so it never fails to resolve a resource). -->
+        <Style x:Key="MiniChevron" TargetType="ToggleButton">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Foreground" Value="{StaticResource FgMutedBrush}"/>
+            <Setter Property="Width" Value="30"/>
+            <Setter Property="Height" Value="26"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border Background="Transparent" CornerRadius="6">
+                            <TextBlock x:Name="g" Text="&#x25BE;" FontSize="11"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Foreground="{TemplateBinding Foreground}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="g" Property="Text" Value="&#x25B4;"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="g" Property="Foreground" Value="White"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
 
     <Border Background="{StaticResource SurfaceBrush}" CornerRadius="14"
             BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1">
-        <Grid Margin="22">
+        <!-- ContentRoot carries the app-wide UI scale (see CheckWindow.OnLoaded) -->
+        <Grid x:Name="ContentRoot" Margin="22">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
@@ -19,36 +50,73 @@
 
             <!-- Title bar (draggable) -->
             <Grid Grid.Row="0" MouseLeftButtonDown="OnHeaderDrag">
-                <StackPanel>
-                    <TextBlock Text="Подбор стратегии" Style="{StaticResource H2}"/>
-                    <TextBlock Style="{StaticResource Muted}" Margin="0,4,0,0" TextWrapping="Wrap"
-                               Text="Слева — ход проверки выбранных целей текущей стратегией. Справа — стратегии, прошедшие проверку. Окно закроется по завершении."/>
+                <StackPanel Margin="0,0,44,0">
+                    <TextBlock Text="{Binding AutoPopupTitle}" Style="{StaticResource H2}"/>
+                    <TextBlock Text="{Binding AutoPopupSubtitle}" Style="{StaticResource Muted}"
+                               Margin="0,4,0,0" TextWrapping="Wrap"/>
                 </StackPanel>
                 <Button Content="✕" FontSize="14" Width="34" Height="34"
                         VerticalAlignment="Top" HorizontalAlignment="Right"
-                        Style="{StaticResource GhostButton}" Padding="0" Click="OnCloseClick"/>
+                        Style="{StaticResource GhostButton}" Padding="0" Click="OnCloseClick"
+                        ToolTip="Закрыть окно"/>
             </Grid>
 
-            <!-- Progress -->
+            <!-- Progress (running) / completion banner (done) + verdict chips in row 1 -->
             <StackPanel Grid.Row="1" Margin="0,16,0,0">
-                <Grid>
+                <!-- running -->
+                <StackPanel Visibility="{Binding IsAutoRunning, Converter={StaticResource BoolToVis}}">
+                    <Grid>
+                        <TextBlock Text="{Binding AutoStatusText}" Style="{StaticResource Muted}"
+                                   HorizontalAlignment="Left" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text="{Binding AutoProgressText}" FontWeight="SemiBold" FontSize="13"
+                                   HorizontalAlignment="Right" VerticalAlignment="Center"
+                                   Foreground="{StaticResource AccentBrush}"/>
+                    </Grid>
+                    <ProgressBar Value="{Binding AutoProgress, Mode=OneWay}" Minimum="0" Maximum="1" Height="5"
+                                 Margin="0,8,0,0" Background="{StaticResource BgBrush}"
+                                 Foreground="{StaticResource AccentBrush}" BorderThickness="0"/>
+                </StackPanel>
+                <!-- done -->
+                <Border CornerRadius="10" Padding="12,10" Background="#1A34D399"
+                        BorderBrush="{StaticResource SuccessBrush}" BorderThickness="1"
+                        Visibility="{Binding IsAutoRunning, Converter={StaticResource BoolToVis}, ConverterParameter=invert}">
                     <TextBlock Text="{Binding AutoStatusText}" Style="{StaticResource Muted}"
-                               HorizontalAlignment="Left" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                    <TextBlock Text="{Binding AutoProgressText}" FontWeight="SemiBold" FontSize="13"
-                               HorizontalAlignment="Right" VerticalAlignment="Center"
-                               Foreground="{StaticResource AccentBrush}"/>
-                </Grid>
-                <ProgressBar Value="{Binding AutoProgress, Mode=OneWay}" Minimum="0" Maximum="1" Height="5"
-                             Margin="0,8,0,0" Background="{StaticResource BgBrush}"
-                             Foreground="{StaticResource AccentBrush}" BorderThickness="0"/>
+                               TextWrapping="Wrap" VerticalAlignment="Center"/>
+                </Border>
+                <!-- VERDICT: big per-service РАБОТАЕТ/ЧАСТИЧНО/НЕ РАБОТАЕТ chips for the applied strategy
+                     (real HTTP/2 reach, not just a handshake). Shown only when a run has finished. -->
+                <ItemsControl ItemsSource="{Binding Verdicts}" Margin="0,10,0,0"
+                              Visibility="{Binding IsAutoRunning, Converter={StaticResource BoolToVis}, ConverterParameter=invert}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate><UniformGrid Rows="1"/></ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border CornerRadius="10" Padding="13,10" Margin="0,0,8,0"
+                                    Background="{StaticResource BgBrush}" BorderThickness="1"
+                                    BorderBrush="{Binding Status, Converter={StaticResource DiagBrush}}">
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{Binding Service}" FontWeight="SemiBold" FontSize="13"/>
+                                        <TextBlock Text="{Binding StatusText}" FontWeight="Bold" FontSize="13"
+                                                   Margin="8,0,0,0"
+                                                   Foreground="{Binding Status, Converter={StaticResource DiagBrush}}"/>
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding Detail}" Style="{StaticResource Muted}" FontSize="10.5"
+                                               TextWrapping="Wrap" Margin="0,3,0,0"/>
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
             </StackPanel>
 
             <!-- Main split: targets (left) | passed strategies (right) -->
             <Grid Grid.Row="2" Margin="0,14,0,0">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="1.55*"/>
+                    <ColumnDefinition Width="1.4*"/>
                     <ColumnDefinition Width="14"/>
-                    <ColumnDefinition Width="1*"/>
+                    <ColumnDefinition Width="1.05*"/>
                 </Grid.ColumnDefinitions>
 
                 <!-- LEFT: live target check for the current candidate -->
@@ -73,14 +141,15 @@
                                             <Grid>
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="*"/>
-                                                    <ColumnDefinition Width="92"/>
+                                                    <ColumnDefinition Width="88"/>
                                                     <ColumnDefinition Width="92"/>
                                                     <ColumnDefinition Width="92"/>
                                                 </Grid.ColumnDefinitions>
                                                 <TextBlock Grid.Column="0" Text="{Binding Host}" VerticalAlignment="Center"
                                                            FontSize="12.5" TextTrimming="CharacterEllipsis"/>
-                                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                                                    <TextBlock Text="HTTP " Style="{StaticResource Muted}" FontSize="11"/>
+                                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center"
+                                                            ToolTip="Реальная загрузка страницы (HTTP/2, как в браузере)">
+                                                    <TextBlock Text="САЙТ " Style="{StaticResource Muted}" FontSize="11"/>
                                                     <TextBlock Text="{Binding Http, Converter={StaticResource DiagText}}"
                                                                Foreground="{Binding Http, Converter={StaticResource DiagBrush}}"
                                                                FontWeight="SemiBold" FontSize="11.5"/>
@@ -106,7 +175,7 @@
                     </Grid>
                 </Border>
 
-                <!-- RIGHT: strategies that passed -->
+                <!-- RIGHT: strategies that passed — save / apply straight from here -->
                 <Border Grid.Column="2" Style="{StaticResource Card}" Padding="14">
                     <Grid>
                         <Grid.RowDefinitions>
@@ -114,48 +183,119 @@
                             <RowDefinition Height="*"/>
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Text="ПРОШЛИ ПРОВЕРКУ" Style="{StaticResource Muted}" FontSize="11"
-                                   Margin="0,0,0,8"/>
+                        <StackPanel Grid.Row="0" Margin="0,0,0,8">
+                            <TextBlock Text="ПРОШЛИ ПРОВЕРКУ" Style="{StaticResource Muted}" FontSize="11"/>
+                            <TextBlock Text="Лучшие сверху. Сохраните понравившуюся в пресеты."
+                                       Style="{StaticResource Muted}" FontSize="10.5" Margin="0,2,0,0"
+                                       TextWrapping="Wrap"/>
+                        </StackPanel>
                         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
                             <ItemsControl ItemsSource="{Binding PassedStrategies}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Border CornerRadius="8" Background="{StaticResource BgBrush}"
-                                                Padding="11,8" Margin="0,0,0,6">
-                                            <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                    <ColumnDefinition Width="*"/>
-                                                </Grid.ColumnDefinitions>
-                                                <TextBlock Grid.Column="0" Text="{Binding Glyph}" FontWeight="Bold"
-                                                           FontSize="14" VerticalAlignment="Center" Width="18" TextAlignment="Center">
-                                                    <TextBlock.Style>
-                                                        <Style TargetType="TextBlock">
-                                                            <Setter Property="Foreground" Value="{StaticResource FgMutedBrush}"/>
-                                                            <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding Glyph}" Value="✓">
-                                                                    <Setter Property="Foreground" Value="{StaticResource SuccessBrush}"/>
-                                                                </DataTrigger>
-                                                                <DataTrigger Binding="{Binding Glyph}" Value="≈">
-                                                                    <Setter Property="Foreground" Value="#FFF5A623"/>
-                                                                </DataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </TextBlock.Style>
-                                                </TextBlock>
-                                                <StackPanel Grid.Column="1" Margin="9,0,0,0" VerticalAlignment="Center">
-                                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="12"
-                                                               TextTrimming="CharacterEllipsis"/>
-                                                    <TextBlock Text="{Binding Detail}" Style="{StaticResource Muted}" FontSize="11"/>
-                                                </StackPanel>
-                                            </Grid>
+                                        <Border CornerRadius="10" Background="{StaticResource BgBrush}"
+                                                BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1"
+                                                Margin="0,0,0,7" Opacity="0">
+                                            <Border.Triggers>
+                                                <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                                                    <BeginStoryboard>
+                                                        <Storyboard>
+                                                            <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                                From="0" To="1" Duration="0:0:0.25"/>
+                                                        </Storyboard>
+                                                    </BeginStoryboard>
+                                                </EventTrigger>
+                                            </Border.Triggers>
+                                            <StackPanel Margin="12,10">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Grid.Column="0" Text="{Binding Glyph}" FontWeight="Bold"
+                                                               FontSize="14" VerticalAlignment="Center" Width="18" TextAlignment="Center">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Foreground" Value="{StaticResource FgMutedBrush}"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding Glyph}" Value="✓">
+                                                                        <Setter Property="Foreground" Value="{StaticResource SuccessBrush}"/>
+                                                                    </DataTrigger>
+                                                                    <DataTrigger Binding="{Binding Glyph}" Value="≈">
+                                                                        <Setter Property="Foreground" Value="#FFF5A623"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                    <StackPanel Grid.Column="1" Margin="9,0,0,0" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="12"
+                                                                   TextWrapping="Wrap"/>
+                                                        <TextBlock Text="{Binding Detail}" Style="{StaticResource Muted}" FontSize="11"/>
+                                                    </StackPanel>
+                                                    <ToggleButton x:Name="exp" Grid.Column="2" Style="{StaticResource MiniChevron}"
+                                                                  VerticalAlignment="Top" ToolTip="Показать детали по целям"/>
+                                                </Grid>
+
+                                                <!-- per-endpoint detail (expand) -->
+                                                <ItemsControl ItemsSource="{Binding HostList}" Margin="0,8,0,0"
+                                                              Visibility="{Binding IsChecked, ElementName=exp, Converter={StaticResource BoolToVis}}">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Grid Margin="0,2">
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="*"/>
+                                                                    <ColumnDefinition Width="Auto"/>
+                                                                    <ColumnDefinition Width="Auto"/>
+                                                                    <ColumnDefinition Width="Auto"/>
+                                                                </Grid.ColumnDefinitions>
+                                                                <TextBlock Grid.Column="0" Text="{Binding Host}"
+                                                                           Style="{StaticResource Muted}" FontSize="11"
+                                                                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                                                <TextBlock Grid.Column="1" Margin="6,0,0,0" FontSize="11" FontWeight="SemiBold"
+                                                                           Text="{Binding Https, Converter={StaticResource DiagText}}"
+                                                                           Foreground="{Binding Https, Converter={StaticResource DiagBrush}}"
+                                                                           ToolTip="Реальная загрузка (HTTP/2)"/>
+                                                                <TextBlock Grid.Column="2" Margin="8,0,0,0" FontSize="11" FontWeight="SemiBold"
+                                                                           Text="{Binding Tls12, Converter={StaticResource DiagText}}"
+                                                                           Foreground="{Binding Tls12, Converter={StaticResource DiagBrush}}"
+                                                                           ToolTip="TLS 1.2"/>
+                                                                <TextBlock Grid.Column="3" Margin="8,0,0,0" FontSize="11" FontWeight="SemiBold"
+                                                                           Text="{Binding Tls13, Converter={StaticResource DiagText}}"
+                                                                           Foreground="{Binding Tls13, Converter={StaticResource DiagBrush}}"
+                                                                           ToolTip="TLS 1.3"/>
+                                                            </Grid>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+
+                                                <!-- actions -->
+                                                <Grid Margin="0,10,0,0">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="8"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <Button Grid.Column="0" Content="Сохранить в пресеты"
+                                                            Style="{StaticResource GhostButton}" Padding="10,6" FontSize="12"
+                                                            HorizontalAlignment="Stretch"
+                                                            Command="{Binding DataContext.ApplyScoreCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                            CommandParameter="{Binding}"/>
+                                                    <Button Grid.Column="2" Content="▶" FontSize="12" Padding="12,6"
+                                                            Style="{StaticResource StartStopButton}"
+                                                            ToolTip="Сохранить и сразу запустить обход с этой стратегией"
+                                                            Command="{Binding DataContext.ApplyScoreAndStartCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                            CommandParameter="{Binding}"/>
+                                                </Grid>
+                                            </StackPanel>
                                         </Border>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
                         </ScrollViewer>
-                        <TextBlock Grid.Row="2" FontSize="11" Margin="0,8,0,0" TextWrapping="Wrap"
-                                   Text="Пока ни одна стратегия не прошла.">
+                        <TextBlock Grid.Row="2" FontSize="11.5" Margin="0,8,0,0" TextWrapping="Wrap"
+                                   Text="Пока ни одна стратегия не прошла проверку.">
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock" BasedOn="{StaticResource Muted}">
                                     <Setter Property="Visibility" Value="Collapsed"/>
@@ -173,8 +313,14 @@
 
             <!-- Footer -->
             <Grid Grid.Row="3" Margin="0,16,0,0">
-                <Button Content="Остановить подбор" Command="{Binding StopAutoSelectCommand}"
-                        Style="{StaticResource GhostButton}" HorizontalAlignment="Left"/>
+                <!-- running: stop -->
+                <Button Content="Остановить" Command="{Binding StopAutoSelectCommand}"
+                        Style="{StaticResource GhostButton}" HorizontalAlignment="Left"
+                        Visibility="{Binding IsAutoRunning, Converter={StaticResource BoolToVis}}"/>
+                <!-- done: close -->
+                <Button Content="Закрыть" Click="OnCloseClick" Padding="20,8"
+                        Style="{StaticResource StartStopButton}" HorizontalAlignment="Left"
+                        Visibility="{Binding IsAutoRunning, Converter={StaticResource BoolToVis}, ConverterParameter=invert}"/>
                 <TextBlock Text="{Binding AutoProgressText}" Style="{StaticResource Muted}"
                            HorizontalAlignment="Right" VerticalAlignment="Center"/>
             </Grid>

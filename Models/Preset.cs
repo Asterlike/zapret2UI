@@ -26,18 +26,18 @@ public sealed class Preset
     /// <summary>The single preset the Simple mode applies with its one-click button.</summary>
     public bool IsRecommended { get; set; }
 
-    /// <summary>True if this preset desyncs an ee-MTProxy connection scoped to the user's proxy IP
-    /// (the {IPSET:proxy} token). The engine cannot start until the user has entered their proxy host
-    /// (Settings/Hostlists → list "proxy"), because without it the ipset is empty and nothing matches.</summary>
-    public bool RequiresProxyHost { get; set; }
-
     /// <summary>True if assembled by the strategy generator (personalised). Marked ✨ in the list.</summary>
     public bool IsGenerated { get; set; }
 
+    /// <summary>True for the auto-saved "top-3 of the last generation" presets — replaced (actualised)
+    /// on every generation run so their scores stay current. Marked ★ and grouped separately.</summary>
+    public bool IsAutoLeaderboard { get; set; }
+
     /// <summary>Section title for grouping in the presets list.</summary>
     public string GroupTitle => !IsBuiltIn
-        ? (IsGenerated ? "✨ Сгенерировано автоподбором" : "Личные (созданные)")
-        : RequiresProxyHost ? "Telegram (через ваш прокси)"
+        ? (IsAutoLeaderboard ? "★ Лучшие из последней генерации"
+           : IsGenerated ? "✨ Сгенерировано автоподбором"
+           : "Личные (созданные)")
         : "Основные (Discord / YouTube)";
 
     public Preset Clone() => new()
@@ -46,7 +46,6 @@ public sealed class Preset
         Description = Description,
         Args = new List<string>(Args),
         UsesHostlist = UsesHostlist,
-        RequiresProxyHost = RequiresProxyHost,
         IsGenerated = IsGenerated,
         IsBuiltIn = false
     };

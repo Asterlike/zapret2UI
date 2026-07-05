@@ -48,6 +48,21 @@ public sealed class PresetService
         Save();
     }
 
+    /// <summary>Replace the auto-saved "top-3 of the last generation" leaderboard presets with a fresh
+    /// set, so the saved trio and their scores stay current after each generation run. The incoming
+    /// presets are flagged as leaderboard entries; the previous trio is dropped first.</summary>
+    public void ReplaceAutoLeaderboard(IEnumerable<Preset> top)
+    {
+        UserPresets.RemoveAll(p => p.IsAutoLeaderboard);
+        foreach (var p in top)
+        {
+            p.IsBuiltIn = false;
+            p.IsAutoLeaderboard = true;
+            UserPresets.Add(p);
+        }
+        Save();
+    }
+
     public void Save()
     {
         try
@@ -118,33 +133,58 @@ public sealed class PresetService
             recommended: true,
             discordTls: RecDiscordTls, youtubeTls: RecYoutubeTls, fallbackTls: RecDiscordTls),
 
-        // 1b/1c/1d) Telegram via YOUR MTProxy (secret ee). Same as the recommended combo (DC+YT+voice)
-        //     plus ONE extra profile desyncing ONLY the proxy server's IP ({IPSET:proxy}). The three
-        //     differ only in that proxy desync — on different ISPs/TSPU a different one connects, so the
-        //     user tries them. Requires entering the proxy host first (RequiresProxyHost gates connect).
-        Combo("Комбо + Telegram через ваш прокси (осн.)",
-            "Рекомендуемое комбо + профиль под ВАШ MTProxy (секрет ee). Десинк применяется ТОЛЬКО к IP " +
-            "вашего прокси-сервера — YouTube/Discord/голос как в основном комбо. Основной вариант " +
-            "(лучший в тестах). Сначала укажите хост прокси, иначе подключение недоступно. На разных " +
-            "операторах связи может зайти «вариант 2/3» — если этот нестабилен, пробуйте их.",
+        // 2) TARGETED DOMESTIC — the domestic-fake counterpart to the recommended combo, and like it
+        //    GATEWAY-SAFE: hostfakesplit splits by the SNI marker, so it adapts to the Discord native
+        //    client's gateway ClientHello too (logs in AND connects to servers — no fixed-byte seqovl
+        //    that a differently-sized gateway handshake would break). Fakes look like vk.com, which the
+        //    TSPU whitelists, so it often breaks through where google-fakes get cut.
+        Combo("Комбо — отечественный (VK, целевой)",
+            "Целенаправленно под РФ: фейки для Discord маскируются под vk.com (ТСПУ не роняет отечественный " +
+            "трафик). Как и рекомендуемый — hostfakesplit по маркеру SNI, поэтому пускает и в логин, и к " +
+            "серверам (гейтвею), а не только на страницу входа. Discord/остальное → hostfakesplit vk.com, " +
+            "YouTube → fake(google)+multidisorder (vk-фейк для googlevideo не годится — там нужен обычный " +
+            "рабочий профиль). Голос: STUN + RTP-фикс. Первый выбор, если google-варианты «зелёные, но не " +
+            "открывают» Discord.",
             recommended: false,
-            discordTls: RecDiscordTls, youtubeTls: RecYoutubeTls, fallbackTls: RecDiscordTls,
-            proxyTls: new[] { "--lua-desync=multidisorder:pos=88,176,264,352,440" }),
+            discordTls: new[] { "--lua-desync=hostfakesplit:host=vk.com:tcp_ts=-1000:tcp_md5:repeats=4" },
+            youtubeTls: RecYoutubeTls,
+            fallbackTls: new[] { "--lua-desync=hostfakesplit:host=vk.com:tcp_ts=-1000:tcp_md5:repeats=4" }),
 
-        Combo("Комбо + Telegram через ваш прокси (вариант 2)",
-            "То же, но другой десинк прокси (нарезка по маркерам имени). На части операторов связи " +
-            "заходит лучше основного, на части — хуже. Пробуйте, если основной нестабилен. " +
-            "Сначала укажите хост прокси.",
+        // 3) Flowseal general (ALT10), переведён на nfqws2. У сообщества «работает вообще всё»: ЧИСТЫЙ
+        //    fake (без сплита) с ts-fooling и ДВОЙНЫМ фейком (google + отечественный vk-ClientHello),
+        //    а голос — доменным QUIC-блобом (vk) вместо google. Это чинит «войс отваливается / медиа не
+        //    грузится», когда сплит-подходы пускают только в логин. fooling=ts → tcp_ts=-1000.
+        Combo("Комбо — Flowseal ALT10 (двойной fake + ts)",
+            "Перевод Flowseal general (ALT10) на nfqws2: без разрезки — двойной fake-пакет (google + " +
+            "vk-ClientHello) с ts-fooling, голос через отечественный QUIC-блоб (vk). Часто пробивает и " +
+            "гейтвей, и медиа, и голос там, где сплит-стратегии дают только логин. Первый выбор при " +
+            "«залогинился, но не подключает / войс молчит».",
             recommended: false,
-            discordTls: RecDiscordTls, youtubeTls: RecYoutubeTls, fallbackTls: RecDiscordTls,
-            proxyTls: new[] { "--lua-desync=multidisorder:pos=1,sniext,midsld,endhost" }),
+            discordTls: new[] { "--lua-desync=fake:blob=tls_google:tcp_ts=-1000:repeats=6",
+                                "--lua-desync=fake:blob=tls_vk:tcp_ts=-1000:repeats=6" },
+            youtubeTls: new[] { "--lua-desync=fake:blob=tls_google:tcp_ts=-1000:ip_id=zero:repeats=6" },
+            fallbackTls: new[] { "--lua-desync=fake:blob=tls_google:tcp_ts=-1000:repeats=6",
+                                 "--lua-desync=fake:blob=tls_vk:tcp_ts=-1000:repeats=6" },
+            voiceDesync: new[] { "--lua-desync=fake:blob=quic_vk:repeats=6" }),
 
-        Combo("Комбо + Telegram через ваш прокси (вариант 3)",
-            "То же, но крупная нарезка прокси-хендшейка. Ещё один профиль на случай, если основной и " +
-            "вариант 2 на вашем операторе связи не пробивают. Сначала укажите хост прокси.",
+        // 4) Flowseal general (ALT11), переведён на nfqws2: fake-прайм с ts + multisplit с большим seqovl
+        //    (681/664) и реальным google-ClientHello как паттерном. Голос — доменным QUIC-блобом (vk).
+        //    ВАЖНО: seqovl тут «безопасен для гейтвея» именно потому, что ему предшествует fake:ts-прайм.
+        Combo("Комбо — Flowseal ALT11 (fake+ts → seqovl)",
+            "Перевод Flowseal general (ALT11) на nfqws2: fake-пакет с ts-fooling + multisplit с большим " +
+            "seqovl (реальный google-ClientHello как паттерн), голос через отечественный QUIC-блоб (vk). " +
+            "Если ALT10 не зашёл — пробуйте этот.",
             recommended: false,
-            discordTls: RecDiscordTls, youtubeTls: RecYoutubeTls, fallbackTls: RecDiscordTls,
-            proxyTls: new[] { "--lua-desync=multidisorder:pos=128,256,384" }),
+            discordTls: new[] { "--lua-desync=fake:blob=tls_google:tcp_ts=-1000:repeats=6",
+                                "--lua-desync=multisplit:pos=1,midsld:seqovl=681:seqovl_pattern=tls_google:optional" },
+            youtubeTls: new[] { "--lua-desync=fake:blob=tls_google:tcp_ts=-1000:repeats=6",
+                                "--lua-desync=multisplit:pos=1,midsld:seqovl=681:seqovl_pattern=tls_google:ip_id=zero:optional" },
+            fallbackTls: new[] { "--lua-desync=fake:blob=tls_google:tcp_ts=-1000:repeats=6",
+                                 "--lua-desync=multisplit:pos=1,midsld:seqovl=664:seqovl_pattern=tls_google:optional" },
+            voiceDesync: new[] { "--lua-desync=fake:blob=quic_vk:repeats=6" }),
+
+        // NB: Telegram is intentionally NOT covered by any preset — the native built-in tg-ws-proxy
+        // (TelegramProxyService, started from the Telegram card) handles it instead of a DPI desync.
 
         // 2) Flowseal general.bat (June 2026), translated 1:1: multisplit + big seqovl
         //    with a real google ClientHello as the overlap pattern, per hostlist.
@@ -161,12 +201,12 @@ public sealed class PresetService
             "Альтернатива Flowseal ALT: fake с tcp_ts + fakedsplit (fooling только на фейках), раздельно " +
             "по SNI. Голос: STUN + RTP-фикс. Пробуйте, если multisplit-вариант не пробивает.",
             recommended: false,
-            discordTls: new[] { "--lua-desync=fake:blob=tls_google:tcp_ts=1000:repeats=6",
-                                "--lua-desync=fakedsplit:tcp_ts=1000" },
-            youtubeTls: new[] { "--lua-desync=fake:blob=tls_google:tcp_ts=1000:repeats=6",
-                                "--lua-desync=fakedsplit:tcp_ts=1000" },
-            fallbackTls: new[] { "--lua-desync=fake:blob=tls_google:tcp_ts=1000:repeats=6",
-                                 "--lua-desync=fakedsplit:tcp_ts=1000" }),
+            discordTls: new[] { "--lua-desync=fake:blob=tls_google:tcp_ts=-1000:repeats=6",
+                                "--lua-desync=fakedsplit:tcp_ts=-1000" },
+            youtubeTls: new[] { "--lua-desync=fake:blob=tls_google:tcp_ts=-1000:repeats=6",
+                                "--lua-desync=fakedsplit:tcp_ts=-1000" },
+            fallbackTls: new[] { "--lua-desync=fake:blob=tls_google:tcp_ts=-1000:repeats=6",
+                                 "--lua-desync=fakedsplit:tcp_ts=-1000" }),
 
         // 4) wssize bundle: split+seqovl then force the server to fragment its reply.
         Combo("Комбо — окно (wssize)",
@@ -213,6 +253,62 @@ public sealed class PresetService
             }
         },
 
+        // 6) Standalone ADAPTIVE Discord (circular). Экспериментальный: движковый оркестратор circular
+        //    сам переключает стратегию десинка, когда его детектор ловит провал (RST / ретрансмиссия /
+        //    DPI-редирект) — ровно случай «залогинился, но не подключает 20 сек / войс отваливается».
+        //    Три ступени = три НЕЗАВИСИМО рабочих Discord-профиля: strat1 hostfakesplit (gateway-safe,
+        //    быстрый вход) → strat2 ALT10 (двойной fake google+vk) → strat3 ALT11 (fake:ts прайм +
+        //    seqovl). Без 'final' → крутит 1→2→3 по кругу, пока success-детектор не увидит рабочую;
+        //    успешную больше не трогает (движок не перезапускается — переключение на лету, по хосту).
+        //    circular ТРЕБУЕТ --in-range (кэш входящих RST для детектора) — он тут строго в Discord-TLS
+        //    профиле. Только Discord+голос: YouTube не трогает, запускать точечно под упрямый Discord.
+        new Preset
+        {
+            Name = "Discord — адаптивный (circular, эксперим.)",
+            Description = "Самоподстраивающийся пресет ТОЛЬКО под Discord: circular сам переключает " +
+                          "стратегию (hostfakesplit → двойной fake → seqovl), когда ловит RST/ретрансмиссию " +
+                          "от DPI. Ровно для «вход проходит, но не подключает / войс молчит». Крутит варианты " +
+                          "на лету (без перезапуска движка) и оседает на первом рабочем — дайте ему несколько " +
+                          "секунд после старта. YouTube не трогает; запускайте, когда упрямится именно Discord.",
+            IsBuiltIn = true,
+            Args = new()
+            {
+                "{WF_TCP}",
+                "{WF_UDP}",
+                "--ctrack-disable=0",
+                "--ipcache-lifetime=8400",
+                "--ipcache-hostname=1",
+                "--blob=tls_google:@{FILES}\\fake\\tls_clienthello_www_google_com.bin",
+                "--blob=tls_vk:@{FILES}\\fake\\tls_clienthello_vk_com.bin",
+                "--blob=quic_google:@{FILES}\\fake\\quic_initial_www_google_com.bin",
+                "--blob=quic_vk:@{FILES}\\fake\\quic_initial_vk_com.bin",
+                "--wf-raw-part=@{WF}\\windivert_part.stun.txt",
+                "--wf-raw-part=@{WF}\\windivert_part.quic_initial_ietf.txt",
+                // 1) Discord web/login/gateway/media (TLS, по SNI) с адаптивной ротацией.
+                //    --in-range ОБЯЗАТЕЛЕН для circular: без кэша входящих RST детектор провала не сработает.
+                "--filter-tcp=443-65535", "--filter-l7=tls", "{HOSTLIST:discord}",
+                  "--in-range=-s5556", "--out-range=-d10", "--payload=tls_client_hello",
+                  "--lua-desync=circular:fails=2:time=300",
+                  // strat 1 — hostfakesplit (gateway-safe, адаптируется к размеру ClientHello гейтвея).
+                  "--lua-desync=hostfakesplit:host=www.google.com:tcp_ts=-1000:tcp_md5:repeats=4:strategy=1",
+                  // strat 2 — ALT10: двойной fake (google + отечественный vk), без сплита.
+                  "--lua-desync=fake:blob=tls_google:tcp_ts=-1000:repeats=6:strategy=2",
+                  "--lua-desync=fake:blob=tls_vk:tcp_ts=-1000:repeats=6:strategy=2",
+                  // strat 3 — ALT11: fake:ts прайм + multisplit c большим seqovl (реальный google-CH).
+                  //    :optional — если разрезка не применилась, тихо пропустить, а не ронять оркестрацию.
+                  "--lua-desync=fake:blob=tls_google:tcp_ts=-1000:repeats=6:strategy=3",
+                  "--lua-desync=multisplit:pos=1,midsld:seqovl=681:seqovl_pattern=tls_google:strategy=3:optional",
+                "--new",
+                // 2) QUIC Discord (медиа/вложения cdn/media.discordapp по HTTP/3) → google-фейк.
+                "--filter-udp=443-65535", "--filter-l7=quic", "{HOSTLIST:discord}", "--payload=quic_initial",
+                  "--lua-desync=fake:blob=quic_google:repeats=11",
+                "--new",
+                // 3) Голос Discord (STUN + RTP, весь высокий диапазон) → отечественный QUIC-блоб (как в ALT10/11).
+                "--filter-udp=19294-19344,50000-65535", "--filter-l7=discord,stun",
+                  "--lua-desync=fake:blob=quic_vk:repeats=6",
+            }
+        },
+
     };
 
     /// <summary>
@@ -223,22 +319,21 @@ public sealed class PresetService
     private static Preset Combo(
         string name, string description, bool recommended,
         string[] discordTls, string[] youtubeTls, string[] fallbackTls,
-        string discordFilter = "{HOSTLIST:discord}", string[]? proxyTls = null)
+        string discordFilter = "{HOSTLIST:discord}", string[]? voiceDesync = null)
         => new()
         {
             Name = name,
             Description = description,
             IsBuiltIn = true,
             IsRecommended = recommended,
-            RequiresProxyHost = proxyTls is not null,
-            Args = BuildComboArgs(discordTls, youtubeTls, fallbackTls, discordFilter, proxyTls),
+            Args = BuildComboArgs(discordTls, youtubeTls, fallbackTls, discordFilter, voiceDesync),
         };
 
     /// <summary>Build the shared combo argument list (per-service TLS bundles + QUIC + Discord voice).
     /// Reused by the strategy generator to assemble a personal preset from generated TLS bundles.</summary>
     public static List<string> BuildComboArgs(
         string[] discordTls, string[] youtubeTls, string[] fallbackTls,
-        string discordFilter = "{HOSTLIST:discord}", string[]? proxyTls = null)
+        string discordFilter = "{HOSTLIST:discord}", string[]? voiceDesync = null)
     {
         var a = new List<string>
         {
@@ -250,6 +345,14 @@ public sealed class PresetService
             "--lua-init=fake_default_tls = tls_mod(fake_default_tls,'rnd,rndsni')",
             "--blob=tls_google:@{FILES}\\fake\\tls_clienthello_www_google_com.bin",
             "--blob=quic_google:@{FILES}\\fake\\quic_initial_www_google_com.bin",
+            // Отечественные фейк-блобы (ClientHello vk.com / sberbank.ru) — ТСПУ вайтлистит домашний
+            // трафик, поэтому фейк «под vk/сбер» выживает там, где google-фейк режется (тренд 2026:
+            // sonicdpi → ozon.ru, Flowseal → dbankcloud_ru). Входят в стандартную поставку движка.
+            "--blob=tls_vk:@{FILES}\\fake\\tls_clienthello_vk_com.bin",
+            "--blob=tls_sber:@{FILES}\\fake\\tls_clienthello_sberbank_ru.bin",
+            "--blob=tls_gos:@{FILES}\\fake\\tls_clienthello_gosuslugi_ru.bin",
+            // Отечественный QUIC-блоб для голоса Discord (аналог dbankcloud_ru из Flowseal ALT10/11).
+            "--blob=quic_vk:@{FILES}\\fake\\quic_initial_vk_com.bin",
             "--wf-raw-part=@{WF}\\windivert_part.stun.txt",
             "--wf-raw-part=@{WF}\\windivert_part.quic_initial_ietf.txt",
             // 1) Discord web/login/media (по SNI).
@@ -260,23 +363,8 @@ public sealed class PresetService
         a.Add("--new");
         a.AddRange(new[] { "--filter-tcp=443-65535", "--filter-l7=tls", "{HOSTLIST:youtube}", "--out-range=-d10", "--payload=tls_client_hello" });
         a.AddRange(youtubeTls);
-        // NB: Telegram is intentionally NOT handled by the base combo — TG lives only in the dedicated
-        // "через ваш прокси" presets (the proxyTls profile below). The base combo stays DC+YT+voice.
-        // 2d) ee-MTProxy (опционально): рукопожатие FakeTLS уходит TLS-ClientHello'ом к ПРОИЗВОЛЬНОМУ
-        //     SNI прокси, поэтому ловим строго по IP прокси-сервера ({IPSET:proxy}), а не по SNI/домену.
-        //     Заскоупено по IP → YouTube/Discord/прочий TLS НЕ затрагивает (в отличие от широкого
-        //     catch-all, который ломал ютуб). Десинк — победивший в тестах multidisorder. Профиль
-        //     активен только если задан хост прокси (иначе движок не стартует — RequiresProxyHost).
-        if (proxyTls is not null)
-        {
-            a.Add("--new");
-            // Port 1-65535, not 443-65535: this profile is already pinned to the proxy IP via
-            // {IPSET:proxy}, so a wide port range is safe (it can only touch the proxy server) and it
-            // covers MTProxy servers listening below 443. The old 443-65535 silently skipped those →
-            // the FakeTLS handshake was never desynced → DPI blocked it → "0/10, не подключается".
-            a.AddRange(new[] { "--filter-tcp=1-65535", "{IPSET:proxy}", "--filter-l7=tls", "--out-range=-d10", "--payload=tls_client_hello" });
-            a.AddRange(proxyTls);
-        }
+        // NB: Telegram is intentionally NOT handled by the combo — the built-in tg-ws-proxy
+        // (TelegramProxyService) carries Telegram over WebSocket instead of a DPI desync profile.
         // 3) Остальной TLS (вкл. hCaptcha и пр.). Catch-all — поэтому исключаем чувствительные
         //    домены (банки/госуслуги/VK/Яндекс/Steam/…) через {EXCLUDE:exclude}, чтобы их не сломать.
         a.Add("--new");
@@ -301,8 +389,11 @@ public sealed class PresetService
         //    провайдера, не доходя до сервера (анти-дроп), поэтому реальный RTP идёт без троттлинга.
         //    repeats=2 — лёгкий, как в актуальном фиксе 5к-пинга (Flowseal #12614 «Anti-Drop»).
         a.Add("--new");
-        a.AddRange(new[] { "--filter-udp=19294-19344,50000-65535", "--filter-l7=discord,stun",
-                           "--lua-desync=fake:blob=quic_google:ip_autottl=-2,3-20:ip6_autottl=-2,3-20:repeats=2" });
+        a.AddRange(new[] { "--filter-udp=19294-19344,50000-65535", "--filter-l7=discord,stun" });
+        // Default voice: google QUIC-blob junk + ip_autottl anti-drop (Flowseal #12614). ALT10/11 pass a
+        // domestic-blob voice (quic_vk) instead — that's what breaks 5k-ping/«не слышно» on some nets.
+        a.AddRange(voiceDesync ?? new[]
+            { "--lua-desync=fake:blob=quic_google:ip_autottl=-2,3-20:ip6_autottl=-2,3-20:repeats=2" });
 
         return a;
     }
