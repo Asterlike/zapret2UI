@@ -38,6 +38,10 @@ public sealed class AutoSelectService : IDisposable
     public event Action<string, DiagStatus, DiagStatus, DiagStatus>? HostProbed;
 
     private Process? _proc;
+    // Signalled when the running candidate's winws2 reports WinDivert is attached ("…capture is
+    // started"), so probing starts the moment the engine is actually ready instead of after a fixed
+    // delay. Recreated per StartEngine; each process's handlers capture their own instance.
+    private TaskCompletionSource? _ready;
 
     public void Dispose() => StopEngine();
 
@@ -101,7 +105,7 @@ public sealed class AutoSelectService : IDisposable
         StartEngine(cand);
         try
         {
-            await Task.Delay(1500, ct); // let WinDivert attach
+            await WaitEngineReadyAsync(ct); // wait until WinDivert is actually attached (capped at the old 1500ms)
             // 3 signals per host: TLS 1.2, TLS 1.3, and a full HTTPS GET (the request must actually
             // complete, not just the handshake — a handshake-only check ranks "TLS OK but resets" too high).
             int total = hosts.Count * 3;
@@ -157,9 +161,14 @@ public sealed class AutoSelectService : IDisposable
         foreach (var a in EngineService.BuildArguments(preset, null, gameFilter: false, bypassAll: true, forLaunch: true))
             psi.ArgumentList.Add(a);
 
-        var p = new Process { StartInfo = psi };
-        p.OutputDataReceived += (_, _) => { };
-        p.ErrorDataReceived += (_, _) => { };
+        var ready = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _ready = ready;
+        var p = new Process { StartInfo = psi, EnableRaisingEvents = true };
+        // Signal readiness on the WinDivert "capture is started" line; also unblock on early exit
+        // (bad args) so a candidate whose engine dies instantly fails fast instead of waiting the cap.
+        p.OutputDataReceived += (_, e) => { if (IsWinDivertReady(e.Data)) ready.TrySetResult(); };
+        p.ErrorDataReceived += (_, e) => { if (IsWinDivertReady(e.Data)) ready.TrySetResult(); };
+        p.Exited += (_, _) => ready.TrySetResult();
         _proc = p;
         try
         {
@@ -172,6 +181,34 @@ public sealed class AutoSelectService : IDisposable
             StopEngine();
             throw;
         }
+    }
+
+    /// <summary>True for a winws2 log line that means WinDivert is attached and capturing.</summary>
+    private static bool IsWinDivertReady(string? line) =>
+        line is not null &&
+        (line.Contains("capture is started", StringComparison.OrdinalIgnoreCase) ||
+         line.Contains("windivert initialized", StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>Wait until the engine reports WinDivert is attached, capped at 1500 ms (the old fixed
+    /// delay) so an absent/changed log line falls back to today's behaviour. A short settle follows so
+    /// the filter is live before probing.</summary>
+    private async Task WaitEngineReadyAsync(CancellationToken ct)
+    {
+        var ready = _ready;
+        if (ready is null)
+        {
+            await Task.Delay(1500, ct).ConfigureAwait(false);
+            return;
+        }
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeout.CancelAfter(1500); // cap = the old fixed delay → exact fallback when no ready line appears
+        try
+        {
+            await ready.Task.WaitAsync(timeout.Token).ConfigureAwait(false);
+            // Ready line seen: let WinDivert go live before probing (skipped on timeout — already waited the cap).
+            await Task.Delay(150, ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested) { /* no ready line within cap → behave like the old fixed 1500ms delay */ }
     }
 
     private void StopEngine()

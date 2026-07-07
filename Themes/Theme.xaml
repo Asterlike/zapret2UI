@@ -428,6 +428,80 @@
         </Setter>
     </Style>
 
+    <!-- ====================== Sub-tabs (lighter pill tabs inside a tab) ====================== -->
+    <Style x:Key="SubTabs" TargetType="TabControl">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TabControl">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <TabPanel Grid.Row="0" IsItemsHost="True" HorizontalAlignment="Left" Margin="0,0,0,12"/>
+                        <ContentPresenter Grid.Row="1" ContentSource="SelectedContent"/>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="SubTabItem" TargetType="TabItem">
+        <Setter Property="Foreground" Value="{StaticResource FgMutedBrush}"/>
+        <Setter Property="FontFamily" Value="{StaticResource UiFont}"/>
+        <Setter Property="FontSize" Value="12.5"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TabItem">
+                    <Border x:Name="b" CornerRadius="8" Padding="14,7" Margin="0,0,7,0"
+                            Background="Transparent" BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1">
+                        <ContentPresenter ContentSource="Header" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Foreground" Value="{StaticResource FgBrush}"/>
+                            <Setter TargetName="b" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="b" Property="Background" Value="{StaticResource AccentSoftBrush}"/>
+                            <Setter TargetName="b" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                            <Setter Property="Foreground" Value="{StaticResource AccentBrush}"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Monospace log list (shared by the engine + Telegram journals) -->
+    <Style x:Key="LogListBox" TargetType="ListBox">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="VirtualizingPanel.IsVirtualizing" Value="True"/>
+        <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Auto"/>
+        <Setter Property="ItemContainerStyle">
+            <Setter.Value>
+                <Style TargetType="ListBoxItem">
+                    <Setter Property="Background" Value="Transparent"/>
+                    <Setter Property="Padding" Value="6,1"/>
+                    <Setter Property="Foreground" Value="{StaticResource FgMutedBrush}"/>
+                </Style>
+            </Setter.Value>
+        </Setter>
+        <Setter Property="ItemTemplate">
+            <Setter.Value>
+                <DataTemplate>
+                    <TextBlock Text="{Binding}" FontFamily="{StaticResource MonoFont}" FontSize="12"
+                               TextWrapping="NoWrap" Foreground="{StaticResource FgMutedBrush}"/>
+                </DataTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- Target/scope chip (pill) used on Home + Diagnostics -->
     <Style x:Key="ChipButton" TargetType="RadioButton">
         <Setter Property="Foreground" Value="{StaticResource FgMutedBrush}"/>

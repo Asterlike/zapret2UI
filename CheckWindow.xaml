@@ -8,8 +8,8 @@
         ShowInTaskbar="False" Loaded="OnLoaded">
 
     <Window.Resources>
-        <!-- Self-contained expand chevron (ChevronToggle/IconFont are MainWindow-local; keep this window
-             independent so it never fails to resolve a resource). -->
+        <!-- Self-contained expand chevron: keep this window independent so it never fails to
+             resolve a MainWindow-local resource. -->
         <Style x:Key="MiniChevron" TargetType="ToggleButton">
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Foreground" Value="{StaticResource FgMutedBrush}"/>

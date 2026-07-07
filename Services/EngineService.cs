@@ -136,7 +136,35 @@ public sealed class EngineService : IDisposable
         // the explicit lists + targets get desynced (like Flowseal).
         var scoped = bypassAll ? args : ScopeCatchAllToTargets(args);
         // "QUIC off": force the desynced services onto TCP by dropping their QUIC instead of faking it.
-        return disableQuic ? ForceQuicDrop(scoped) : scoped;
+        var result = disableQuic ? ForceQuicDrop(scoped) : scoped;
+        // Cover the built-in Telegram proxy's own Cloudflare upstream (443) so mobile DPI can't kill its
+        // tunnel mid-stream. Appended AFTER the scope/QUIC transforms — it's hostlist-scoped, so it is
+        // never treated as a catch-all (nor dropped) and never QUIC-rewritten.
+        AppendTgProxyCoverage(result);
+        return result;
+    }
+
+    /// <summary>Append a TLS-desync profile for the built-in Telegram proxy's own Cloudflare upstream
+    /// (<c>kws*.&lt;front&gt;.co.uk</c>). Since 2026 the mobile TSPU corrupts the proxy's WebSocket tunnel
+    /// mid-stream — the WS upgrade succeeds and a few frames relay, then the stream dies — and the proxy
+    /// alone can't beat that; only a continuous packet-level desync of those 443 connections survives it.
+    /// The profile is SCOPED to the fronts hostlist, so it is inert unless the proxy is actually
+    /// connecting (no matching SNI ⇒ winws2 touches nothing): safe for users who don't run the proxy or
+    /// aren't censored. The fooling is the recommended combo's own gateway/home-NAT-safe pipeline
+    /// (<c>hostfakesplit</c> + negative <c>tcp_ts</c> + <c>tcp_md5</c>) — transparent on an uncensored
+    /// network, since the fake segment is rejected by the real server (unkeyed TCP-MD5) and the real
+    /// ClientHello arrives intact. No-op until the fronts list has been seeded.</summary>
+    private static void AppendTgProxyCoverage(List<string> args)
+    {
+        string fronts = AppPaths.TgProxyFrontsFile;
+        if (!File.Exists(fronts)) return;
+        args.Add("--new");
+        args.Add("--filter-tcp=443-65535");
+        args.Add("--filter-l7=tls");
+        args.Add($"--hostlist={fronts}");
+        args.Add("--out-range=-d10");
+        args.Add("--payload=tls_client_hello");
+        args.Add("--lua-desync=hostfakesplit:host=www.google.com:tcp_ts=-1000:tcp_md5:repeats=4");
     }
 
     /// <summary>

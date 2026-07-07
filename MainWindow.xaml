@@ -39,30 +39,6 @@
                 </Setter.Value>
             </Setter>
         </Style>
-
-        <!-- Expand/collapse chevron toggle -->
-        <Style x:Key="ChevronToggle" TargetType="ToggleButton">
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Foreground" Value="{StaticResource FgMutedBrush}"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="ToggleButton">
-                        <Border Background="Transparent" Padding="6">
-                            <TextBlock x:Name="chev" Text="&#xE70D;" FontFamily="{StaticResource IconFont}"
-                                       FontSize="11" Foreground="{TemplateBinding Foreground}"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="chev" Property="Text" Value="&#xE70E;"/>
-                            </Trigger>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="chev" Property="Foreground" Value="White"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
     </Window.Resources>
 
     <shell:WindowChrome.WindowChrome>
@@ -318,32 +294,6 @@
                             <emoji:TextBlock Text="{Binding SimpleStatus}" Style="{StaticResource Muted}" FontSize="13"
                                        HorizontalAlignment="Center" TextAlignment="Center" Margin="0,20,0,0"/>
 
-                            <!-- Telegram quick toggle (both modes) — right by the main button. Address/secret
-                                 are on the left card; full settings + guide live in the «Telegram» tab (advanced). -->
-                            <Border CornerRadius="12" Padding="14,11" Margin="0,22,0,0" MaxWidth="380"
-                                    HorizontalAlignment="Center"
-                                    Background="{StaticResource SurfaceAltBrush}"
-                                    BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <Path Grid.Column="0" Data="{StaticResource Icon.Telegram}" Fill="{StaticResource Brand.Telegram}"
-                                          Width="30" Height="30" Stretch="Uniform" VerticalAlignment="Center"/>
-                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="11,0,10,0">
-                                        <TextBlock Text="Telegram через прокси" FontWeight="SemiBold" FontSize="13.5"/>
-                                        <TextBlock Style="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap"
-                                                   Text="Обход блокировки Telegram по IP. Адрес, секрет и кнопки — на карточке слева."/>
-                                    </StackPanel>
-                                    <CheckBox Grid.Column="2" Style="{StaticResource ToggleSwitch}"
-                                              VerticalAlignment="Center"
-                                              IsChecked="{Binding IsTelegramProxyEnabled, Mode=TwoWay}"
-                                              ToolTip="Включить встроенный прокси для Telegram"/>
-                                </Grid>
-                            </Border>
-
                             <!-- scope chips -->
                             <TextBlock Text="ЧТО ПОДОБРАТЬ" Style="{StaticResource Muted}" FontSize="11"
                                        HorizontalAlignment="Center" Margin="0,26,0,10"/>
@@ -389,13 +339,21 @@
                         <DockPanel HorizontalAlignment="Left" Width="248" Margin="24,20,0,22" LastChildFill="False">
                             <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Padding="16">
                                 <StackPanel>
-                                    <StackPanel Orientation="Horizontal">
-                                        <Path Data="{StaticResource Icon.Telegram}" Fill="{StaticResource Brand.Telegram}"
+                                    <!-- Header row: icon + title + the on/off toggle (moved here from the Home
+                                         hero so it sits with Открыть/Копировать). Shown in both modes. -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Path Grid.Column="0" Data="{StaticResource Icon.Telegram}" Fill="{StaticResource Brand.Telegram}"
                                               Width="22" Height="22" Stretch="Uniform" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Telegram" FontWeight="SemiBold" FontSize="14" VerticalAlignment="Center" Margin="9,0,0,0"/>
-                                    </StackPanel>
-                                    <!-- Stripped to essentials: the toggle by the main button turns the proxy
-                                         on/off; full settings + guide are in the «Telegram» tab (advanced). -->
+                                        <TextBlock Grid.Column="1" Text="Telegram" FontWeight="SemiBold" FontSize="14" VerticalAlignment="Center" Margin="9,0,0,0"/>
+                                        <CheckBox Grid.Column="2" Style="{StaticResource ToggleSwitch}" VerticalAlignment="Center"
+                                                  IsChecked="{Binding IsTelegramProxyEnabled, Mode=TwoWay}"
+                                                  ToolTip="Включить встроенный прокси для Telegram"/>
+                                    </Grid>
                                     <Border Background="#1FFFFFFF" CornerRadius="8" Padding="10,7" Margin="0,10,0,0">
                                         <StackPanel>
                                             <TextBlock Text="Адрес (MTProto-прокси)" Style="{StaticResource Muted}" FontSize="10.5"/>
@@ -419,6 +377,15 @@
                                 </StackPanel>
                             </Border>
 
+                            <!-- Instruction entry (both modes), right under the Telegram card -->
+                            <Button DockPanel.Dock="Top" Style="{StaticResource GhostButton}" Margin="0,12,0,0"
+                                    HorizontalContentAlignment="Center"
+                                    Command="{Binding OpenLinkCommand}"
+                                    CommandParameter="https://github.com/Asterlike/zapret2UI/blob/main/README.md#-быстрый-старт-для-новичка"
+                                    ToolTip="Открыть инструкцию (быстрый старт) на GitHub">
+                                <emoji:TextBlock Text="📖  Инструкция"/>
+                            </Button>
+
                             <!-- Donate (bottom of the left column, both modes) -->
                             <ctl:DonateBlock DockPanel.Dock="Bottom" HorizontalAlignment="Left" Margin="0,16,0,0"/>
                         </DockPanel>
@@ -432,14 +399,22 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
-                        <StackPanel Grid.Row="0" Margin="2,0,0,16">
-                            <TextBlock Text="Стратегии" Style="{StaticResource H1}"/>
-                            <TextBlock Style="{StaticResource Muted}" Margin="0,3,0,0"
-                                       Text="Готовые комбо-пресеты на синтаксисе winws2. Хостлисты подключаются прямо к стратегии."/>
-                        </StackPanel>
+                        <DockPanel Grid.Row="0" Margin="2,0,0,16">
+                            <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" VerticalAlignment="Top"
+                                    Command="{Binding OpenLinkCommand}"
+                                    CommandParameter="https://github.com/Asterlike/zapret2UI/blob/main/manual_zapret2UI.md#5-встроенные-стратегии"
+                                    ToolTip="Открыть раздел «Встроенные стратегии» в инструкции">
+                                <emoji:TextBlock Text="📖  Инструкция"/>
+                            </Button>
+                            <StackPanel>
+                                <TextBlock Text="Стратегии" Style="{StaticResource H1}"/>
+                                <TextBlock Style="{StaticResource Muted}" Margin="0,3,0,0"
+                                           Text="Готовые комбо-пресеты на синтаксисе winws2. Хостлисты подключаются прямо к стратегии."/>
+                            </StackPanel>
+                        </DockPanel>
                         <Grid Grid.Row="1">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="300"/>
+                                <ColumnDefinition Width="360"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
 
@@ -524,28 +499,39 @@
                                 <!-- Row 2 holds EITHER the readable description (default) OR the raw-args editor.
                                      The editor is opt-in via the «Аргументы движка» button (declutter). -->
                                 <Grid Grid.Row="2" Margin="0,10,0,0">
-                                    <!-- Default: clean, readable description + a contextual help card filling the space -->
-                                    <ScrollViewer VerticalScrollBarVisibility="Auto"
-                                                  Visibility="{Binding ShowPresetArgs, Converter={StaticResource BoolToVis}, ConverterParameter=invert}">
-                                        <StackPanel>
+                                    <!-- Default view: description scrolls at the top, a help + documentation
+                                         card is pinned at the bottom — so a short description no longer leaves
+                                         a big void, and the pane reads top-to-bottom. -->
+                                    <Grid Visibility="{Binding ShowPresetArgs, Converter={StaticResource BoolToVis}, ConverterParameter=invert}">
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="*"/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
+                                        <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
                                             <TextBlock Text="{Binding SelectedPreset.Description}" TextWrapping="Wrap"
                                                        FontSize="13.5" LineHeight="20" Foreground="{StaticResource FgBrush}"/>
-
-                                            <!-- General help / app tour entry -->
-                                            <Border CornerRadius="10" Padding="14,12" Margin="0,12,0,0"
-                                                    Background="{StaticResource BgBrush}" BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1">
-                                                <StackPanel>
-                                                    <TextBlock Text="Не заработало?" FontWeight="SemiBold"/>
-                                                    <TextBlock Style="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap" Margin="0,4,0,0"
-                                                               Text="Стратегии зависят от провайдера. Если этот пресет не пробивает — попробуйте другие из списка. Если ничего не заходит — вкладка «Диагностика» → «Подобрать лучшую» подберёт рабочую стратегию под вашего оператора."/>
+                                        </ScrollViewer>
+                                        <Border Grid.Row="1" CornerRadius="10" Padding="14,12" Margin="0,12,0,0"
+                                                Background="{StaticResource BgBrush}" BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1">
+                                            <StackPanel>
+                                                <TextBlock Text="Не заработало?" FontWeight="SemiBold"/>
+                                                <TextBlock Style="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap" Margin="0,4,0,0"
+                                                           Text="Стратегии зависят от провайдера. Если этот пресет не пробивает — попробуйте другие из списка. Если ничего не заходит — вкладка «Диагностика» → «Подобрать лучшую» подберёт рабочую стратегию под вашего оператора."/>
+                                                <WrapPanel Margin="0,10,0,0">
                                                     <Button Command="{Binding OpenHowItWorksCommand}"
-                                                            Style="{StaticResource GhostButton}" HorizontalAlignment="Left" Margin="0,10,0,0">
-                                                        <emoji:TextBlock Text="❔  Как это работает — экскурс по приложению"/>
+                                                            Style="{StaticResource GhostButton}" Margin="0,0,8,0">
+                                                        <emoji:TextBlock Text="❔  Как это работает"/>
                                                     </Button>
-                                                </StackPanel>
-                                            </Border>
-                                        </StackPanel>
-                                    </ScrollViewer>
+                                                    <Button Command="{Binding OpenLinkCommand}"
+                                                            CommandParameter="https://github.com/Asterlike/zapret2UI/blob/main/manual_zapret2UI.md#17-решение-проблем-и-коды-ошибок"
+                                                            Style="{StaticResource GhostButton}"
+                                                            ToolTip="Открыть раздел «Решение проблем и коды ошибок» в инструкции">
+                                                        <emoji:TextBlock Text="📖  Инструкция"/>
+                                                    </Button>
+                                                </WrapPanel>
+                                            </StackPanel>
+                                        </Border>
+                                    </Grid>
                                     <!-- Opt-in: in-app args editor, styled as a terminal -->
                                     <Border Visibility="{Binding ShowPresetArgs, Converter={StaticResource BoolToVis}}"
                                             Background="{StaticResource BgBrush}" CornerRadius="12"
@@ -646,11 +632,19 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
-                        <StackPanel Grid.Row="0" Margin="2,0,0,16">
-                            <TextBlock Text="Хостлисты" Style="{StaticResource H1}"/>
-                            <TextBlock Style="{StaticResource Muted}" Margin="0,3,0,0"
-                                       Text="Списки доменов, к которым применяется обход. Один домен — одна строка."/>
-                        </StackPanel>
+                        <DockPanel Grid.Row="0" Margin="2,0,0,16">
+                            <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" VerticalAlignment="Top"
+                                    Command="{Binding OpenLinkCommand}"
+                                    CommandParameter="https://github.com/Asterlike/zapret2UI/blob/main/manual_zapret2UI.md#8-хостлисты-свои-цели-и-обход-по-ip"
+                                    ToolTip="Открыть раздел «Хостлисты, свои цели и обход по IP» в инструкции">
+                                <emoji:TextBlock Text="📖  Инструкция"/>
+                            </Button>
+                            <StackPanel>
+                                <TextBlock Text="Хостлисты" Style="{StaticResource H1}"/>
+                                <TextBlock Style="{StaticResource Muted}" Margin="0,3,0,0"
+                                           Text="Списки доменов, к которым применяется обход. Один домен — одна строка."/>
+                            </StackPanel>
+                        </DockPanel>
                         <Grid Grid.Row="1">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="240"/>
@@ -747,7 +741,15 @@
                             <!-- Card: auto-select + generate + scope + results -->
                             <Border Style="{StaticResource Card}">
                             <StackPanel>
-                                <TextBlock Text="Проверка и авто-подбор" Style="{StaticResource H2}"/>
+                                <DockPanel>
+                                    <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" VerticalAlignment="Center"
+                                            Command="{Binding OpenLinkCommand}"
+                                            CommandParameter="https://github.com/Asterlike/zapret2UI/blob/main/manual_zapret2UI.md#6-автоподбор-и-генерация"
+                                            ToolTip="Открыть раздел «Автоподбор и генерация» в инструкции">
+                                        <emoji:TextBlock Text="📖  Инструкция"/>
+                                    </Button>
+                                    <TextBlock Text="Проверка и авто-подбор" Style="{StaticResource H2}" VerticalAlignment="Center"/>
+                                </DockPanel>
                                 <TextBlock Style="{StaticResource Muted}" Margin="0,6,0,0" TextWrapping="Wrap"
                                            Text="«Подобрать лучшую» ищет рабочую стратегию по выбранной цели, «Диагностика» — показывает текущую доступность."/>
 
@@ -973,37 +975,66 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
-                        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="2,0,0,12">
-                            <TextBlock Text="Журнал движка" Style="{StaticResource H1}" VerticalAlignment="Center"/>
-                            <Border CornerRadius="6" BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1"
-                                    Padding="7,2" Margin="12,2,0,0" VerticalAlignment="Center">
-                                <TextBlock Text="--debug" FontFamily="{StaticResource MonoFont}" FontSize="11"
-                                           Foreground="{StaticResource Muted2Brush}"/>
-                            </Border>
-                            <Button Content="Очистить" Command="{Binding ClearLogCommand}"
-                                    Style="{StaticResource GhostButton}" Margin="16,0,0,0"/>
-                        </StackPanel>
-                        <Border Grid.Row="1" Background="{StaticResource BgBrush}" CornerRadius="13" Padding="8"
-                                BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1">
-                            <ListBox x:Name="LogList" ItemsSource="{Binding LogLines}"
-                                     VirtualizingPanel.IsVirtualizing="True"
-                                     ScrollViewer.HorizontalScrollBarVisibility="Auto">
-                                <ListBox.ItemContainerStyle>
-                                    <Style TargetType="ListBoxItem">
-                                        <Setter Property="Background" Value="Transparent"/>
-                                        <Setter Property="Padding" Value="6,1"/>
-                                        <Setter Property="Foreground" Value="{StaticResource FgMutedBrush}"/>
-                                    </Style>
-                                </ListBox.ItemContainerStyle>
-                                <ListBox.ItemTemplate>
-                                    <DataTemplate>
-                                        <TextBlock Text="{Binding}" FontFamily="{StaticResource MonoFont}"
-                                                   FontSize="12" TextWrapping="NoWrap"
-                                                   Foreground="{StaticResource FgMutedBrush}"/>
-                                    </DataTemplate>
-                                </ListBox.ItemTemplate>
-                            </ListBox>
-                        </Border>
+                        <DockPanel Grid.Row="0" Margin="2,0,0,14">
+                            <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" VerticalAlignment="Center"
+                                    ToolTip="Открыть раздел «Решение проблем и коды ошибок» в инструкции"
+                                    Command="{Binding OpenLinkCommand}"
+                                    CommandParameter="https://github.com/Asterlike/zapret2UI/blob/main/manual_zapret2UI.md#17-решение-проблем-и-коды-ошибок">
+                                <emoji:TextBlock Text="📖  Инструкция"/>
+                            </Button>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="Журнал" Style="{StaticResource H1}" VerticalAlignment="Center"/>
+                                <Border CornerRadius="6" BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1"
+                                        Padding="7,2" Margin="12,2,0,0" VerticalAlignment="Center">
+                                    <TextBlock Text="--debug" FontFamily="{StaticResource MonoFont}" FontSize="11"
+                                               Foreground="{StaticResource Muted2Brush}"/>
+                                </Border>
+                            </StackPanel>
+                        </DockPanel>
+
+                        <!-- Two separate journals: winws2 engine vs the Telegram proxy — split so a proxy
+                             issue isn't lost in engine output. Each has its own Копировать / Очистить. -->
+                        <TabControl Grid.Row="1" Style="{StaticResource SubTabs}">
+                            <TabItem Style="{StaticResource SubTabItem}" Header="Движок">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="*"/>
+                                    </Grid.RowDefinitions>
+                                    <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,10">
+                                        <Button Content="Копировать" Command="{Binding CopyLogCommand}"
+                                                Style="{StaticResource GhostButton}" Margin="0,0,8,0"/>
+                                        <Button Content="Очистить" Command="{Binding ClearLogCommand}"
+                                                Style="{StaticResource GhostButton}"/>
+                                    </StackPanel>
+                                    <Border Grid.Row="1" Background="{StaticResource BgBrush}" CornerRadius="13" Padding="8"
+                                            BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1">
+                                        <ListBox x:Name="LogList" ItemsSource="{Binding LogLines}"
+                                                 Style="{StaticResource LogListBox}"/>
+                                    </Border>
+                                </Grid>
+                            </TabItem>
+
+                            <TabItem Style="{StaticResource SubTabItem}" Header="Telegram">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="*"/>
+                                    </Grid.RowDefinitions>
+                                    <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,10">
+                                        <Button Content="Копировать" Command="{Binding CopyProxyLogCommand}"
+                                                Style="{StaticResource GhostButton}" Margin="0,0,8,0"/>
+                                        <Button Content="Очистить" Command="{Binding ClearProxyLogCommand}"
+                                                Style="{StaticResource GhostButton}"/>
+                                    </StackPanel>
+                                    <Border Grid.Row="1" Background="{StaticResource BgBrush}" CornerRadius="13" Padding="8"
+                                            BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1">
+                                        <ListBox x:Name="ProxyLogList" ItemsSource="{Binding ProxyLogLines}"
+                                                 Style="{StaticResource LogListBox}"/>
+                                    </Border>
+                                </Grid>
+                            </TabItem>
+                        </TabControl>
                     </Grid>
                 </TabItem>
 
@@ -1017,11 +1048,19 @@
                             </Grid.RowDefinitions>
 
                             <StackPanel Grid.Row="0" Margin="2,0,0,16">
-                                <StackPanel Orientation="Horizontal">
-                                    <Path Data="{StaticResource Icon.Telegram}" Fill="{StaticResource Brand.Telegram}"
-                                          Width="26" Height="26" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                                    <TextBlock Text="Telegram" Style="{StaticResource H1}" VerticalAlignment="Center"/>
-                                </StackPanel>
+                                <DockPanel>
+                                    <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" VerticalAlignment="Center"
+                                            Command="{Binding OpenLinkCommand}"
+                                            CommandParameter="https://github.com/Asterlike/zapret2UI/blob/main/manual_zapret2UI.md#11-встроенный-telegram-прокси"
+                                            ToolTip="Открыть раздел «Встроенный Telegram-прокси» в инструкции">
+                                        <emoji:TextBlock Text="📖  Инструкция"/>
+                                    </Button>
+                                    <StackPanel Orientation="Horizontal">
+                                        <Path Data="{StaticResource Icon.Telegram}" Fill="{StaticResource Brand.Telegram}"
+                                              Width="26" Height="26" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                        <TextBlock Text="Telegram" Style="{StaticResource H1}" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </DockPanel>
                                 <TextBlock Style="{StaticResource Muted}" Margin="0,3,0,0" TextWrapping="Wrap"
                                            Text="Встроенный прокси проводит Telegram через WebSocket (Cloudflare) в обход блокировки по IP. Работает без прав администратора и не мешает основному обходу winws2 — Discord и YouTube по-прежнему обходит движок. Можно держать включённым всегда."/>
                             </StackPanel>
@@ -1040,6 +1079,9 @@
                                             <TextBlock Text="Подключение" Style="{StaticResource H2}" Margin="0,0,0,12"/>
                                             <Button Content="{Binding TelegramProxyButtonText}" Command="{Binding EnableTelegramCommand}"
                                                     Style="{StaticResource StartStopButton}" HorizontalAlignment="Stretch"/>
+                                            <Button Content="{Binding CheckTelegramProxyButtonText}" Command="{Binding CheckTelegramProxyCommand}"
+                                                    Style="{StaticResource GhostButton}" HorizontalAlignment="Stretch" Margin="0,8,0,0"
+                                                    ToolTip="Проверить, доходит ли прокси до Telegram (DoH, системный DNS, фронт-домены). Без прав администратора."/>
                                             <TextBlock Style="{StaticResource Muted}" FontSize="11.5" TextWrapping="Wrap" Margin="0,10,0,0"
                                                        Text="{Binding TelegramProxyStatus}"/>
                                             <Border Background="#1FFFFFFF" CornerRadius="8" Padding="12,9" Margin="0,12,0,0">
@@ -1151,7 +1193,15 @@
                 <TabItem Header="Настройки">
                     <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="24">
                         <StackPanel>
-                            <TextBlock Text="Настройки" Style="{StaticResource H1}" Margin="2,0,0,16"/>
+                            <DockPanel Margin="2,0,0,16">
+                                <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" VerticalAlignment="Center"
+                                        Command="{Binding OpenLinkCommand}"
+                                        CommandParameter="https://github.com/Asterlike/zapret2UI/blob/main/manual_zapret2UI.md#14-настройки--полный-список"
+                                        ToolTip="Открыть раздел «Настройки — полный список» в инструкции">
+                                    <emoji:TextBlock Text="📖  Инструкция"/>
+                                </Button>
+                                <TextBlock Text="Настройки" Style="{StaticResource H1}" VerticalAlignment="Center"/>
+                            </DockPanel>
 
                             <!-- Two columns so the settings fill the width instead of a half-empty left strip. -->
                             <Grid>
@@ -1387,6 +1437,29 @@
                                        FontFamily="{StaticResource DisplayFont}"/>
                             <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap"
                                        Text="Стратегии зависят от оператора связи — одна и та же не работает у всех одинаково. Порядок действий: попробуйте другой пресет из списка → «Подобрать лучшую» → «Сгенерировать стратегию». Если совсем ничего не пробивает — это, скорее всего, сторона регулятора. Для Telegram используйте встроенный прокси (пункт 6)."/>
+
+                            <!-- 8. Документация -->
+                            <TextBlock Text="8. Документация и ссылки" FontWeight="Bold" Margin="0,14,0,4"
+                                       FontFamily="{StaticResource DisplayFont}"/>
+                            <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap" Margin="0,0,0,8"
+                                       Text="Полное руководство, обзор возможностей и ответы на частые вопросы — на GitHub. Новости и обсуждение — в Telegram-канале."/>
+                            <WrapPanel>
+                                <Button Style="{StaticResource GhostButton}" Margin="0,0,8,8"
+                                        Command="{Binding OpenLinkCommand}"
+                                        CommandParameter="https://github.com/Asterlike/zapret2UI/blob/main/manual_zapret2UI.md">
+                                    <emoji:TextBlock Text="📖  Полная инструкция"/>
+                                </Button>
+                                <Button Style="{StaticResource GhostButton}" Margin="0,0,8,8"
+                                        Command="{Binding OpenLinkCommand}"
+                                        CommandParameter="https://github.com/Asterlike/zapret2UI/blob/main/README.md">
+                                    <emoji:TextBlock Text="📄  О программе (README)"/>
+                                </Button>
+                                <Button Style="{StaticResource GhostButton}" Margin="0,0,8,8"
+                                        Command="{Binding OpenLinkCommand}"
+                                        CommandParameter="https://t.me/Zapret2UI">
+                                    <emoji:TextBlock Text="✈  Telegram-канал"/>
+                                </Button>
+                            </WrapPanel>
 
                             <Button Content="Понятно" Command="{Binding CloseHowItWorksCommand}"
                                     Style="{StaticResource StartStopButton}" HorizontalAlignment="Right" Margin="0,18,0,0"/>

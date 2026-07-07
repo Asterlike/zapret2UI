@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.Collections.Concurrent;
 using System.IO;
 using System.Net.Security;
 using System.Net.Sockets;
@@ -187,6 +188,47 @@ internal static class TgProxyProto
         return result;
     }
 
+    /// <summary>SHA-256(prekey ‖ secret) — the obfuscation key derivation for the client leg. Public so
+    /// the loopback bridge self-test can build the client-side ciphers.</summary>
+    public static byte[] DeriveKey(byte[] prekey, byte[] secret) => Sha256(prekey, secret);
+
+    /// <summary>Build a 64-byte obfuscated-2 init as a real Telegram CLIENT would send to the local proxy
+    /// (key = SHA-256(prekey ‖ secret), unlike the secret-less relay init). Used only by the bridge
+    /// self-test to drive the real bridge end-to-end from a loopback client.</summary>
+    public static byte[] GenerateClientInit(byte[] protoTag, int dcIdx, byte[] secret)
+    {
+        byte[] rnd;
+        while (true)
+        {
+            rnd = RandomBytes(HandshakeLen);
+            if (rnd[0] == 0xef) continue;
+            if (ReservedStarts.Any(r => Eq(rnd[..4], r))) continue;
+            if (rnd[4] == 0 && rnd[5] == 0 && rnd[6] == 0 && rnd[7] == 0) continue;
+            break;
+        }
+
+        byte[] prekey = rnd[SkipLen..(SkipLen + PrekeyLen)];
+        byte[] encKey = Sha256(prekey, secret); // client mixes the secret into the key
+        byte[] encIv = rnd[(SkipLen + PrekeyLen)..(SkipLen + PrekeyLen + IvLen)];
+
+        var tailPlain = new byte[8];
+        Buffer.BlockCopy(protoTag, 0, tailPlain, 0, 4);
+        BinaryPrimitives.WriteInt16LittleEndian(tailPlain.AsSpan(4, 2), (short)dcIdx);
+        Buffer.BlockCopy(RandomBytes(2), 0, tailPlain, 6, 2);
+
+        byte[] encryptedFull;
+        using (var enc = new AesCtr(encKey, encIv))
+            encryptedFull = enc.Update(rnd);
+
+        byte[] result = (byte[])rnd.Clone();
+        for (int i = 0; i < 8; i++)
+        {
+            byte ks = (byte)(encryptedFull[ProtoTagPos + i] ^ rnd[ProtoTagPos + i]);
+            result[ProtoTagPos + i] = (byte)(tailPlain[i] ^ ks);
+        }
+        return result;
+    }
+
     public static CryptoCtx BuildCryptoCtx(byte[] clientPrekeyIv, byte[] secret, byte[] relayInit)
     {
         byte[] cltDecPrekey = clientPrekeyIv[..PrekeyLen];
@@ -213,6 +255,47 @@ internal static class TgProxyProto
         tgEncryptor.Update(new byte[64]);
 
         return new CryptoCtx(cltDecryptor, cltEncryptor, tgEncryptor, tgDecryptor);
+    }
+
+    /// <summary>Minimal MTProto client probe over an already-upgraded WS: send the obfuscated relay init
+    /// and one unauthenticated req_pq_multi, then wait for Telegram's resPQ frame. A front that only
+    /// completes the 101 upgrade but doesn't actually bridge to a live DC (→ Telegram's eternal
+    /// "подключение") never answers — so this separates a working path from a dead one, which a bare
+    /// handshake check can't. Returns true iff any bytes come back within the timeout.</summary>
+    public static async Task<bool> ProbeRelayAsync(TgWebSocket ws, int dc, CancellationToken ct, byte[]? protoTag = null)
+    {
+        protoTag ??= ProtoTagIntermediate; // 4-byte-LE framing (also a valid padded/secure packet, 0 padding)
+        byte[] relayInit = GenerateRelayInit(protoTag, dc);
+
+        using var enc = new AesCtr(relayInit[SkipLen..(SkipLen + PrekeyLen)],
+                                   relayInit[(SkipLen + PrekeyLen)..(SkipLen + PrekeyLen + IvLen)]);
+        enc.Update(new byte[64]); // fast-forward past the init, like the relay's Telegram-side encryptor
+
+        // Unauthenticated req_pq_multi: auth_key_id(0) | msg_id | len(20) | (ctor 0xbe7e8ef1 | nonce16).
+        var msg = new byte[8 + 8 + 4 + 20];
+        long msgId = (DateTimeOffset.UtcNow.ToUnixTimeSeconds() << 32) & ~3L;
+        BinaryPrimitives.WriteInt64LittleEndian(msg.AsSpan(8), msgId);
+        BinaryPrimitives.WriteInt32LittleEndian(msg.AsSpan(16), 20);
+        BinaryPrimitives.WriteUInt32LittleEndian(msg.AsSpan(20), 0xbe7e8ef1);
+        RandomBytes(16).CopyTo(msg, 24);
+
+        // Intermediate transport frame ([len LE] | msg), obfuscated with the relay stream cipher.
+        var framed = new byte[4 + msg.Length];
+        BinaryPrimitives.WriteInt32LittleEndian(framed, msg.Length);
+        msg.CopyTo(framed, 4);
+        byte[] encFramed = enc.Update(framed);
+
+        await ws.SendAsync(relayInit, ct);
+        await ws.SendAsync(encFramed, ct);
+
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeout.CancelAfter(5000);
+        try
+        {
+            byte[]? resp = await ws.RecvAsync(timeout.Token);
+            return resp is { Length: > 0 }; // any bytes back = Telegram answered through this front
+        }
+        catch { return false; }
     }
 
     public static uint ProtoInt(byte[] protoTag)
@@ -371,8 +454,15 @@ internal sealed class CfProxyBalancer
         "orgcnunpj.com", "zhkuldz.com", "zypoljnslxa.com", "efabnxaowuzs.com", "zaftuzsftqdq.com",
     };
 
+    /// <summary>The decoded Cloudflare fronting base domains (…co.uk). Exposed so the engine can seed a
+    /// hostlist and desync the proxy's OWN upstream TLS — mobile DPI (TSPU) corrupts the tunnel
+    /// mid-stream, and only a continuous packet-level desync on these connections survives it. Declared
+    /// after <see cref="Encoded"/> so the static initializer sees the source array (textual order).</summary>
+    public static IReadOnlyList<string> AllBaseDomains { get; } = Encoded.Select(Decode).ToArray();
+
     private readonly string[] _domains;
     private readonly Dictionary<int, string> _dcToDomain = new();
+    private readonly ConcurrentDictionary<string, long> _bad = new(); // "dc|domain" → expiry (TickCount64)
     private readonly Random _rng = new();
 
     public CfProxyBalancer()
@@ -382,13 +472,25 @@ internal sealed class CfProxyBalancer
             _dcToDomain[dc] = _domains[_rng.Next(_domains.Length)];
     }
 
+    /// <summary>Yield the per-DC sticky domain first, then the rest shuffled — skipping any front
+    /// recently seen not to relay (see <see cref="MarkBad"/>), so a client's retry rotates off it.</summary>
     public IEnumerable<string> DomainsForDc(int dc)
     {
         _dcToDomain.TryGetValue(dc, out string? current);
+        if (current is not null && IsBad(dc, current)) current = null; // rotate off a dead sticky
         if (current is not null) yield return current;
         foreach (string d in _domains.OrderBy(_ => _rng.Next()))
-            if (d != current) yield return d;
+            if (d != current && !IsBad(dc, d)) yield return d;
     }
+
+    /// <summary>Cool a front down for this DC (skip it in <see cref="DomainsForDc"/> for
+    /// <paramref name="cooldownMs"/>, then it heals). Default ~2 min for a non-relaying front; callers
+    /// pass shorter windows for softer reasons (e.g. a CF 429 or an instantly-dropped connection).</summary>
+    public void MarkBad(int dc, string baseDomain, int cooldownMs = 120_000) =>
+        _bad[$"{dc}|{baseDomain}"] = Environment.TickCount64 + cooldownMs;
+
+    private bool IsBad(int dc, string baseDomain) =>
+        _bad.TryGetValue($"{dc}|{baseDomain}", out long exp) && exp > Environment.TickCount64;
 
     private static string Decode(string s)
     {
@@ -407,6 +509,17 @@ internal sealed class CfProxyBalancer
         }
         return sb.ToString() + Suffix;
     }
+}
+
+/// <summary>Which phase of the upstream WebSocket connect failed, so the proxy can log a human cause
+/// (TCP vs TLS vs WS-upgrade) instead of a bare "не удалось".</summary>
+internal enum WsStage { Tcp, Tls, Upgrade, Ok }
+
+/// <summary>Outcome of <see cref="TgWebSocket.ConnectAsync"/>: the socket on success, else the phase
+/// that failed and (for an upgrade failure) the HTTP status that came back instead of 101.</summary>
+internal readonly record struct WsResult(TgWebSocket? Ws, WsStage Stage, int Status)
+{
+    public bool Ok => Ws is not null;
 }
 
 /// <summary>Minimal client WebSocket over a raw <see cref="SslStream"/>: connects to an IP with an
@@ -436,20 +549,24 @@ internal sealed class TgWebSocket : IDisposable
         _ssl = ssl;
     }
 
-    public static async Task<TgWebSocket?> ConnectAsync(string host, string domain, TimeSpan timeout,
+    public static async Task<WsResult> ConnectAsync(string host, string domain, TimeSpan timeout,
         string? sni = null, string path = "/apiws", CancellationToken ct = default)
     {
         sni ??= domain;
         var tcp = new TcpClient();
+        SslStream? ssl = null;
+        var stage = WsStage.Tcp; // advances as each phase is entered, so the catch reports where it broke
         try
         {
             await tcp.ConnectAsync(host, 443, ct).AsTask().WaitAsync(timeout, ct);
             tcp.NoDelay = true;
 
-            var ssl = new SslStream(tcp.GetStream(), false, (_, _, _, _) => true);
+            stage = WsStage.Tls;
+            ssl = new SslStream(tcp.GetStream(), false, (_, _, _, _) => true);
             await ssl.AuthenticateAsClientAsync(new SslClientAuthenticationOptions { TargetHost = sni }, ct)
                      .WaitAsync(timeout, ct);
 
+            stage = WsStage.Upgrade;
             string wsKey = Convert.ToBase64String(TgProxyProto.RandomBytes(16));
             string req =
                 $"GET {path} HTTP/1.1\r\n" +
@@ -464,16 +581,17 @@ internal sealed class TgWebSocket : IDisposable
 
             int status = await ReadStatusAsync(ssl, timeout, ct);
             if (status == 101)
-                return new TgWebSocket(tcp, ssl);
+                return new WsResult(new TgWebSocket(tcp, ssl), WsStage.Ok, status);
 
             ssl.Dispose();
             tcp.Dispose();
-            return null;
+            return new WsResult(null, WsStage.Upgrade, status);
         }
         catch
         {
+            try { ssl?.Dispose(); } catch { /* ignore */ }
             tcp.Dispose();
-            return null;
+            return new WsResult(null, stage, 0);
         }
     }
 

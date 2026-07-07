@@ -44,7 +44,7 @@ public sealed class MainViewModel : ObservableObject
     {
         _engine.StateChanged += s => OnUi(() => State = s);
         _engine.LogLine += AppendLog;
-        _tgProxy.LogLine += AppendLog;
+        _tgProxy.LogLine += AppendProxyLog; // proxy output goes to its own log/tab, separate from the engine
         _tgProxy.StateChanged += () => OnUi(OnTelegramProxyStateChanged);
 
         StartCommand = new RelayCommand(_ => Start(), _ => CanStart);
@@ -54,6 +54,12 @@ public sealed class MainViewModel : ObservableObject
         CheckUpdateCommand = new RelayCommand(async _ => await CheckAndUpdateAsync(silent: false),
                                               _ => !IsUpdating);
         ClearLogCommand = new RelayCommand(_ => LogLines.Clear());
+        ClearProxyLogCommand = new RelayCommand(_ => ProxyLogLines.Clear());
+        CopyLogCommand = new RelayCommand(_ => CopyLinesToClipboard(LogLines, "Журнал движка"));
+        CopyProxyLogCommand = new RelayCommand(_ => CopyLinesToClipboard(ProxyLogLines, "Журнал Telegram"));
+        // Generic "open a URL in the browser" — used by the in-app documentation/help links (README,
+        // manual, Telegram channel). The link itself is passed as the CommandParameter from XAML.
+        OpenLinkCommand = new RelayCommand(p => { if (p is string url && url.Length > 0) OpenUrl(url); });
 
         NewHostlistCommand = new RelayCommand(_ => NewHostlist());
         DeleteHostlistCommand = new RelayCommand(_ => DeleteHostlist(), _ => SelectedHostlist is not null);
@@ -106,6 +112,8 @@ public sealed class MainViewModel : ObservableObject
         EnableTelegramCommand = new RelayCommand(_ => ToggleTelegramProxy());
         OpenTelegramProxyLinkCommand = new RelayCommand(_ => OpenUrl(_tgProxy.ProxyLink));
         CopyTelegramProxyLinkCommand = new RelayCommand(_ => CopyToClipboard(_tgProxy.ProxyLink));
+        CheckTelegramProxyCommand = new RelayCommand(async _ => await CheckTelegramProxyAsync(),
+                                                     _ => !_isCheckingTgProxy);
         OpenAppReleaseCommand = new RelayCommand(_ => OpenUrl(_appLatestUrl));
 
         // ---- custom targets (Диагностика tab) ----
@@ -142,6 +150,9 @@ public sealed class MainViewModel : ObservableObject
     public ICollectionView PresetsView { get; }
     public ObservableCollection<string> Hostlists { get; } = new();
     public ObservableCollection<string> LogLines { get; } = new();
+    /// <summary>Telegram-proxy output — kept separate from the engine log so the Журнал tab can show
+    /// each on its own sub-tab (engine vs proxy) instead of one interleaved stream.</summary>
+    public ObservableCollection<string> ProxyLogLines { get; } = new();
     public ObservableCollection<DiagRow> DiagRows { get; } = new();
 
     /// <summary>User-defined bypass targets, shown on the Диагностика tab (left column).</summary>
@@ -175,6 +186,10 @@ public sealed class MainViewModel : ObservableObject
     public RelayCommand ToggleCommand { get; }
     public RelayCommand CheckUpdateCommand { get; }
     public RelayCommand ClearLogCommand { get; }
+    public RelayCommand ClearProxyLogCommand { get; }
+    public RelayCommand CopyLogCommand { get; }
+    public RelayCommand CopyProxyLogCommand { get; }
+    public RelayCommand OpenLinkCommand { get; }
     public RelayCommand NewHostlistCommand { get; }
     public RelayCommand DeleteHostlistCommand { get; }
     public RelayCommand SaveHostlistCommand { get; }
@@ -202,6 +217,7 @@ public sealed class MainViewModel : ObservableObject
     public RelayCommand EnableTelegramCommand { get; }
     public RelayCommand OpenTelegramProxyLinkCommand { get; }
     public RelayCommand CopyTelegramProxyLinkCommand { get; }
+    public RelayCommand CheckTelegramProxyCommand { get; }
     public RelayCommand OpenAppReleaseCommand { get; }
     public RelayCommand GoToSettingsCommand { get; }
     public RelayCommand HomeToggleCommand { get; }
@@ -736,6 +752,43 @@ public sealed class MainViewModel : ObservableObject
         SimpleStatus = _tgProxy.IsRunning ? "Прокси Telegram запущен." : "Прокси Telegram остановлен.";
     }
 
+    private bool _isCheckingTgProxy;
+
+    /// <summary>True while the Telegram-proxy self-test runs (disables its button, swaps its label).</summary>
+    public bool IsCheckingTelegramProxy
+    {
+        get => _isCheckingTgProxy;
+        private set
+        {
+            if (!SetField(ref _isCheckingTgProxy, value)) return;
+            OnPropertyChanged(nameof(CheckTelegramProxyButtonText));
+            CheckTelegramProxyCommand.RaiseCanExecuteChanged();
+        }
+    }
+
+    /// <summary>Label for the Telegram self-test button.</summary>
+    public string CheckTelegramProxyButtonText => _isCheckingTgProxy ? "Проверяю…" : "Проверить соединение";
+
+    /// <summary>Run the built-in proxy's upstream self-test and show the verdict on the card; the
+    /// step-by-step details go to the journal. Independent of the winws2 engine and needs no admin.</summary>
+    private async Task CheckTelegramProxyAsync()
+    {
+        IsCheckingTelegramProxy = true;
+        TelegramProxyStatus = "Проверяю соединение с Telegram…";
+        try
+        {
+            TelegramProxyStatus = await _tgProxy.SelfTestAsync();
+        }
+        catch (Exception ex)
+        {
+            TelegramProxyStatus = "Проверка не удалась: " + ex.Message;
+        }
+        finally
+        {
+            IsCheckingTelegramProxy = false;
+        }
+    }
+
     // ---- diagnostics (endpoint matrix) ------------------------------------
 
     private bool _isDiagnosing;
@@ -1264,8 +1317,16 @@ public sealed class MainViewModel : ObservableObject
 
         EngineVersion = _updater.InstalledVersion ?? "не установлен";
 
-        if (Settings.AutoUpdateEngine || !_updater.IsEngineInstalled || !_updater.IsEngineComplete)
+        // A missing/incomplete engine must be resolved before anything can run → await (it downloads).
+        // A routine "is there a newer engine?" check when the engine is already present runs in the
+        // BACKGROUND so a slow or blocked GitHub request never delays the rest of startup — EXCEPT when
+        // we're about to auto-start the engine, where the old await ordering is kept so an install can't
+        // churn the launch (CheckAndUpdateAsync would otherwise stop→update→restart it mid-startup).
+        if (!_updater.IsEngineInstalled || !_updater.IsEngineComplete
+            || (Settings.AutoUpdateEngine && Settings.AutostartEngine))
             await CheckAndUpdateAsync(silent: true);
+        else if (Settings.AutoUpdateEngine)
+            _ = CheckAndUpdateAsync(silent: true);
 
         if (Settings.AutostartEngine && CanStart && SelectedPreset is not null)
             Start();
@@ -1644,6 +1705,25 @@ public sealed class MainViewModel : ObservableObject
             LogLines.Add(line);
             while (LogLines.Count > MaxLogLines) LogLines.RemoveAt(0);
         });
+    }
+
+    private void AppendProxyLog(string line)
+    {
+        OnUi(() =>
+        {
+            ProxyLogLines.Add(line);
+            while (ProxyLogLines.Count > MaxLogLines) ProxyLogLines.RemoveAt(0);
+        });
+    }
+
+    /// <summary>Copy a whole log to the clipboard (the «Копировать» button on the Журнал tab). Joined
+    /// with newlines so it pastes as plain text — the support workflow of "скопируйте последние строки".</summary>
+    private void CopyLinesToClipboard(IEnumerable<string> lines, string what)
+    {
+        string text = string.Join(Environment.NewLine, lines);
+        if (text.Length == 0) { SimpleStatus = $"{what}: пусто, нечего копировать."; return; }
+        try { Clipboard.SetText(text); SimpleStatus = $"{what} скопирован в буфер обмена."; }
+        catch { /* clipboard busy — ignore */ }
     }
 
     private void RaiseCommandStates()

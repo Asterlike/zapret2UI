@@ -24,7 +24,9 @@ public sealed class HostlistService
                 // Custom-target machinery (managed on the Диагностика tab) — hide from the hostlist UI.
                 .Where(n => !n.StartsWith("target-", StringComparison.OrdinalIgnoreCase)
                             && !n.Equals("targets", StringComparison.OrdinalIgnoreCase)
-                            && !n.Equals("exclude-eff", StringComparison.OrdinalIgnoreCase))
+                            && !n.Equals("exclude-eff", StringComparison.OrdinalIgnoreCase)
+                            // app-managed Telegram-proxy fronts (re-synced each launch) — not user-editable
+                            && !n.Equals("tgproxy-fronts", StringComparison.OrdinalIgnoreCase))
                 .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
                 .ToList();
         }
@@ -89,6 +91,10 @@ public sealed class HostlistService
         Write("discord", string.Join('\n', DefaultDiscord));
         Write("exclude", string.Join('\n', DefaultExclude));
         Write("general", string.Join('\n', DefaultGeneral));
+        // The built-in Telegram proxy's Cloudflare fronting domains — the engine desyncs their TLS so the
+        // proxy survives mobile DPI (TSPU). Single-sourced from the proxy balancer so it can't drift; the
+        // hostlist UI hides it (see GetLists) since it's app-managed, not a list the user edits.
+        Write("tgproxy-fronts", string.Join('\n', CfProxyBalancer.AllBaseDomains));
     }
 
     // ---- bundled default lists (synced from Flowseal/zapret-discord-youtube, июнь 2026) ----

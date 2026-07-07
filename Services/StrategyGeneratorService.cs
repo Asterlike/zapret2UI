@@ -24,6 +24,10 @@ public sealed class StrategyGeneratorService : IDisposable
     public event Action<AutoScore>? ScoreReady;
 
     private Process? _proc;
+    // Signalled when the running combo's winws2 reports WinDivert is attached ("…capture is started"),
+    // so probing starts the moment the engine is ready instead of after a fixed delay. Recreated per
+    // StartEngine; each process's handlers capture their own instance.
+    private TaskCompletionSource? _ready;
 
     public void Dispose() => StopEngine();
 
@@ -166,6 +170,7 @@ public sealed class StrategyGeneratorService : IDisposable
 
         // ---- Pass 1: score each candidate bundle per service ----
         var scored = new List<(GenBundle bundle, int dScore, int yScore)>();
+        GenBundle? perfect = null; // a single bundle that clears everything → short-circuits the assembly search
         for (int i = 0; i < Candidates.Count; i++)
         {
             ct.ThrowIfCancellationRequested();
@@ -186,6 +191,13 @@ public sealed class StrategyGeneratorService : IDisposable
             int dScore = rows.Where(r => discordHosts.Contains(r.Host)).Sum(Weight);
             int yScore = rows.Where(r => youtubeHosts.Contains(r.Host)).Sum(Weight);
             scored.Add((cand, dScore, yScore));
+
+            // Early exit (mirrors the auto-selector's Fail==0 stop): a bundle that clears EVERY goal host
+            // (TLS 1.2/1.3 + HTTP) for BOTH services AND is gateway-friendly is already the whole answer —
+            // assembling two different bundles can't beat one that covers everything. Stop scanning the pool.
+            // Kept strict (okAll == total) so we never ship a merely-good bundle early. Gateway-friendliness
+            // is required because the probe can't see Discord's native gateway ClientHello (see Pass 2).
+            if (okAll == total && IsGatewayFriendly(cand.Tls)) { perfect = cand; break; }
         }
         if (scored.Count == 0) return null;
 
@@ -198,10 +210,16 @@ public sealed class StrategyGeneratorService : IDisposable
         // Pass 1; unprimed big-seqovl bundles are used only as a last resort.
         var friendlyD = scored.Where(s => s.dScore > 0 && IsGatewayFriendly(s.bundle.Tls))
                               .OrderByDescending(s => s.dScore).Take(ShortlistK).Select(s => s.bundle).ToList();
-        var topD = friendlyD.Count > 0
-            ? friendlyD
-            : scored.OrderByDescending(s => s.dScore).Take(ShortlistK).Select(s => s.bundle).ToList();
-        var topY = scored.OrderByDescending(s => s.yScore).Take(ShortlistK).Select(s => s.bundle).ToList();
+        // If Pass 1 found a bundle that covers everything, both slots are that bundle — the loop below then
+        // runs a single confirming assembly test instead of the full shortlist grid.
+        var topD = perfect is not null
+            ? new List<GenBundle> { perfect }
+            : friendlyD.Count > 0
+                ? friendlyD
+                : scored.OrderByDescending(s => s.dScore).Take(ShortlistK).Select(s => s.bundle).ToList();
+        var topY = perfect is not null
+            ? new List<GenBundle> { perfect }
+            : scored.OrderByDescending(s => s.yScore).Take(ShortlistK).Select(s => s.bundle).ToList();
 
         GenBundle finalD = topD[0];
         GenBundle finalY = topY[0];
@@ -313,7 +331,7 @@ public sealed class StrategyGeneratorService : IDisposable
         StartEngine(comboArgs, gameFilter);
         try
         {
-            await Task.Delay(1500, ct); // let WinDivert attach
+            await WaitEngineReadyAsync(ct); // wait until WinDivert is actually attached (capped at the old 1500ms)
             bool up = _proc is { HasExited: false };
             using var gate = new SemaphoreSlim(8);
             var probes = hosts.Select(async host =>
@@ -356,9 +374,14 @@ public sealed class StrategyGeneratorService : IDisposable
         };
         foreach (var a in EngineService.BuildArguments(preset, null, gameFilter, forLaunch: true)) psi.ArgumentList.Add(a);
 
-        var p = new Process { StartInfo = psi };
-        p.OutputDataReceived += (_, _) => { };
-        p.ErrorDataReceived += (_, _) => { };
+        var ready = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _ready = ready;
+        var p = new Process { StartInfo = psi, EnableRaisingEvents = true };
+        // Signal readiness on the WinDivert "capture is started" line; also unblock on early exit
+        // (bad args) so a combo whose engine dies instantly fails fast instead of waiting the cap.
+        p.OutputDataReceived += (_, e) => { if (IsWinDivertReady(e.Data)) ready.TrySetResult(); };
+        p.ErrorDataReceived += (_, e) => { if (IsWinDivertReady(e.Data)) ready.TrySetResult(); };
+        p.Exited += (_, _) => ready.TrySetResult();
         _proc = p;
         try
         {
@@ -371,6 +394,34 @@ public sealed class StrategyGeneratorService : IDisposable
             StopEngine();
             throw;
         }
+    }
+
+    /// <summary>True for a winws2 log line that means WinDivert is attached and capturing.</summary>
+    private static bool IsWinDivertReady(string? line) =>
+        line is not null &&
+        (line.Contains("capture is started", StringComparison.OrdinalIgnoreCase) ||
+         line.Contains("windivert initialized", StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>Wait until the engine reports WinDivert is attached, capped at 1500 ms (the old fixed
+    /// delay) so an absent/changed log line falls back to today's behaviour. A short settle follows so
+    /// the filter is live before probing.</summary>
+    private async Task WaitEngineReadyAsync(CancellationToken ct)
+    {
+        var ready = _ready;
+        if (ready is null)
+        {
+            await Task.Delay(1500, ct).ConfigureAwait(false);
+            return;
+        }
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeout.CancelAfter(1500); // cap = the old fixed delay → exact fallback when no ready line appears
+        try
+        {
+            await ready.Task.WaitAsync(timeout.Token).ConfigureAwait(false);
+            // Ready line seen: let WinDivert go live before probing (skipped on timeout — already waited the cap).
+            await Task.Delay(150, ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested) { /* no ready line within cap → behave like the old fixed 1500ms delay */ }
     }
 
     private void StopEngine()

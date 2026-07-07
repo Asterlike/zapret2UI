@@ -28,6 +28,11 @@ public static class AppPaths
     /// <summary>Aggregated CIDR ipset for Discord (built from the discord hostlist).</summary>
     public static string IpsetDiscordFile => IpsetFile("discord");
 
+    /// <summary>Hostlist of the built-in Telegram proxy's Cloudflare fronting domains. The engine desyncs
+    /// their TLS (via an appended profile) so the proxy's own upstream survives mobile DPI (TSPU) that
+    /// kills the WebSocket tunnel mid-stream. Seeded by <see cref="HostlistService.SeedDefaults"/>.</summary>
+    public static string TgProxyFrontsFile => Path.Combine(ListsDir, "tgproxy-fronts.txt");
+
     // User data
     public static string ListsDir => Path.Combine(Root, "lists");
     public static string LogsDir => Path.Combine(Root, "logs");

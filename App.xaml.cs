@@ -1,4 +1,5 @@
 using System.IO;
+using System.Text;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -26,6 +27,41 @@ public partial class App : Application
         {
             string outDir = si + 1 < e.Args.Length ? e.Args[si + 1] : ".";
             _ = RunScreenshotsAsync(outDir);
+            return;
+        }
+
+        // Telegram-proxy self-test harness: `ZapretUI.exe --tgproxytest <outFile>` probes the upstream
+        // paths to Telegram (DoH / DNS / direct IP / Cloudflare fronts) and writes the report to a file,
+        // then exits. Needs no admin (loopback + outbound TLS), so it can be run to diagnose a user whose
+        // proxy "pings but won't connect".
+        int ti = Array.FindIndex(e.Args, a => a.Equals("--tgproxytest", StringComparison.OrdinalIgnoreCase));
+        if (ti >= 0)
+        {
+            string outFile = ti + 1 < e.Args.Length ? e.Args[ti + 1] : "tgproxytest.txt";
+            _ = RunTgProxyTestAsync(outFile);
+            return;
+        }
+
+        // Bridge self-test: `ZapretUI.exe --tgbridgetest <outFile>` drives the REAL bridge from a loopback
+        // client and checks that Telegram's resPQ survives the round-trip decodable (re-encryption/splitter
+        // correctness) — isolates a bridge bug from a censored-network drop. No admin needed.
+        int bi = Array.FindIndex(e.Args, a => a.Equals("--tgbridgetest", StringComparison.OrdinalIgnoreCase));
+        if (bi >= 0)
+        {
+            string outFile = bi + 1 < e.Args.Length ? e.Args[bi + 1] : "tgbridgetest.txt";
+            _ = RunTgBridgeTestAsync(outFile);
+            return;
+        }
+
+        // Engine command-line dump: `ZapretUI.exe --enginedump <outFile>` seeds the bundled lists and
+        // writes the winws2 command line for the recommended preset — so the Telegram-proxy coverage
+        // profile (and the seeded fronts list) can be inspected without admin. The engine itself still
+        // needs elevation to actually RUN, so this only verifies argument construction, not desync.
+        int ni = Array.FindIndex(e.Args, a => a.Equals("--enginedump", StringComparison.OrdinalIgnoreCase));
+        if (ni >= 0)
+        {
+            string outFile = ni + 1 < e.Args.Length ? e.Args[ni + 1] : "enginedump.txt";
+            RunEngineDump(outFile);
             return;
         }
 
@@ -83,6 +119,75 @@ public partial class App : Application
         }
         catch (Exception ex) { WriteFatal(ex); }
         finally { Shutdown(0); }
+    }
+
+    /// <summary>Run the Telegram proxy's upstream self-test and write the report to <paramref name="outFile"/>,
+    /// then exit. Mirrors what the in-app «Проверить соединение» button does, but headless.</summary>
+    private async Task RunTgProxyTestAsync(string outFile)
+    {
+        var sb = new StringBuilder();
+        try
+        {
+            using var svc = new TelegramProxyService();
+            svc.LogLine += line => sb.AppendLine(line);
+            await svc.SelfTestAsync();
+        }
+        catch (Exception ex) { sb.AppendLine("EXC: " + ex); }
+        finally
+        {
+            try { File.WriteAllText(outFile, sb.ToString()); } catch { /* best effort */ }
+            Shutdown(0);
+        }
+    }
+
+    /// <summary>Start the proxy and run the loopback bridge self-test, writing the verdict to a file.</summary>
+    private async Task RunTgBridgeTestAsync(string outFile)
+    {
+        var sb = new StringBuilder();
+        TelegramProxyService? svc = null;
+        try
+        {
+            svc = new TelegramProxyService();
+            svc.LogLine += line => sb.AppendLine(line);
+            svc.Start();
+            await Task.Delay(400);
+            await svc.BridgeSelfTestAsync();
+        }
+        catch (Exception ex) { sb.AppendLine("EXC: " + ex); }
+        finally
+        {
+            try { svc?.Stop(); } catch { /* ignore */ }
+            try { File.WriteAllText(outFile, sb.ToString()); } catch { /* best effort */ }
+            Shutdown(0);
+        }
+    }
+
+    /// <summary>Seed the bundled lists and dump the winws2 command line for the recommended preset to a
+    /// file, then exit — lets the Telegram-proxy coverage profile be inspected without admin (the engine
+    /// still needs elevation to actually run). Mirrors the Settings command-line preview.</summary>
+    private void RunEngineDump(string outFile)
+    {
+        var sb = new StringBuilder();
+        try
+        {
+            AppPaths.EnsureCreated();
+            var hostlists = new HostlistService();
+            hostlists.SeedDefaults(); // writes lists/tgproxy-fronts.txt from the proxy balancer
+            var presets = new PresetService();
+            var rec = presets.All.FirstOrDefault(p => p.IsRecommended) ?? presets.All[0];
+
+            sb.AppendLine("# preset: " + rec.Name);
+            sb.AppendLine(EngineService.PreviewCommandLine(rec, null));
+            sb.AppendLine();
+            sb.AppendLine($"# tgproxy-fronts.txt ({hostlists.ReadDomains("tgproxy-fronts").Count} domains):");
+            sb.AppendLine(hostlists.Read("tgproxy-fronts"));
+        }
+        catch (Exception ex) { sb.AppendLine("EXC: " + ex); }
+        finally
+        {
+            try { File.WriteAllText(outFile, sb.ToString()); } catch { /* best effort */ }
+            Shutdown(0);
+        }
     }
 
     private static async Task SettleAndSnap(Window w, string path)

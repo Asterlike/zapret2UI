@@ -30,6 +30,7 @@ public partial class MainWindow : Window
         DataContext = _vm;
 
         _vm.LogLines.CollectionChanged += OnLogChanged;
+        _vm.ProxyLogLines.CollectionChanged += OnProxyLogChanged;
         _vm.PropertyChanged += OnVmPropertyChanged;
         _vm.Notify += (title, msg) => ShowToast(title, msg);
         _vm.AutoCheckStarted += OnAutoCheckStarted;
@@ -69,6 +70,12 @@ public partial class MainWindow : Window
     {
         if (e.Action == NotifyCollectionChangedAction.Add && _vm.LogLines.Count > 0)
             LogList.ScrollIntoView(_vm.LogLines[^1]);
+    }
+
+    private void OnProxyLogChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (e.Action == NotifyCollectionChangedAction.Add && _vm.ProxyLogLines.Count > 0)
+            ProxyLogList.ScrollIntoView(_vm.ProxyLogLines[^1]);
     }
 
     private void OnVmPropertyChanged(object? sender, PropertyChangedEventArgs e)
