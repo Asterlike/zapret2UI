@@ -2,11 +2,11 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Data;
-using ZapretUI.Models;
-using ZapretUI.Mvvm;
-using ZapretUI.Services;
+using Zapret2UI.Models;
+using Zapret2UI.Mvvm;
+using Zapret2UI.Services;
 
-namespace ZapretUI.ViewModels;
+namespace Zapret2UI.ViewModels;
 
 public sealed class MainViewModel : ObservableObject
 {
@@ -27,6 +27,7 @@ public sealed class MainViewModel : ObservableObject
     private readonly MonitorService _monitor = new();
     private readonly TelegramProxyService _tgProxy = new();
     private CancellationTokenSource? _diagCts;
+    private CancellationTokenSource? _dpiCts;
     private CancellationTokenSource? _autoCts;
     private CancellationTokenSource? _genCts;
 
@@ -91,6 +92,10 @@ public sealed class MainViewModel : ObservableObject
 
         RunDiagnosticsCommand = new RelayCommand(async _ => await RunDiagnosticsAsync(), _ => !IsDiagnosing && !IsAutoRunning);
         StopDiagnosticsCommand = new RelayCommand(_ => _diagCts?.Cancel(), _ => IsDiagnosing);
+        RunDpiCheckCommand = new RelayCommand(async _ => await RunDpiCheckAsync(),
+            _ => !IsDpiChecking && !IsDiagnosing && !IsAutoRunning);
+        StopDpiCheckCommand = new RelayCommand(_ => _dpiCts?.Cancel(), _ => IsDpiChecking);
+        ToggleDonateCommand = new RelayCommand(_ => DonateExpanded = !DonateExpanded);
         RunAutoSelectCommand = new RelayCommand(async _ => await RunAutoSelectAsync(),
             _ => !IsAutoSelecting && !IsDiagnosing && !IsUpdating && _updater.IsEngineInstalled);
         StopAutoSelectCommand = new RelayCommand(_ => { _autoCts?.Cancel(); _genCts?.Cancel(); },
@@ -204,6 +209,9 @@ public sealed class MainViewModel : ObservableObject
     public RelayCommand SetAdvancedModeCommand { get; }
     public RelayCommand RunDiagnosticsCommand { get; }
     public RelayCommand StopDiagnosticsCommand { get; }
+    public RelayCommand RunDpiCheckCommand { get; }
+    public RelayCommand StopDpiCheckCommand { get; }
+    public RelayCommand ToggleDonateCommand { get; }
     public RelayCommand RunAutoSelectCommand { get; }
     public RelayCommand StopAutoSelectCommand { get; }
     public RelayCommand GenerateStrategyCommand { get; }
@@ -340,7 +348,7 @@ public sealed class MainViewModel : ObservableObject
         SelectedPreset is null
             ? ""
             : EngineService.PreviewCommandLine(SelectedPreset, ActiveHostlistPath, Settings.GameFilter,
-                                               Settings.BypassAllSites, Settings.DisableQuic);
+                                               Settings.BypassAllSites, Settings.DisableQuic, Settings.TgProxyCoverage);
 
     // ---- hostlists ---------------------------------------------------------
 
@@ -454,6 +462,19 @@ public sealed class MainViewModel : ObservableObject
         set { Settings.NotificationSound = value; _settingsSvc.Save(); OnPropertyChanged(); }
     }
 
+    /// <summary>Donate card shown expanded (with QR) vs collapsed to a compact button. Persisted.</summary>
+    public bool DonateExpanded
+    {
+        get => !Settings.DonateCollapsed;
+        set
+        {
+            if (value == !Settings.DonateCollapsed) return;
+            Settings.DonateCollapsed = !value;
+            _settingsSvc.Save();
+            OnPropertyChanged();
+        }
+    }
+
     // ---- UI scale (DPI-independent zoom; applied by MainWindow via a ScaleTransform) -------
     public double UiScale
     {
@@ -562,6 +583,24 @@ public sealed class MainViewModel : ObservableObject
             OnPropertyChanged();
             OnPropertyChanged(nameof(CommandPreview));
             if (IsRunning) _ = ApplyStrategyAsync(); // relaunch so QUIC handling changes now
+        }
+    }
+
+    /// <summary>Let the engine also cover the built-in Telegram proxy's own 443 upstream so its tunnel
+    /// survives mobile DPI that corrupts it mid-stream. Off by default — turn on only if the proxy
+    /// connects but keeps dropping. Relaunches a running engine so it applies immediately.</summary>
+    public bool TgProxyCoverage
+    {
+        get => Settings.TgProxyCoverage;
+        set
+        {
+            if (value == Settings.TgProxyCoverage) return;
+            Settings.TgProxyCoverage = value;
+            _settingsSvc.Save();
+            _engine.CoverTgProxy = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(CommandPreview));
+            if (IsRunning) _ = ApplyStrategyAsync(); // relaunch so coverage applies now
         }
     }
 
@@ -845,6 +884,107 @@ public sealed class MainViewModel : ObservableObject
         }
         DiagSummary = $"OK: {ok}   ·   Ошибки: {bad}   ·   Таймауты: {to}";
     }
+
+    // ---- DPI check (does the provider actively block by SNI?) -------------
+    // Distinct from the availability matrix: for each censored host it TCP-connects (proving the server
+    // is up), then sends a TLS ClientHello with the real SNI — a reset (RST) or a freeze on THAT packet
+    // is a middlebox injecting, not "the site is down". Most telling with the bypass OFF.
+
+    private static readonly string[] DpiHosts =
+    {
+        "discord.com", "gateway.discord.gg", "cdn.discordapp.com", "www.youtube.com",
+    };
+
+    private bool _isDpiChecking;
+    public bool IsDpiChecking
+    {
+        get => _isDpiChecking;
+        private set { if (SetField(ref _isDpiChecking, value)) RaiseCommandStates(); }
+    }
+
+    private string _dpiVerdictText =
+        "«Проверка DPI» определяет, режет ли провайдер соединение по имени сайта (обрыв/заморозка), а не просто «сайт недоступен».";
+    public string DpiVerdictText { get => _dpiVerdictText; private set => SetField(ref _dpiVerdictText, value); }
+
+    private string _dpiVerdictDetail = "";
+    public string DpiVerdictDetail { get => _dpiVerdictDetail; private set => SetField(ref _dpiVerdictDetail, value); }
+
+    private DiagStatus _dpiVerdictStatus = DiagStatus.Pending;
+    public DiagStatus DpiVerdictStatus { get => _dpiVerdictStatus; private set => SetField(ref _dpiVerdictStatus, value); }
+
+    private async Task RunDpiCheckAsync()
+    {
+        if (IsDpiChecking) return;
+        IsDpiChecking = true;
+        DpiVerdictStatus = DiagStatus.Running;
+        DpiVerdictText = "Проверяем, режет ли провайдер соединение по DPI…";
+        DpiVerdictDetail = "";
+        _dpiCts = new CancellationTokenSource();
+        try
+        {
+            var ct = _dpiCts.Token;
+            using var gate = new SemaphoreSlim(4);
+            var results = await Task.WhenAll(DpiHosts.Select(async host =>
+            {
+                await gate.WaitAsync(ct);
+                try { return (host, verdict: await NetProbe.DpiProbeAsync(host, ct)); }
+                finally { gate.Release(); }
+            }));
+
+            int reset = results.Count(r => r.verdict == DpiVerdict.Reset);
+            int freeze = results.Count(r => r.verdict == DpiVerdict.Freeze);
+            int clean = results.Count(r => r.verdict == DpiVerdict.Clean);
+
+            DpiVerdictDetail = string.Join("\n",
+                results.Select(r => $"{DpiGlyph(r.verdict)}  {r.host} — {DpiText(r.verdict)}"));
+
+            if (reset + freeze > 0)
+            {
+                DpiVerdictStatus = DiagStatus.Fail;
+                string how = reset > 0 && freeze > 0 ? "обрыв (RST) и заморозка"
+                           : reset > 0 ? "обрыв соединения (RST-инъекция)"
+                           : "заморозка (пакеты дропаются)";
+                DpiVerdictText = IsRunning
+                    ? $"Провайдер режет по DPI: {how}. Обход включён, но эти хосты всё равно режутся — смените стратегию."
+                    : $"Провайдер режет по DPI: {how}. Это снимается обходом — включите его.";
+            }
+            else if (clean > 0)
+            {
+                DpiVerdictStatus = DiagStatus.Ok;
+                DpiVerdictText = IsRunning
+                    ? "Признаков DPI-блокировки нет — либо провайдер не режет, либо обход уже её снимает."
+                    : "Признаков DPI-блокировки по имени сайта не обнаружено.";
+            }
+            else
+            {
+                DpiVerdictStatus = DiagStatus.Timeout;
+                DpiVerdictText = "Нет соединения с хостами — похоже на проблему сети или блокировку по IP, а не DPI по имени.";
+            }
+        }
+        catch (OperationCanceledException) { DpiVerdictText = "Проверка DPI остановлена."; DpiVerdictStatus = DiagStatus.Pending; }
+        catch (Exception ex) { DpiVerdictText = "Ошибка проверки DPI: " + ex.Message; DpiVerdictStatus = DiagStatus.Pending; }
+        finally
+        {
+            IsDpiChecking = false;
+            _dpiCts?.Dispose();
+            _dpiCts = null;
+        }
+    }
+
+    private static string DpiGlyph(DpiVerdict v) => v switch
+    {
+        DpiVerdict.Clean => "✓",
+        DpiVerdict.Reset or DpiVerdict.Freeze => "✗",
+        _ => "•",
+    };
+
+    private static string DpiText(DpiVerdict v) => v switch
+    {
+        DpiVerdict.Clean => "чисто",
+        DpiVerdict.Reset => "обрыв DPI (RST)",
+        DpiVerdict.Freeze => "заморозка DPI",
+        _ => "нет соединения",
+    };
 
     // ---- auto-select (best strategy for the chosen scope) -----------------
 
@@ -1286,6 +1426,7 @@ public sealed class MainViewModel : ObservableObject
         _engine.GameFilter = Settings.GameFilter;
         _engine.BypassAllSites = Settings.BypassAllSites;
         _engine.DisableQuic = Settings.DisableQuic;
+        _engine.CoverTgProxy = Settings.TgProxyCoverage;
 
         // Built-in Telegram proxy: restore the persisted port/secret (or persist a fresh one) so the
         // tg:// link is stable across runs; the proxy itself is started on demand from the card.
@@ -1359,7 +1500,7 @@ public sealed class MainViewModel : ObservableObject
             AppUpdateText = $"Новая версия {ver} — скачать";
             AppUpdateAvailable = true;
             Notify?.Invoke("Доступно обновление",
-                $"Вышла новая версия ZapretUI {ver}. Откройте страницу релиза, чтобы скачать.");
+                $"Вышла новая версия Zapret2UI {ver}. Откройте страницу релиза, чтобы скачать.");
         });
     }
 
@@ -1687,6 +1828,7 @@ public sealed class MainViewModel : ObservableObject
     public void Shutdown()
     {
         try { _diagCts?.Cancel(); } catch { }
+        try { _dpiCts?.Cancel(); } catch { }
         try { _autoCts?.Cancel(); } catch { }
         try { _genCts?.Cancel(); } catch { }
         try { _monitor.Stop(); } catch { }
@@ -1743,6 +1885,8 @@ public sealed class MainViewModel : ObservableObject
         SmartPickCommand.RaiseCanExecuteChanged();
         RunDiagnosticsCommand.RaiseCanExecuteChanged();
         StopDiagnosticsCommand.RaiseCanExecuteChanged();
+        RunDpiCheckCommand.RaiseCanExecuteChanged();
+        StopDpiCheckCommand.RaiseCanExecuteChanged();
         RunAutoSelectCommand.RaiseCanExecuteChanged();
         StopAutoSelectCommand.RaiseCanExecuteChanged();
         GenerateStrategyCommand.RaiseCanExecuteChanged();

@@ -2,10 +2,10 @@ using System.Globalization;
 using System.Windows;
 using System.Windows.Data;
 using System.Windows.Media;
-using ZapretUI.Models;
-using ZapretUI.Services;
+using Zapret2UI.Models;
+using Zapret2UI.Services;
 
-namespace ZapretUI.Mvvm;
+namespace Zapret2UI.Mvvm;
 
 /// <summary>
 /// Two bound values -> Visibility: Visible when they are the SAME instance.

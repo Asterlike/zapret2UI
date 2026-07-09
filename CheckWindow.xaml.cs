@@ -2,9 +2,9 @@ using System.ComponentModel;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
-using ZapretUI.ViewModels;
+using Zapret2UI.ViewModels;
 
-namespace ZapretUI;
+namespace Zapret2UI;
 
 /// <summary>
 /// Review popup shown while the auto-selector / generator runs: live per-candidate progress on the

@@ -8,9 +8,9 @@ using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using ZapretUI.Models;
+using Zapret2UI.Models;
 
-namespace ZapretUI.Services;
+namespace Zapret2UI.Services;
 
 /// <summary>
 /// Manages user-defined bypass targets. Each target is a root domain whose related
@@ -33,7 +33,7 @@ public sealed class TargetService
     {
         AppPaths.EnsureCreated();
         _http = new HttpClient { Timeout = TimeSpan.FromSeconds(25) };
-        _http.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("ZapretUI", "1.0"));
+        _http.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("Zapret2UI", "1.0"));
     }
 
     private static string PathFor(string name) => Path.Combine(AppPaths.ListsDir, Prefix + name + ".txt");

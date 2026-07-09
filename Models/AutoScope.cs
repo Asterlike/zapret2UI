@@ -1,4 +1,4 @@
-namespace ZapretUI.Models;
+namespace Zapret2UI.Models;
 
 /// <summary>What the auto-selector optimises for: a strategy that works for both
 /// services at once, or just one of them.

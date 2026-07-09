@@ -2,9 +2,9 @@ using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
-using ZapretUI.Models;
+using Zapret2UI.Models;
 
-namespace ZapretUI.Services;
+namespace Zapret2UI.Services;
 
 public enum EngineState { Stopped, Running, Starting, Stopping }
 
@@ -44,6 +44,11 @@ public sealed class EngineService : IDisposable
     /// ≥1001 bytes — there the fake-QUIC bypass can't win, but forcing TCP does. Set from settings.</summary>
     public bool DisableQuic { get; set; }
 
+    /// <summary>When true, the engine ALSO covers the built-in Telegram proxy's own Cloudflare upstream
+    /// (443) with a TLS desync so mobile DPI can't kill its tunnel mid-stream. Off by default — most
+    /// users don't need it, and it's inert unless the proxy is actually connecting. Set from settings.</summary>
+    public bool CoverTgProxy { get; set; }
+
     /// <summary>The preset that is currently running (null when stopped).</summary>
     public Preset? ActivePreset { get; private set; }
 
@@ -60,7 +65,8 @@ public sealed class EngineService : IDisposable
     /// effective-exclude list be materialised to disk. The preview path passes false so that
     /// merely showing the command line never writes a file.</summary>
     public static List<string> BuildArguments(Preset preset, string? hostlistPath,
-        bool gameFilter = false, bool bypassAll = false, bool disableQuic = false, bool forLaunch = false)
+        bool gameFilter = false, bool bypassAll = false, bool disableQuic = false,
+        bool coverTgProxy = false, bool forLaunch = false)
     {
         var args = new List<string>
         {
@@ -137,10 +143,10 @@ public sealed class EngineService : IDisposable
         var scoped = bypassAll ? args : ScopeCatchAllToTargets(args);
         // "QUIC off": force the desynced services onto TCP by dropping their QUIC instead of faking it.
         var result = disableQuic ? ForceQuicDrop(scoped) : scoped;
-        // Cover the built-in Telegram proxy's own Cloudflare upstream (443) so mobile DPI can't kill its
-        // tunnel mid-stream. Appended AFTER the scope/QUIC transforms — it's hostlist-scoped, so it is
-        // never treated as a catch-all (nor dropped) and never QUIC-rewritten.
-        AppendTgProxyCoverage(result);
+        // Optionally cover the built-in Telegram proxy's own Cloudflare upstream (443) so mobile DPI can't
+        // kill its tunnel mid-stream. Off by default (opt-in setting) — appended AFTER the scope/QUIC
+        // transforms so it stays hostlist-scoped: never treated as a catch-all (nor dropped) nor QUIC-rewritten.
+        if (coverTgProxy) AppendTgProxyCoverage(result);
         return result;
     }
 
@@ -375,10 +381,10 @@ public sealed class EngineService : IDisposable
 
     /// <summary>Human-readable preview of the command line that will be launched.</summary>
     public static string PreviewCommandLine(Preset preset, string? hostlistPath,
-        bool gameFilter = false, bool bypassAll = false, bool disableQuic = false)
+        bool gameFilter = false, bool bypassAll = false, bool disableQuic = false, bool coverTgProxy = false)
     {
         var sb = new StringBuilder("winws2.exe");
-        foreach (var a in BuildArguments(preset, hostlistPath, gameFilter, bypassAll, disableQuic))
+        foreach (var a in BuildArguments(preset, hostlistPath, gameFilter, bypassAll, disableQuic, coverTgProxy))
             sb.Append(a.Contains(' ') ? $" \"{a}\"" : $" {a}");
         return sb.ToString();
     }
@@ -406,7 +412,7 @@ public sealed class EngineService : IDisposable
                 StandardOutputEncoding = Encoding.UTF8,
                 StandardErrorEncoding = Encoding.UTF8,
             };
-            foreach (var a in BuildArguments(preset, hostlistPath, GameFilter, BypassAllSites, DisableQuic, forLaunch: true))
+            foreach (var a in BuildArguments(preset, hostlistPath, GameFilter, BypassAllSites, DisableQuic, CoverTgProxy, forLaunch: true))
                 psi.ArgumentList.Add(a);
 
             OpenLogFile(preset);

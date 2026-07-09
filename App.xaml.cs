@@ -4,10 +4,10 @@ using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
-using ZapretUI.Services;
-using ZapretUI.ViewModels;
+using Zapret2UI.Services;
+using Zapret2UI.ViewModels;
 
-namespace ZapretUI;
+namespace Zapret2UI;
 
 public partial class App : Application
 {
@@ -19,7 +19,7 @@ public partial class App : Application
         AppDomain.CurrentDomain.UnhandledException += (_, args) =>
             WriteFatal(args.ExceptionObject as Exception);
 
-        // Screenshot harness: `ZapretUI.exe --screenshot <outDir>` renders each tab to PNG and exits
+        // Screenshot harness: `Zapret2UI.exe --screenshot <outDir>` renders each tab to PNG and exits
         // (used to regenerate docs/*.png without a manual desktop capture). Needs no admin, so flip the
         // manifest to asInvoker while capturing, then restore it.
         int si = Array.FindIndex(e.Args, a => a.Equals("--screenshot", StringComparison.OrdinalIgnoreCase));
@@ -30,7 +30,7 @@ public partial class App : Application
             return;
         }
 
-        // Telegram-proxy self-test harness: `ZapretUI.exe --tgproxytest <outFile>` probes the upstream
+        // Telegram-proxy self-test harness: `Zapret2UI.exe --tgproxytest <outFile>` probes the upstream
         // paths to Telegram (DoH / DNS / direct IP / Cloudflare fronts) and writes the report to a file,
         // then exits. Needs no admin (loopback + outbound TLS), so it can be run to diagnose a user whose
         // proxy "pings but won't connect".
@@ -42,7 +42,7 @@ public partial class App : Application
             return;
         }
 
-        // Bridge self-test: `ZapretUI.exe --tgbridgetest <outFile>` drives the REAL bridge from a loopback
+        // Bridge self-test: `Zapret2UI.exe --tgbridgetest <outFile>` drives the REAL bridge from a loopback
         // client and checks that Telegram's resPQ survives the round-trip decodable (re-encryption/splitter
         // correctness) — isolates a bridge bug from a censored-network drop. No admin needed.
         int bi = Array.FindIndex(e.Args, a => a.Equals("--tgbridgetest", StringComparison.OrdinalIgnoreCase));
@@ -53,7 +53,7 @@ public partial class App : Application
             return;
         }
 
-        // Engine command-line dump: `ZapretUI.exe --enginedump <outFile>` seeds the bundled lists and
+        // Engine command-line dump: `Zapret2UI.exe --enginedump <outFile>` seeds the bundled lists and
         // writes the winws2 command line for the recommended preset — so the Telegram-proxy coverage
         // profile (and the seeded fronts list) can be inspected without admin. The engine itself still
         // needs elevation to actually RUN, so this only verifies argument construction, not desync.

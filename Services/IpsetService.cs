@@ -2,7 +2,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Text;
 
-namespace ZapretUI.Services;
+namespace Zapret2UI.Services;
 
 /// <summary>
 /// Builds an IP-set for IP-based bypass (the lever for hard IP-blocks where

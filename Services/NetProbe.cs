@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Net.NetworkInformation;
@@ -6,9 +7,18 @@ using System.Net.Security;
 using System.Net.Sockets;
 using System.Security.Authentication;
 using System.Text;
-using ZapretUI.Models;
+using Zapret2UI.Models;
 
-namespace ZapretUI.Services;
+namespace Zapret2UI.Services;
+
+/// <summary>Verdict of a DPI-signature probe: is the provider actively interfering by SNI, or not?</summary>
+public enum DpiVerdict
+{
+    Clean,          // TLS ClientHello with the real SNI completed — no DPI drop on this host
+    Reset,          // connection reset (RST) mid-handshake — classic DPI reset injection
+    Freeze,         // ClientHello sent, no answer — the SNI-bearing packet is being dropped/frozen
+    NoConnection,   // TCP never connected — a routing/IP issue, not name-based DPI
+}
 
 /// <summary>
 /// Low-level connectivity probes shared by the diagnostics matrix and the
@@ -200,4 +210,48 @@ public static class NetProbe
         catch (AuthenticationException) { return DiagStatus.Fail; }
         catch { return DiagStatus.Fail; }
     }
+
+    /// <summary>DPI-signature probe: does the provider actively block this host by SNI? First a plain
+    /// TCP-connect on 443 (if that already fails it's routing/IP, not name-DPI); then a TLS ClientHello
+    /// with the REAL SNI. Because the server already completed the TCP handshake, a reset (RST) or a
+    /// silent drop on the ClientHello is a middlebox injecting — the classic Russian DPI signature.</summary>
+    public static async Task<DpiVerdict> DpiProbeAsync(string host, CancellationToken ct)
+    {
+        using var tcp = new TcpClient();
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        cts.CancelAfter(TimeSpan.FromSeconds(3));
+        try
+        {
+            await tcp.ConnectAsync(host, 443, cts.Token);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch { return DpiVerdict.NoConnection; } // TCP never connected → routing/IP, not SNI-DPI
+
+        // Server accepted the connection, so it's up. Now the real-SNI ClientHello: a reset or a freeze
+        // on THIS packet is the DPI signature (the origin already completed the TCP handshake).
+        try
+        {
+            using var ssl = new SslStream(tcp.GetStream(), false, (_, _, _, _) => true);
+            var opts = new SslClientAuthenticationOptions
+            {
+                TargetHost = host,
+                EnabledSslProtocols = SslProtocols.Tls12 | SslProtocols.Tls13,
+            };
+            using var hs = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            hs.CancelAfter(TimeSpan.FromSeconds(4));
+            await ssl.AuthenticateAsClientAsync(opts, hs.Token);
+            return DpiVerdict.Clean;                                     // handshake completed → no DPI drop
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (OperationCanceledException) { return DpiVerdict.Freeze; }  // ClientHello sent, no answer → dropped
+        catch (AuthenticationException) { return DpiVerdict.Clean; }      // server answered at TLS level → reached
+        catch (IOException ioe) when (IsConnectionReset(ioe)) { return DpiVerdict.Reset; }
+        catch (SocketException se) when (se.SocketErrorCode == SocketError.ConnectionReset) { return DpiVerdict.Reset; }
+        catch { return DpiVerdict.Reset; }                               // abrupt failure after a good TCP connect → DPI
+    }
+
+    private static bool IsConnectionReset(IOException ioe) =>
+        ioe.InnerException is SocketException { SocketErrorCode: SocketError.ConnectionReset }
+        || ioe.Message.Contains("forcibly closed", StringComparison.OrdinalIgnoreCase)
+        || ioe.Message.Contains("reset", StringComparison.OrdinalIgnoreCase);
 }

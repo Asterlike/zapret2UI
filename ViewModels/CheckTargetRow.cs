@@ -1,7 +1,7 @@
-using ZapretUI.Models;
-using ZapretUI.Mvvm;
+using Zapret2UI.Models;
+using Zapret2UI.Mvvm;
 
-namespace ZapretUI.ViewModels;
+namespace Zapret2UI.ViewModels;
 
 /// <summary>
 /// One target endpoint in the check popup's main area, with its TLS 1.2 / 1.3

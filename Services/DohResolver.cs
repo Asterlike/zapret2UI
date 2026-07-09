@@ -2,7 +2,7 @@ using System.Collections.Concurrent;
 using System.Net.Http;
 using System.Text.Json;
 
-namespace ZapretUI.Services;
+namespace Zapret2UI.Services;
 
 /// <summary>
 /// Minimal DNS-over-HTTPS resolver (RFC 8484 JSON form). Resolves a hostname to IPv4 addresses via

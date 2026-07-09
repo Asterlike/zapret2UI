@@ -1,8 +1,8 @@
 using System.IO;
 using System.Text.Json;
-using ZapretUI.Models;
+using Zapret2UI.Models;
 
-namespace ZapretUI.Services;
+namespace Zapret2UI.Services;
 
 /// <summary>
 /// Provides the built-in (code-defined) strategies plus any user-created ones

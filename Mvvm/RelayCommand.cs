@@ -1,6 +1,6 @@
 using System.Windows.Input;
 
-namespace ZapretUI.Mvvm;
+namespace Zapret2UI.Mvvm;
 
 public sealed class RelayCommand : ICommand
 {

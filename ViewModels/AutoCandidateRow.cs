@@ -1,7 +1,7 @@
-using ZapretUI.Mvvm;
-using ZapretUI.Services;
+using Zapret2UI.Mvvm;
+using Zapret2UI.Services;
 
-namespace ZapretUI.ViewModels;
+namespace Zapret2UI.ViewModels;
 
 public enum AutoCandidateState { Pending, Running, Done }
 

@@ -1,6 +1,6 @@
 using System.Diagnostics;
 
-namespace ZapretUI.Services;
+namespace Zapret2UI.Services;
 
 /// <summary>
 /// Manages a Scheduled Task that launches the (elevated) UI at logon.
@@ -9,7 +9,7 @@ namespace ZapretUI.Services;
 /// </summary>
 public sealed class AutostartService
 {
-    private const string TaskName = "ZapretUI Autostart";
+    private const string TaskName = "Zapret2UI Autostart";
 
     private static string? ExePath => Environment.ProcessPath;
 

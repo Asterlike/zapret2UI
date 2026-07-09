@@ -1,7 +1,7 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 
-namespace ZapretUI.Mvvm;
+namespace Zapret2UI.Mvvm;
 
 public abstract class ObservableObject : INotifyPropertyChanged
 {

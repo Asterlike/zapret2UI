@@ -1,7 +1,7 @@
 using System.IO;
 using System.Text.Json;
 
-namespace ZapretUI.Services;
+namespace Zapret2UI.Services;
 
 public sealed class AppSettings
 {
@@ -34,6 +34,11 @@ public sealed class AppSettings
     /// where the ISP/TSPU throttles or drops QUIC (YouTube stutters over HTTP/3 but is fine over TCP).</summary>
     public bool DisableQuic { get; set; }
 
+    /// <summary>Also cover the built-in Telegram proxy's own Cloudflare upstream (443) with the DPI engine,
+    /// so its tunnel survives mobile DPI (TSPU) that corrupts it mid-stream. Off by default — most users
+    /// don't need it; turn on only if the proxy connects but keeps dropping. Needs the engine running.</summary>
+    public bool TgProxyCoverage { get; set; }
+
     /// <summary>Per-network memory: a local network fingerprint (see <see cref="NetworkFingerprint"/>) →
     /// the last strategy that ran there. Lets the app re-suggest a known-good preset when you return to
     /// a network, instead of the generic default. Keyed locally; no external calls, no IPs stored.</summary>
@@ -59,6 +64,9 @@ public sealed class AppSettings
 
     /// <summary>Play a soft sound with each toast notification. Off = silent toasts.</summary>
     public bool NotificationSound { get; set; } = true;
+
+    /// <summary>Collapse the donate/QR card to a compact button (persisted UI preference).</summary>
+    public bool DonateCollapsed { get; set; }
 }
 
 /// <summary>Loads/saves <see cref="AppSettings"/> as settings.json.</summary>

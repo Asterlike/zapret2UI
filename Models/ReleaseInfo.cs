@@ -1,4 +1,4 @@
-namespace ZapretUI.Models;
+namespace Zapret2UI.Models;
 
 /// <summary>Resolved information about a single GitHub release of zapret2.</summary>
 public sealed record ReleaseInfo(

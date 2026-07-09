@@ -1,6 +1,6 @@
 using System.IO;
 
-namespace ZapretUI.Services;
+namespace Zapret2UI.Services;
 
 /// <summary>
 /// Manages domain hostlists stored as plain .txt files under the lists folder,

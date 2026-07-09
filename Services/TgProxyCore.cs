@@ -6,7 +6,7 @@ using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace ZapretUI.Services;
+namespace Zapret2UI.Services;
 
 // Native C# port of the core wire protocol of Flowseal/tg-ws-proxy (MIT). It bridges a local
 // MTProto proxy (what Telegram Desktop connects to on 127.0.0.1) to Telegram's data centers over

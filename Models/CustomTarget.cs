@@ -1,6 +1,6 @@
-using ZapretUI.Mvvm;
+using Zapret2UI.Mvvm;
 
-namespace ZapretUI.Models;
+namespace Zapret2UI.Models;
 
 /// <summary>
 /// A user-defined bypass target: a root domain plus the list of domains discovered

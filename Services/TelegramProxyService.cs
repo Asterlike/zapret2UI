@@ -3,7 +3,7 @@ using System.IO;
 using System.Net;
 using System.Net.Sockets;
 
-namespace ZapretUI.Services;
+namespace Zapret2UI.Services;
 
 /// <summary>
 /// Built-in local Telegram MTProto → WebSocket proxy (native C# port of Flowseal/tg-ws-proxy, MIT).

@@ -1,9 +1,9 @@
 using System.Diagnostics;
 using System.IO;
 using System.Text;
-using ZapretUI.Models;
+using Zapret2UI.Models;
 
-namespace ZapretUI.Services;
+namespace Zapret2UI.Services;
 
 /// <summary>Per-endpoint outcome of a candidate (TLS 1.2 / 1.3 + full HTTPS GET).</summary>
 public sealed record AutoHostResult(string Host, DiagStatus Tls12, DiagStatus Tls13, DiagStatus Https);

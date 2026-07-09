@@ -3,12 +3,13 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Navigation;
 
-namespace ZapretUI.Controls;
+namespace Zapret2UI.Controls;
 
 /// <summary>
-/// Small "support the author" block: a scannable donate QR plus a clickable
-/// text link, both opening the same tribute.tg page in the default browser.
-/// Reused in both Simple and Advanced layouts.
+/// "Support the author" block: a scannable donate QR plus a clickable text link, both opening the same
+/// tribute.tg page in the browser. Collapses to a compact button (QR hidden) and back — the expanded/
+/// collapsed state and the toggle live on the view-model (DonateExpanded / ToggleDonateCommand), so it
+/// persists and can't clobber itself. Reused in both Simple and Advanced layouts.
 /// </summary>
 public partial class DonateBlock : UserControl
 {

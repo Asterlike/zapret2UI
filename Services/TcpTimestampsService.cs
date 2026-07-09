@@ -1,6 +1,6 @@
 using System.Diagnostics;
 
-namespace ZapretUI.Services;
+namespace Zapret2UI.Services;
 
 /// <summary>
 /// Ensures Windows TCP timestamps (RFC 1323) are ENABLED while the engine runs, then restores the

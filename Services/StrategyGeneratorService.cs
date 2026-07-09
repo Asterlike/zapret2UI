@@ -2,9 +2,9 @@ using System.Diagnostics;
 using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
-using ZapretUI.Models;
+using Zapret2UI.Models;
 
-namespace ZapretUI.Services;
+namespace Zapret2UI.Services;
 
 /// <summary>
 /// Personal-strategy GENERATOR (distinct from <see cref="AutoSelectService"/>, which picks a whole

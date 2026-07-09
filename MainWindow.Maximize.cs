@@ -2,7 +2,7 @@ using System;
 using System.Runtime.InteropServices;
 using System.Windows.Interop;
 
-namespace ZapretUI;
+namespace Zapret2UI;
 
 /// <summary>
 /// Fix for a borderless (<c>WindowStyle=None</c>) window: when maximized it would

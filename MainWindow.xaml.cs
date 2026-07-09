@@ -4,12 +4,12 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
-using ZapretUI.Services;
-using ZapretUI.ViewModels;
+using Zapret2UI.Services;
+using Zapret2UI.ViewModels;
 using Forms = System.Windows.Forms;
 using Drawing = System.Drawing;
 
-namespace ZapretUI;
+namespace Zapret2UI;
 
 public partial class MainWindow : Window
 {
@@ -55,6 +55,17 @@ public partial class MainWindow : Window
             || _vm.Settings.StartMinimized;
         if (startInTray && _vm.MinimizeToTray)
             HideToTray();
+
+        // Startup-only conflict check: another DPI-bypass tool (shares the WinDivert driver) or a VPN
+        // (re-routes traffic past the engine) commonly stops the bypass from working. Advisory dialog —
+        // it never blocks the launch. Skipped when starting hidden in the tray or under the screenshot harness.
+        bool screenshotHarness = Environment.GetCommandLineArgs()
+            .Any(a => a.Equals("--screenshot", StringComparison.OrdinalIgnoreCase));
+        if (!screenshotHarness && !(startInTray && _vm.MinimizeToTray))
+        {
+            var conflicts = await Task.Run(ConflictScanService.Scan);
+            if (conflicts.Count > 0) ConflictDialog.Show(conflicts);
+        }
 
         try
         {
@@ -187,7 +198,7 @@ public partial class MainWindow : Window
         {
             Icon = _iconIdle ?? Drawing.SystemIcons.Application,
             Visible = true,
-            Text = "Zapret UI — остановлен",
+            Text = "Zapret2UI — остановлен",
             ContextMenuStrip = _trayMenu,
         };
         _tray.DoubleClick += (_, _) => ShowFromTray();
@@ -207,7 +218,7 @@ public partial class MainWindow : Window
             _ => "остановлен",
         };
         string? preset = _vm.SelectedPreset?.Name;
-        string text = $"Zapret UI — {status}";
+        string text = $"Zapret2UI — {status}";
         if (running && !string.IsNullOrEmpty(preset)) text += $"\n{preset}";
         // NotifyIcon tooltip is capped at 127 chars.
         _tray.Text = text.Length > 127 ? text[..127] : text;
@@ -216,9 +227,9 @@ public partial class MainWindow : Window
 
         // Our own corner toast on settled transitions (replaces the Windows balloon tips).
         if (state == EngineState.Running && _lastState != EngineState.Running)
-            ShowToast("Zapret UI", "Обход включён");
+            ShowToast("Zapret2UI", "Обход включён");
         else if (state == EngineState.Stopped && _lastState is EngineState.Running or EngineState.Stopping)
-            ShowToast("Zapret UI", "Обход выключен");
+            ShowToast("Zapret2UI", "Обход выключен");
         _lastState = state;
     }
 

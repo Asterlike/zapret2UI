@@ -1,7 +1,7 @@
 using System.Windows;
 using System.Windows.Input;
 
-namespace ZapretUI;
+namespace Zapret2UI;
 
 /// <summary>
 /// App-styled replacement for the unthemed Windows confirm MessageBox. Used for

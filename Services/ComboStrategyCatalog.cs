@@ -1,4 +1,4 @@
-namespace ZapretUI.Services;
+namespace Zapret2UI.Services;
 
 /// <summary>A full, ready-to-run winws2 strategy (multi-profile) the auto-selector tries.</summary>
 public sealed record ComboStrategy(string Name, List<string> Args);

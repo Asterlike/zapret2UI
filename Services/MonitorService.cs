@@ -1,7 +1,7 @@
 using System.Security.Authentication;
-using ZapretUI.Models;
+using Zapret2UI.Models;
 
-namespace ZapretUI.Services;
+namespace Zapret2UI.Services;
 
 /// <summary>
 /// Lightweight background watchdog for the auto-orchestrator. While the engine

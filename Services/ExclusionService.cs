@@ -1,10 +1,10 @@
 using System.Diagnostics;
 
-namespace ZapretUI.Services;
+namespace Zapret2UI.Services;
 
 /// <summary>
 /// One-click "make Windows leave us alone": adds Windows Defender exclusions (for the app, the whole
-/// <c>%LOCALAPPDATA%\ZapretUI</c> data folder and the engine folder + processes) and Windows Firewall
+/// <c>%LOCALAPPDATA%\Zapret2UI</c> data folder and the engine folder + processes) and Windows Firewall
 /// allow-rules (in/out, all profiles) for the app and <c>winws2.exe</c>. A DPI-bypass engine ships an
 /// unsigned kernel driver (WinDivert) that antivirus loves to quarantine, and a blocking firewall is a
 /// common cause of "logs in but won't connect"; this fixes both in one go.
@@ -36,8 +36,8 @@ public sealed class ExclusionService
         if (appExe is not null) ok &= await DefenderExcludeProcessAsync(appExe, log);
 
         // 2) Windows Firewall — allow the app and the engine through (inbound + outbound, all profiles).
-        ok &= await FirewallAllowAsync("ZapretUI (движок)", winws, log);
-        if (appExe is not null) ok &= await FirewallAllowAsync("ZapretUI", appExe, log);
+        ok &= await FirewallAllowAsync("Zapret2UI (движок)", winws, log);
+        if (appExe is not null) ok &= await FirewallAllowAsync("Zapret2UI", appExe, log);
 
         return new Result(ok, string.Join('\n', log));
     }

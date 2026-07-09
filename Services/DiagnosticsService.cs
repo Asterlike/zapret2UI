@@ -1,7 +1,7 @@
 using System.Security.Authentication;
-using ZapretUI.Models;
+using Zapret2UI.Models;
 
-namespace ZapretUI.Services;
+namespace Zapret2UI.Services;
 
 /// <summary>
 /// Endpoint-matrix diagnostics (CDPIUI/blockcheck-style). For a curated list of

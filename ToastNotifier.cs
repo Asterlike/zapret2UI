@@ -8,7 +8,7 @@ using System.Windows.Media.Animation;
 using System.Windows.Media.Effects;
 using System.Windows.Threading;
 
-namespace ZapretUI;
+namespace Zapret2UI;
 
 /// <summary>
 /// Lightweight in-house toast notifications: a small topmost popup in the bottom-right corner of the

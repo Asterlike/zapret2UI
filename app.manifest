@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <assembly manifestVersion="1.0" xmlns="urn:schemas-microsoft-com:asm.v1">
-  <assemblyIdentity version="1.0.0.0" name="ZapretUI.app"/>
+  <assemblyIdentity version="1.0.0.0" name="Zapret2UI.app"/>
 
   <!-- WinDivert loads a kernel driver: the whole app must run elevated -->
   <trustInfo xmlns="urn:schemas-microsoft-com:asm.v3">

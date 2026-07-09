@@ -5,9 +5,9 @@ using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using ZapretUI.Models;
+using Zapret2UI.Models;
 
-namespace ZapretUI.Services;
+namespace Zapret2UI.Services;
 
 /// <summary>
 /// Silently keeps the zapret2 engine up to date from the official GitHub releases.
@@ -32,7 +32,7 @@ public sealed class UpdaterService
     {
         _http = new HttpClient { Timeout = TimeSpan.FromMinutes(10) };
         _http.DefaultRequestHeaders.UserAgent.Add(
-            new ProductInfoHeaderValue("ZapretUI", "1.0"));
+            new ProductInfoHeaderValue("Zapret2UI", "1.0"));
         _http.DefaultRequestHeaders.Accept.Add(
             new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
     }

@@ -1,4 +1,4 @@
-namespace ZapretUI.Models;
+namespace Zapret2UI.Models;
 
 /// <summary>
 /// A self-contained winws2 strategy. <see cref="Args"/> holds the command-line

@@ -1,4 +1,4 @@
-namespace ZapretUI.Models;
+namespace Zapret2UI.Models;
 
 /// <summary>
 /// Final, human-readable verdict for one service (Discord / YouTube / custom targets) after an

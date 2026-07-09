@@ -1,6 +1,6 @@
-using ZapretUI.Mvvm;
+using Zapret2UI.Mvvm;
 
-namespace ZapretUI.Models;
+namespace Zapret2UI.Models;
 
 public enum DiagStatus { Pending, Running, Ok, Fail, Timeout, NotSupported, Skip }
 

@@ -1,16 +1,31 @@
 using System.IO;
 
-namespace ZapretUI.Services;
+namespace Zapret2UI.Services;
 
 /// <summary>
 /// Central place for all on-disk locations. Everything lives under
-/// %LOCALAPPDATA%\ZapretUI so the app never needs to write to Program Files.
+/// %LOCALAPPDATA%\Zapret2UI so the app never needs to write to Program Files.
 /// </summary>
 public static class AppPaths
 {
     public static string Root { get; } = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "ZapretUI");
+        "Zapret2UI");
+
+    // One-time data-folder migration: the app was renamed ZapretUI → Zapret2UI. On first access (before
+    // any service reads settings/presets), move an existing legacy folder over so users keep their
+    // downloaded engine, settings and custom lists. Best-effort — a fresh folder if the move fails.
+    static AppPaths()
+    {
+        try
+        {
+            string legacy = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ZapretUI");
+            if (Directory.Exists(legacy) && !Directory.Exists(Root))
+                Directory.Move(legacy, Root);
+        }
+        catch { /* keep going with a fresh folder */ }
+    }
 
     // Engine (winws2.exe, WinDivert*, cygwin1.dll, lua\, files\)
     public static string EngineDir => Path.Combine(Root, "engine");
