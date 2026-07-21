@@ -18,10 +18,13 @@ public sealed class TelegramProxyService : IDisposable
 {
     private const int MaxUpstreamAttempts = 6;
 
-    // Keepalive: ping the upstream every 30 s so dead half-open sockets surface (the ping write fails)
-    // and idle CF/edge intermediaries don't drop the tunnel. If nothing crosses in either direction for
-    // 6 min (well past MTProto's own ~75 s transport ping) the bridge is torn down as a backstop.
-    private const int KeepaliveMs = 30_000;
+    // Idle-watchdog poll interval. We do NOT send a proactive WS keepalive ping: a WS control PING made
+    // the Cloudflare/Telegram edge drop the MTProto-over-WS tunnel at ~30 s, so every connection
+    // reconnected every 30 s (DoH+TCP+TLS+WS+MTProto re-handshake) — which tanked speed and cut media
+    // mid-transfer. Telegram's own MTProto transport pings (~75 s) flow as data frames and keep the
+    // tunnel warm. If nothing crosses in either direction for 6 min the bridge is torn down as a
+    // backstop (frees a stuck half-open socket); the client reconnects on demand.
+    private const int IdlePollMs = 30_000;
     private const int IdleTimeoutMs = 360_000;
 
     // If the client has sent its handshake but Telegram answers nothing within this window, the front
@@ -483,21 +486,19 @@ public sealed class TelegramProxyService : IDisposable
             finally { linked.Cancel(); }
         }
 
-        // Keepalive/idle watchdog: pings upstream so dead peers surface, and cancels the bridge once
-        // it has been silent past the idle backstop — freeing the sockets/ciphers a stuck half-open
-        // connection would otherwise pin forever.
-        async Task Keepalive()
+        // Idle watchdog: cancels the bridge once nothing has crossed in either direction past the idle
+        // backstop, freeing the sockets/ciphers a stuck half-open connection would otherwise pin. It does
+        // NOT ping upstream — a proactive WS control PING made the edge drop the tunnel at ~30 s (see the
+        // IdlePollMs note). Dead peers surface through the read/write loops (RecvAsync EOF / SendAsync
+        // throw); a truly-silent half-open is caught by the idle backstop below.
+        async Task IdleWatch()
         {
             try
             {
-                while (true)
-                {
-                    await Task.Delay(KeepaliveMs, ct);
-                    if (Environment.TickCount64 - Volatile.Read(ref lastActivity) > IdleTimeoutMs) break;
-                    await ws.PingAsync(ct);
-                }
+                while (Environment.TickCount64 - Volatile.Read(ref lastActivity) <= IdleTimeoutMs)
+                    await Task.Delay(IdlePollMs, ct);
             }
-            catch { /* cancelled or the ping write failed on a dead socket */ }
+            catch { /* cancelled */ }
             finally { linked.Cancel(); }
         }
 
@@ -524,7 +525,7 @@ public sealed class TelegramProxyService : IDisposable
             catch { /* cancelled elsewhere (connection closed) */ }
         }
 
-        await Task.WhenAll(ClientToTg(), TgToClient(), Keepalive(), FirstResponseWatch());
+        await Task.WhenAll(ClientToTg(), TgToClient(), IdleWatch(), FirstResponseWatch());
 
         long lifeMs = Environment.TickCount64 - startTick;
         bool relayed = Volatile.Read(ref tgResponded) != 0;

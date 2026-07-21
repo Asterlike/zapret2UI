@@ -46,12 +46,11 @@ public sealed class AutoSelectService : IDisposable
     public void Dispose() => StopEngine();
 
     public async Task<(ComboStrategy strategy, AutoScore score)?> RunAsync(
-        IReadOnlyList<string> goalHosts, CancellationToken ct)
+        IReadOnlyList<ComboStrategy> candidates, IReadOnlyList<string> goalHosts, CancellationToken ct)
     {
         if (!File.Exists(AppPaths.WinwsExe))
             throw new FileNotFoundException("Движок не установлен.");
 
-        var candidates = ComboStrategyCatalog.All;
         ComboStrategy? best = null;
         AutoScore? bestScore = null;
 
@@ -155,10 +154,10 @@ public sealed class AutoSelectService : IDisposable
             StandardOutputEncoding = Encoding.UTF8,
             StandardErrorEncoding = Encoding.UTF8,
         };
-        // Probe with bypassAll=true: catalog candidates ARE global catch-alls by design, so the
-        // goal hosts must actually be desynced during the test. (The saved preset is re-scoped by
-        // ToPreset, and the allow-list safety net only applies to the running, saved preset.)
-        foreach (var a in EngineService.BuildArguments(preset, null, gameFilter: false, bypassAll: true, forLaunch: true))
+        // Global catalog candidates are catch-alls → probe with bypassAll=true so the goal hosts are
+        // actually desynced. A scoped preset candidate (saved-for-network / built-in) carries its own
+        // hostlists → probe as it really runs, bypassAll=false. cand.BypassAll encodes which.
+        foreach (var a in EngineService.BuildArguments(preset, null, gameFilter: false, bypassAll: cand.BypassAll, forLaunch: true))
             psi.ArgumentList.Add(a);
 
         var ready = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -232,6 +231,10 @@ public sealed class AutoSelectService : IDisposable
     /// <summary>Build a saveable preset from a chosen combo strategy.</summary>
     public static Preset ToPreset(ComboStrategy s, AutoScope scope)
     {
+        // A ready preset candidate (the network-saved one or a built-in) won as-is: return it
+        // directly — nothing to re-route, and the caller just selects the existing preset.
+        if (s.SourcePreset is not null) return s.SourcePreset;
+
         // The catalog candidate is a GLOBAL catch-all: its TLS/QUIC profiles carry no --hostlist, so
         // they desync EVERY site. Saved verbatim the running preset mangles non-listed sites (Steam,
         // dota2, …) — and since it has no --hostlist-exclude, allow-list mode ("область обхода ВЫКЛ")

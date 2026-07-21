@@ -20,6 +20,17 @@ public enum DpiVerdict
     NoConnection,   // TCP never connected — a routing/IP issue, not name-based DPI
 }
 
+/// <summary>Verdict of the volume/packet-limit probe — the "TCP 16-20" censorship method. The
+/// provider caps a connection by packet count (~16–20 packets each direction ≈ a few tens of KB):
+/// it opens fine, then the byte stream freezes. Complements <see cref="DpiVerdict"/>, which never
+/// sees this because a short TLS handshake stays under the cap.</summary>
+public enum VolumeVerdict
+{
+    Ok,           // streamed far past the cap — no volume/packet limiting on the test channel
+    Throttled,    // the transfer froze right after a few tens of KB — the classic TCP 16-20 cap
+    Unreachable,  // couldn't run the transfer at all (route/TLS) — inconclusive for this method
+}
+
 /// <summary>
 /// Low-level connectivity probes shared by the diagnostics matrix and the
 /// auto-selector. Each probe is a single real attempt against a host: a browser-like
@@ -254,4 +265,65 @@ public static class NetProbe
         ioe.InnerException is SocketException { SocketErrorCode: SocketError.ConnectionReset }
         || ioe.Message.Contains("forcibly closed", StringComparison.OrdinalIgnoreCase)
         || ioe.Message.Contains("reset", StringComparison.OrdinalIgnoreCase);
+
+    // Purpose-built large-download sink: Cloudflare's speedtest streams exactly ?bytes=N of payload,
+    // accepts arbitrary volume without rate-limiting, and rides a commonly-throttled CDN path.
+    private const string VolumeDownUrl = "https://speed.cloudflare.com/__down?bytes=";
+
+    /// <summary>
+    /// "TCP 16-20" volume/packet-limit probe. The censor caps a connection by packet count (~16–20
+    /// packets each direction ≈ a few tens of KB): the connection establishes, then the byte stream
+    /// freezes. We pull a payload far larger than that cap and watch whether it races through or
+    /// stalls just past the threshold. Download mirrors the user-visible symptom (video buffering,
+    /// media not loading); outbound is limited the same way. No admin needed; independent of the SNI
+    /// probe. Adapted from the method in hyperion-cs/dpi-checkers (Apache-2.0) — but streamed, so we
+    /// can pinpoint the stall instead of relying on a browser's all-or-nothing POST timeout.
+    /// </summary>
+    public static async Task<VolumeVerdict> VolumeProbeAsync(CancellationToken ct)
+    {
+        const long wantBytes  = 1_500_000;   // ask for ~1.5 MB — far above any packet cap
+        const int  passBytes  = 256 * 1024;  // streamed this much cleanly → past the cap → Ok
+        const int  stallFloor =  80 * 1024;  // froze below this → the cap bit → Throttled
+
+        var handler = new SocketsHttpHandler
+        {
+            AutomaticDecompression = DecompressionMethods.None,   // count real wire bytes
+            ConnectTimeout = TimeSpan.FromSeconds(6),
+        };
+        try
+        {
+            using var http = new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan };
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            cts.CancelAfter(TimeSpan.FromSeconds(20));            // whole-probe ceiling
+
+            using var req = new HttpRequestMessage(HttpMethod.Get, VolumeDownUrl + wantBytes);
+            req.Headers.TryAddWithoutValidation("User-Agent", BrowserUa);
+
+            using var resp = await http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, cts.Token);
+            resp.EnsureSuccessStatusCode();
+
+            await using var stream = await resp.Content.ReadAsStreamAsync(cts.Token);
+            var buf = new byte[32 * 1024];
+            long total = 0;
+            while (total < passBytes)
+            {
+                // Per-read stall timeout: bytes flowing then stopping dead for 5 s is the throttle
+                // fingerprint — a merely slow line keeps trickling; the cap freezes it outright.
+                using var readCts = CancellationTokenSource.CreateLinkedTokenSource(cts.Token);
+                readCts.CancelAfter(TimeSpan.FromSeconds(5));
+                int n;
+                try { n = await stream.ReadAsync(buf, readCts.Token); }
+                catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+                catch (OperationCanceledException) // the read stalled (or the whole-probe ceiling hit)
+                {
+                    return total >= stallFloor ? VolumeVerdict.Ok : VolumeVerdict.Throttled;
+                }
+                if (n == 0) break;               // clean EOF
+                total += n;
+            }
+            return total >= stallFloor ? VolumeVerdict.Ok : VolumeVerdict.Throttled;
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch { return VolumeVerdict.Unreachable; }   // couldn't even start the transfer → inconclusive
+    }
 }

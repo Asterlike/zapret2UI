@@ -63,7 +63,7 @@ public partial class MainWindow : Window
             .Any(a => a.Equals("--screenshot", StringComparison.OrdinalIgnoreCase));
         if (!screenshotHarness && !(startInTray && _vm.MinimizeToTray))
         {
-            var conflicts = await Task.Run(ConflictScanService.Scan);
+            var conflicts = await Task.Run(ConflictScanService.ScanConflicts);
             if (conflicts.Count > 0) ConflictDialog.Show(conflicts);
         }
 
@@ -75,6 +75,24 @@ public partial class MainWindow : Window
         {
             MessageBox.Show(ex.Message, "Ошибка инициализации", MessageBoxButton.OK, MessageBoxImage.Error);
         }
+
+        // First run: open the walkthrough once, after init so it sits over a populated window. Skipped
+        // under the screenshot harness (it would cover every tab shot) and when starting into the tray.
+        if (!screenshotHarness && !(startInTray && _vm.MinimizeToTray) && _vm.NeedsWelcome)
+            _vm.OpenWelcome(withCountdown: true);
+    }
+
+    /// <summary>
+    /// Настройки → «Проверить окружение»: the full check (conflicts + engine state), on demand.
+    /// Unlike the startup advisory this ALWAYS shows the dialog — including the all-clear state — so
+    /// pressing the button always produces a visible answer.
+    /// </summary>
+    private async void OnCheckEnvironment(object sender, RoutedEventArgs e)
+    {
+        bool installed = _vm.IsEngineInstalled;
+        bool complete = _vm.IsEngineComplete;
+        var findings = await Task.Run(() => ConflictScanService.ScanEnvironment(installed, complete));
+        ConflictDialog.Show(findings);
     }
 
     private void OnLogChanged(object? sender, NotifyCollectionChangedEventArgs e)
@@ -270,6 +288,19 @@ public partial class MainWindow : Window
         ShowInTaskbar = true;
         WindowState = WindowState.Normal;
         Activate();
+    }
+
+    /// <summary>
+    /// Bring this window back to the user — used when a SECOND launch is folded into this instance
+    /// (see <see cref="App"/>'s single-instance claim). Unlike the tray path, the request comes from
+    /// another process, so Windows' foreground lock applies to us and <c>Activate()</c> alone can
+    /// leave the window buried; a brief Topmost flip reliably raises it.
+    /// </summary>
+    internal void SurfaceWindow()
+    {
+        ShowFromTray();
+        Topmost = true;
+        Topmost = false;
     }
 
     // ---- close / exit ------------------------------------------------------

@@ -478,14 +478,17 @@ public sealed class EngineService : IDisposable
 
     private void OnProcessExited(object? sender, EventArgs e)
     {
+        // Restore the TCP timestamps setting FIRST, OUTSIDE _lock: netsh can take up to ~5s, and the
+        // old code held _lock across both that netsh AND the UI notifications below. When winws2 exited
+        // on its own, this thread held _lock while a UI-thread Start()/Stop() waited on it → the app
+        // froze (needed Task Manager to kill). Safe to restore here — State is still Running until the
+        // block below, so no next-session EnableForSession can race this restore.
+        _tsTune.RestoreAfterSession(Emit);
         lock (_lock)
         {
             int? code = null;
             try { code = _proc?.ExitCode; } catch { }
             Emit($"=== Движок остановлен (код {code?.ToString() ?? "?"}) ===");
-
-            // Restore the TCP timestamps setting we flipped at start (no-op if it was already enabled).
-            _tsTune.RestoreAfterSession(Emit);
 
             _proc?.Dispose();
             _proc = null;

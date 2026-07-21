@@ -122,8 +122,10 @@ public sealed class PresetService
         "--lua-desync=multidisorder:pos=1,midsld",
     };
 
-    public static List<Preset> BuiltIns() => new()
+    public static List<Preset> BuiltIns()
     {
+        var list = new List<Preset>
+        {
         // 1) RECOMMENDED — the user-confirmed winners for this provider:
         //    Discord web/login/media = hostfakesplit, YouTube = fake+multidisorder.
         Combo("Комбо (рекомендуемый)",
@@ -309,6 +311,35 @@ public sealed class PresetService
             }
         },
 
+    };
+        foreach (var p in list) p.Tagline = TaglineFor(p.Name);
+        return list;
+    }
+
+    /// <summary>
+    /// Short human-friendly one-liner for a built-in, shown as the Strategies list row's primary text
+    /// so the row doesn't lead with a cryptic technical name. Empty for unknown names.
+    ///
+    /// Two rules learned the hard way: a tagline must be SELF-CONTAINED (never "если предыдущая не
+    /// помогла" — the list is sorted and skimmed, not walked in order), and where several strategies
+    /// fix the same symptom the method is the honest differentiator, phrased in plain words. So:
+    /// symptom-first where a strategy owns a distinct one, method-first for the variant family.
+    ///
+    /// Keep it under ~30 characters: the Strategies list column trims longer text with an ellipsis,
+    /// and a tagline that gets cut off is worse than the technical name it was meant to replace.
+    /// </summary>
+    private static string TaglineFor(string name) => name switch
+    {
+        "Комбо (рекомендуемый)" => "Универсальная — начните с неё",
+        "Комбо — отечественный (VK, целевой)" => "Маскировка под VK",
+        "Комбо — Flowseal ALT10 (двойной fake + ts)" => "Когда не работают голос и медиа",
+        "Комбо — Flowseal ALT11 (fake+ts → seqovl)" => "Фейк + разрезка внахлёст",
+        "Комбо — Flowseal (multisplit seqovl)" => "Разрезка запроса",
+        "Комбо — Flowseal ALT (fake+fakedsplit)" => "Фейк + ложная разрезка",
+        "Комбо — окно (wssize)" => "Дробит ответ сервера",
+        "Discord — голос (QUIC-фейк)" => "Только голос Discord",
+        "Discord — адаптивный (circular, эксперим.)" => "Подбирает способ на ходу",
+        _ => "",
     };
 
     /// <summary>

@@ -321,9 +321,21 @@
                             <TextBlock Text="{Binding SimpleGoalHint}" Style="{StaticResource Muted}" FontSize="11.5"
                                        HorizontalAlignment="Center" TextAlignment="Center" Margin="0,8,0,0"/>
 
-                            <Button Content="Собрать стратегию под провайдера" Command="{Binding SmartPickCommand}"
-                                    Style="{StaticResource GhostButton}" Margin="0,18,0,0" HorizontalAlignment="Center"
-                                    ToolTip="Подбирает лучший обход отдельно для Discord и YouTube, собирает в одно комбо и проверяет сборку целиком. Это даёт рабочий пресет под всё — занимает пару минут."/>
+                            <!-- Two ways to a working strategy. Подбор is primary (it tries proven
+                                 strategies → more stable); генерация is the fallback that builds from scratch. -->
+                            <Button Command="{Binding RunAutoSelectCommand}" Style="{StaticResource PrimaryButton}"
+                                    Width="300" Height="44" Margin="0,18,0,0" HorizontalAlignment="Center"
+                                    ToolTip="Перебирает проверенные стратегии и оставляет ту, что открывает выбранные сервисы. Стабильнее генерации — начните с неё. Занимает минуту-другую.">
+                                <emoji:TextBlock Text="🔎  Подобрать стратегию" Foreground="White" FontWeight="SemiBold"/>
+                            </Button>
+                            <Button Command="{Binding GenerateStrategyCommand}" Style="{StaticResource GhostButton}"
+                                    Width="300" Margin="0,8,0,0" HorizontalAlignment="Center"
+                                    ToolTip="Собирает стратегию с нуля под вашего провайдера — отдельно под Discord и YouTube. Дольше и менее предсказуемо; используйте, если подбор не помог.">
+                                <emoji:TextBlock Text="✨  Сгенерировать стратегию"/>
+                            </Button>
+                            <TextBlock Text="Сначала «Подобрать» — так стабильнее. «Сгенерировать» — если подбор не пробил."
+                                       Style="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" MaxWidth="320"
+                                       HorizontalAlignment="Center" TextAlignment="Center" Margin="0,10,0,0"/>
 
                             <ProgressBar Value="{Binding UpdateProgress, Mode=OneWay}" Maximum="1" Margin="0,16,0,0"
                                          Visibility="{Binding IsUpdating, Converter={StaticResource BoolToVis}}"/>
@@ -409,7 +421,7 @@
                             <StackPanel>
                                 <TextBlock Text="Стратегии" Style="{StaticResource H1}"/>
                                 <TextBlock Style="{StaticResource Muted}" Margin="0,3,0,0"
-                                           Text="Готовые комбо-пресеты на синтаксисе winws2. Хостлисты подключаются прямо к стратегии."/>
+                                           Text="Готовые способы обхода Discord и YouTube. Выберите слева — справа описание. Здесь же ваши стратегии из подбора и генерации."/>
                             </StackPanel>
                         </DockPanel>
                         <Grid Grid.Row="1">
@@ -455,10 +467,18 @@
                                              stay distinguishable even when the row trims them with an ellipsis. -->
                                         <StackPanel ToolTip="{Binding Name}">
                                             <Grid>
-                                                <emoji:TextBlock Text="{Binding Name}" FontWeight="SemiBold"
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <!-- ★ marks the recommended strategy -->
+                                                <TextBlock Grid.Column="0" Text="★  " FontWeight="Bold" VerticalAlignment="Center"
+                                                           Foreground="{StaticResource AccentBrush}"
+                                                           Visibility="{Binding IsRecommended, Converter={StaticResource BoolToVis}}"/>
+                                                <emoji:TextBlock Grid.Column="1" Text="{Binding PrimaryLabel}" FontWeight="SemiBold"
                                                            TextTrimming="CharacterEllipsis" Margin="0,0,64,0"/>
                                                 <!-- "ВКЛЮЧЁН" badge — visible only on the actually-running preset -->
-                                                <Border CornerRadius="5" Padding="6,1" HorizontalAlignment="Right"
+                                                <Border Grid.ColumnSpan="2" CornerRadius="5" Padding="6,1" HorizontalAlignment="Right"
                                                         Background="#2634D399" VerticalAlignment="Center">
                                                     <Border.Visibility>
                                                         <MultiBinding Converter="{StaticResource RefEqualsToVis}">
@@ -471,7 +491,7 @@
                                                                Foreground="{StaticResource SuccessBrush}"/>
                                                 </Border>
                                             </Grid>
-                                            <TextBlock Text="{Binding Description}" Style="{StaticResource Muted}"
+                                            <TextBlock Text="{Binding SecondaryLabel}" Style="{StaticResource Muted}"
                                                        FontSize="11.5" TextTrimming="CharacterEllipsis" MaxHeight="32"/>
                                         </StackPanel>
                                     </DataTemplate>
@@ -496,42 +516,55 @@
                                 <emoji:TextBlock Grid.Row="0" Text="{Binding SelectedPreset.Name, FallbackValue='Выберите пресет'}"
                                            Style="{StaticResource H2}" TextWrapping="Wrap"/>
 
+                                <!-- Row 1: friendly tagline + «рекомендуемая» badge — fills what used to be dead
+                                     space under the technical name. -->
+                                <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,7,0,0">
+                                    <Border CornerRadius="6" Background="{StaticResource AccentSoftBrush}" Padding="8,2" Margin="0,0,8,0"
+                                            VerticalAlignment="Center"
+                                            Visibility="{Binding SelectedPreset.IsRecommended, Converter={StaticResource BoolToVis}}">
+                                        <emoji:TextBlock Text="★ Рекомендуемая" FontSize="11" FontWeight="Bold"
+                                                   Foreground="{StaticResource AccentBrush}"/>
+                                    </Border>
+                                    <emoji:TextBlock Text="{Binding SelectedPreset.Tagline}" FontSize="13" FontWeight="SemiBold"
+                                               Foreground="{StaticResource AccentBrush}" VerticalAlignment="Center"
+                                               Visibility="{Binding SelectedPreset.HasTagline, Converter={StaticResource BoolToVis}}"/>
+                                </StackPanel>
+
                                 <!-- Row 2 holds EITHER the readable description (default) OR the raw-args editor.
                                      The editor is opt-in via the «Аргументы движка» button (declutter). -->
                                 <Grid Grid.Row="2" Margin="0,10,0,0">
                                     <!-- Default view: description scrolls at the top, a help + documentation
                                          card is pinned at the bottom — so a short description no longer leaves
                                          a big void, and the pane reads top-to-bottom. -->
-                                    <Grid Visibility="{Binding ShowPresetArgs, Converter={StaticResource BoolToVis}, ConverterParameter=invert}">
-                                        <Grid.RowDefinitions>
-                                            <RowDefinition Height="*"/>
-                                            <RowDefinition Height="Auto"/>
-                                        </Grid.RowDefinitions>
-                                        <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
+                                    <ScrollViewer Visibility="{Binding ShowPresetArgs, Converter={StaticResource BoolToVis}, ConverterParameter=invert}"
+                                                  VerticalScrollBarVisibility="Auto">
+                                        <!-- Description + help card grouped at the TOP so a short description no longer
+                                             leaves a void sandwiched between two blocks; trailing space sits below. -->
+                                        <StackPanel>
                                             <TextBlock Text="{Binding SelectedPreset.Description}" TextWrapping="Wrap"
                                                        FontSize="13.5" LineHeight="20" Foreground="{StaticResource FgBrush}"/>
-                                        </ScrollViewer>
-                                        <Border Grid.Row="1" CornerRadius="10" Padding="14,12" Margin="0,12,0,0"
-                                                Background="{StaticResource BgBrush}" BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1">
-                                            <StackPanel>
-                                                <TextBlock Text="Не заработало?" FontWeight="SemiBold"/>
-                                                <TextBlock Style="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap" Margin="0,4,0,0"
-                                                           Text="Стратегии зависят от провайдера. Если этот пресет не пробивает — попробуйте другие из списка. Если ничего не заходит — вкладка «Диагностика» → «Подобрать лучшую» подберёт рабочую стратегию под вашего оператора."/>
-                                                <WrapPanel Margin="0,10,0,0">
-                                                    <Button Command="{Binding OpenHowItWorksCommand}"
-                                                            Style="{StaticResource GhostButton}" Margin="0,0,8,0">
-                                                        <emoji:TextBlock Text="❔  Как это работает"/>
-                                                    </Button>
-                                                    <Button Command="{Binding OpenLinkCommand}"
-                                                            CommandParameter="https://github.com/Asterlike/zapret2UI/blob/main/manual_zapret2UI.md#17-решение-проблем-и-коды-ошибок"
-                                                            Style="{StaticResource GhostButton}"
-                                                            ToolTip="Открыть раздел «Решение проблем и коды ошибок» в инструкции">
-                                                        <emoji:TextBlock Text="📖  Инструкция"/>
-                                                    </Button>
-                                                </WrapPanel>
-                                            </StackPanel>
-                                        </Border>
-                                    </Grid>
+                                            <Border CornerRadius="10" Padding="14,12" Margin="0,16,0,0"
+                                                    Background="{StaticResource BgBrush}" BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1">
+                                                <StackPanel>
+                                                    <TextBlock Text="Не заработало?" FontWeight="SemiBold"/>
+                                                    <TextBlock Style="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap" Margin="0,4,0,0"
+                                                               Text="Стратегии зависят от провайдера. Если этот пресет не пробивает — попробуйте другие из списка. Если ничего не заходит — вкладка «Диагностика» → «Подобрать лучшую» подберёт рабочую стратегию под вашего оператора."/>
+                                                    <WrapPanel Margin="0,10,0,0">
+                                                        <Button Command="{Binding OpenHowItWorksCommand}"
+                                                                Style="{StaticResource GhostButton}" Margin="0,0,8,0">
+                                                            <emoji:TextBlock Text="❔  Как это работает"/>
+                                                        </Button>
+                                                        <Button Command="{Binding OpenLinkCommand}"
+                                                                CommandParameter="https://github.com/Asterlike/zapret2UI/blob/main/manual_zapret2UI.md#17-решение-проблем-и-коды-ошибок"
+                                                                Style="{StaticResource GhostButton}"
+                                                                ToolTip="Открыть раздел «Решение проблем и коды ошибок» в инструкции">
+                                                            <emoji:TextBlock Text="📖  Инструкция"/>
+                                                        </Button>
+                                                    </WrapPanel>
+                                                </StackPanel>
+                                            </Border>
+                                        </StackPanel>
+                                    </ScrollViewer>
                                     <!-- Opt-in: in-app args editor, styled as a terminal -->
                                     <Border Visibility="{Binding ShowPresetArgs, Converter={StaticResource BoolToVis}}"
                                             Background="{StaticResource BgBrush}" CornerRadius="12"
@@ -808,7 +841,7 @@
                                             Visibility="{Binding IsDiagnosing, Converter={StaticResource BoolToVis}}"/>
                                     <Button Content="Проверка DPI" Command="{Binding RunDpiCheckCommand}"
                                             Style="{StaticResource GhostButton}" Margin="0,0,8,8"
-                                            ToolTip="Определяет, режет ли провайдер по имени сайта (обрыв/RST или заморозка), а не просто «сайт недоступен». Точнее всего с ВЫКЛЮЧЕННЫМ обходом."
+                                            ToolTip="Определяет, режет ли провайдер по имени сайта (обрыв/RST или заморозка) и душит ли соединение по объёму/пакетам (TCP 16-20) — а не просто «сайт недоступен». Точнее всего с ВЫКЛЮЧЕННЫМ обходом."
                                             Visibility="{Binding IsDpiChecking, Converter={StaticResource BoolToVis}, ConverterParameter=invert}"/>
                                     <Button Content="Остановить" Command="{Binding StopDpiCheckCommand}"
                                             Style="{StaticResource GhostButton}" Margin="0,0,8,8"
@@ -1378,6 +1411,26 @@
                                     </StackPanel>
                                 </StackPanel>
                             </Border>
+
+                            <Border Style="{StaticResource Card}" Margin="0,16,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="Проверка окружения" Style="{StaticResource H2}" Margin="0,0,0,8"/>
+                                    <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,10"
+                                               Text="Ищет в системе то, что мешает обходу: другие программы обхода блокировок (они занимают тот же драйвер WinDivert), включённый VPN или туннельный адаптер, а также недокачанный движок. По каждой находке показывает, что это значит и что сделать. Та же проверка идёт автоматически при запуске — здесь её можно вызвать в любой момент."/>
+                                    <Button Content="Проверить окружение" Click="OnCheckEnvironment"
+                                            Style="{StaticResource GhostButton}" HorizontalAlignment="Left"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Style="{StaticResource Card}" Margin="0,16,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="Вводная для новичка" Style="{StaticResource H2}" Margin="0,0,0,8"/>
+                                    <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,10"
+                                               Text="Разбор по шагам: что нажать, чего ждать и что делать, если не заработало. Показывается один раз при первом запуске — отсюда её можно открыть снова в любой момент."/>
+                                    <Button Content="Показать вводную" Command="{Binding OpenWelcomeCommand}"
+                                            Style="{StaticResource GhostButton}" HorizontalAlignment="Left"/>
+                                </StackPanel>
+                            </Border>
                                 </StackPanel>
                             </Grid>
                         </StackPanel>
@@ -1408,19 +1461,19 @@
                             <TextBlock Text="1. С чего начать" FontWeight="Bold" Margin="0,16,0,4"
                                        FontFamily="{StaticResource DisplayFont}"/>
                             <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap"
-                                       Text="На вкладке «Главная» нажмите большую кнопку «Включить обход» — приложение применит рекомендуемую стратегию и запустит обход. Сверху можно выбрать цель (Discord + YouTube / только Discord / только YouTube). Если не помогло — кнопка «Собрать стратегию под провайдера» подберёт рабочую стратегию под вашу сеть."/>
+                                       Text="На вкладке «Главная» нажмите большую кнопку «Включить обход» — приложение применит рекомендуемую стратегию и запустит обход. Сверху можно выбрать цель (Discord + YouTube / только Discord / только YouTube). Если не помогло — «Подобрать стратегию» переберёт проверенные варианты под вашу сеть; начинать стоит с неё. «Сгенерировать стратегию» собирает вариант с нуля — дольше, но помогает там, где подбор не пробил."/>
 
                             <!-- 2. Простой / Расширенный -->
                             <TextBlock Text="2. Два режима" FontWeight="Bold" Margin="0,14,0,4"
                                        FontFamily="{StaticResource DisplayFont}"/>
                             <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap"
-                                       Text="Переключатель «Простой / Расширенный» вверху по центру. В простом режиме — только «Главная» с одной кнопкой, тумблером Telegram и карточкой подключения. В расширенном открываются вкладки сверху: Главная, Стратегии, Хостлисты, Диагностика, Журнал, Telegram, Настройки."/>
+                                       Text="Переключатель «Простой / Расширенный» вверху по центру. В простом режиме — только «Главная»: кнопка вкл/выкл, выбор цели, «Подобрать»/«Сгенерировать» стратегию, тумблер Telegram и карточка подключения. В расширенном открываются вкладки сверху: Главная, Стратегии, Хостлисты, Диагностика, Журнал, Telegram, Настройки."/>
 
                             <!-- 3. Вкладки -->
                             <TextBlock Text="3. Что где находится" FontWeight="Bold" Margin="0,14,0,6"
                                        FontFamily="{StaticResource DisplayFont}"/>
                             <StackPanel>
-                                <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap" Text="• Главная — статус, большая кнопка вкл/выкл, выбор цели, переподбор."/>
+                                <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap" Text="• Главная — статус, большая кнопка вкл/выкл, выбор цели, кнопки «Подобрать» и «Сгенерировать» стратегию."/>
                                 <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap" Margin="0,3,0,0" Text="• Стратегии — готовые стратегии по группам (Основные, Личные/Сгенерированные). Справа — описание, подключённые хостлисты и «терминал» аргументов winws2. Кнопки: Применить, Дублировать (чтобы править копию), Сохранить, Удалить."/>
                                 <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap" Margin="0,3,0,0" Text="• Хостлисты — списки доменов, к которым применяется обход (один домен = одна строка)."/>
                                 <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap" Margin="0,3,0,0" Text="• Диагностика — подбор/генерация стратегии и матрица доступности сервисов (см. ниже)."/>
@@ -1489,6 +1542,68 @@
                                     Style="{StaticResource StartStopButton}" HorizontalAlignment="Right" Margin="0,18,0,0"/>
                         </StackPanel>
                     </ScrollViewer>
+                </Border>
+            </Grid>
+
+            <!-- ============ Modal: first-run walkthrough ============
+                 Shown once on a fresh install (MainWindow.OnLoaded, suppressed under the screenshot
+                 harness) and on demand from Настройки → «Показать вводную». Deliberately a short
+                 ordered path — what to press, what to expect, what to do when it doesn't work —
+                 handing off to the full "Как это работает" reference for the details. -->
+            <Grid Grid.Row="0" Grid.RowSpan="2" Panel.ZIndex="99" Background="#C0000000"
+                  Visibility="{Binding ShowWelcome, Converter={StaticResource BoolToVis}}">
+                <Border Style="{StaticResource ModalCard}" MaxWidth="560" MaxHeight="660"
+                        VerticalAlignment="Center" HorizontalAlignment="Center"
+                        BorderBrush="{StaticResource AccentBrush}" BorderThickness="1">
+                    <Border.RenderTransform><ScaleTransform/></Border.RenderTransform>
+                    <!-- Buttons live OUTSIDE the ScrollViewer: this modal has no ✕, so if the actions
+                         scrolled off the bottom a first-time user would have no way out of it. -->
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                    <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
+                        <StackPanel>
+                            <TextBlock Text="Добро пожаловать" Style="{StaticResource H2}"/>
+                            <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap" Margin="0,8,0,0"
+                                       Text="Zapret2UI возвращает доступ к Discord, YouTube и Telegram. Это не VPN: трафик никуда не перенаправляется и не шифруется заново — движок winws2 лишь мешает провайдеру опознать, куда вы идёте. Поэтому скорость не падает, а всё, чего нет в списках — игры, банки, рабочие сервисы — не затрагивается вообще."/>
+
+                            <TextBlock Text="1. Включите обход" FontWeight="Bold" Margin="0,16,0,4"
+                                       FontFamily="{StaticResource DisplayFont}"/>
+                            <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap"
+                                       Text="На «Главной» нажмите большую кнопку «Включить обход» — приложение возьмёт рекомендуемую стратегию и запустит движок. Windows спросит права администратора: они нужны драйверу, который перехватывает пакеты, без них обход работать не может. Окно можно закрыть — программа свернётся в трей и продолжит работать."/>
+
+                            <TextBlock Text="2. Проверьте, что получилось" FontWeight="Bold" Margin="0,14,0,4"
+                                       FontFamily="{StaticResource DisplayFont}"/>
+                            <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap"
+                                       Text="Откройте Discord или YouTube. Заработало — больше делать нечего. Не заработало — это не поломка приложения: провайдеры фильтруют по-разному, и одна стратегия физически не может подойти всем. Просто переходите к шагу 3."/>
+
+                            <TextBlock Text="3. Не пробило — подберите стратегию" FontWeight="Bold" Margin="0,14,0,4"
+                                       FontFamily="{StaticResource DisplayFont}"/>
+                            <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap"
+                                       Text="«Подобрать стратегию» переберёт проверенные варианты и оставит тот, что открывает ваши сервисы — обычно минута-две. Начинать стоит именно с неё: она идёт по готовому списку и потому предсказуемее. Если подбор не помог — «Сгенерировать стратегию»: она собирает вариант с нуля, отдельно под Discord и под YouTube. Дольше, но берёт там, где подбор пасует."/>
+
+                            <TextBlock Text="4. Telegram — отдельная история" FontWeight="Bold" Margin="0,14,0,4"
+                                       FontFamily="{StaticResource DisplayFont}"/>
+                            <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap"
+                                       Text="Telegram блокируют по адресам дата-центров, и обход DPI тут бессилен — поэтому для него внутри есть свой прокси. Включите тумблер «Telegram» на «Главной» и нажмите «Открыть в Telegram»: настройки пропишутся сами. Прав администратора он не требует, от основного обхода не зависит и может быть включён всегда."/>
+
+                            <TextBlock Text="5. Если ничего не помогло" FontWeight="Bold" Margin="0,14,0,4"
+                                       FontFamily="{StaticResource DisplayFont}"/>
+                            <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap"
+                                       Text="«Настройки» → «Проверить окружение» покажет, не мешает ли включённый VPN или другая программа обхода: они занимают тот же драйвер, и вместе с ними обход не заработает. Вкладка «Диагностика» покажет, что именно режет провайдер, а «Журнал» — что делает движок."/>
+                        </StackPanel>
+                    </ScrollViewer>
+
+                    <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+                        <Button Content="Как это работает" Command="{Binding WelcomeToHowItWorksCommand}"
+                                Style="{StaticResource GhostButton}" Margin="0,0,8,0"/>
+                        <!-- MinWidth keeps the button from resizing as the countdown digits drop off. -->
+                        <Button Content="{Binding WelcomeButtonText}" Command="{Binding CloseWelcomeCommand}"
+                                Style="{StaticResource PrimaryButton}" MinWidth="176"/>
+                    </StackPanel>
+                    </Grid>
                 </Border>
             </Grid>
 

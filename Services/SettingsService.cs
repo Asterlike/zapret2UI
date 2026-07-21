@@ -67,6 +67,10 @@ public sealed class AppSettings
 
     /// <summary>Collapse the donate/QR card to a compact button (persisted UI preference).</summary>
     public bool DonateCollapsed { get; set; }
+
+    /// <summary>The first-run walkthrough has already been shown. Set when the user closes it; the
+    /// walkthrough stays available from Настройки → «Показать вводную».</summary>
+    public bool WelcomeShown { get; set; }
 }
 
 /// <summary>Loads/saves <see cref="AppSettings"/> as settings.json.</summary>

@@ -96,9 +96,12 @@ public sealed class TcpTimestampsService
         {
             using var p = Start(args);
             if (p is null) return "";
-            string outp = p.StandardOutput.ReadToEnd();     // small (~15 lines), no deadlock risk
+            // Read async so a wedged netsh can't block the caller forever on ReadToEnd — this runs on
+            // the UI thread (Start()/OnProcessExited). Bounded by WaitForExit + a short read grace, then
+            // killed: a stuck netsh degrades to "" instead of freezing the app.
+            var readTask = p.StandardOutput.ReadToEndAsync();
             if (!p.WaitForExit(5000)) { try { p.Kill(entireProcessTree: true); } catch { } }
-            return outp;
+            return readTask.Wait(1000) ? readTask.Result : "";
         }
         catch { return ""; }
     }

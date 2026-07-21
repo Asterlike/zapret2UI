@@ -65,6 +65,18 @@ public partial class App : Application
             return;
         }
 
+        // Single instance. A second launch (shortcut, autostart, Explorer) must NOT open a rival
+        // window: two copies would fight over the winws2 engine, the WinDivert driver and the proxy's
+        // listen port. Instead the copy that's already running — usually sitting in the tray — is
+        // brought to the front, and this process exits. Deliberately placed after the harness modes
+        // above, which return earlier: those are headless one-shots and must still run alongside a
+        // live app.
+        if (!ClaimSingleInstance(e.Args))
+        {
+            Shutdown(0);
+            return;
+        }
+
         try
         {
             var window = new MainWindow();
@@ -82,6 +94,104 @@ public partial class App : Application
 
     /// <summary>Render the main window's key views to PNGs in <paramref name="outDir"/>, then exit.
     /// Drives the real UI (same renderer/fonts as production) so the docs shots match the app exactly.</summary>
+    // Global\ (machine-wide), NOT Local\ (per-session): the app is launched two different ways — a
+    // desktop double-click on the interactive desktop, and the elevated logon SCHEDULED TASK
+    // (AutostartService). Those can land in different session namespaces, and a Local\ object created
+    // in one is invisible to the other — so both would think they're the only copy and two windows
+    // would open. Global\ is shared across sessions, closing that gap. The app is always elevated
+    // (requireAdministrator), so it always has the privilege to create Global\ objects, and both
+    // copies sit at the same integrity level and can always open each other's objects.
+    private const string InstanceMutexName = @"Global\Zapret2UI.SingleInstance";
+    private const string SurfaceEventName = @"Global\Zapret2UI.SurfaceWindow";
+
+    private Mutex? _instanceMutex;
+    private EventWaitHandle? _surfaceSignal;
+
+    /// <summary>
+    /// Try to become the one running copy. Returns true if we are it (and starts listening for later
+    /// launches asking us to surface); false if another copy already holds the slot — it has been
+    /// signalled to show itself and the caller should exit.
+    /// </summary>
+    private bool ClaimSingleInstance(string[] args)
+    {
+        try
+        {
+            return TryClaimSingleInstance(args);
+        }
+        catch (Exception ex)
+        {
+            // Never let a convenience feature stop the app from starting. If the named objects can't
+            // be created or opened (e.g. policy denies Global\, or an OS quirk), degrade to the old
+            // behaviour — launch normally — rather than dying with no window at all. Logged to the
+            // small startup.log (not the noisy fatal.log) so a still-doubling launch is diagnosable.
+            LogStartup("single-instance ОШИБКА, запускаюсь обычным образом: " + ex.Message);
+            return true;
+        }
+    }
+
+    private bool TryClaimSingleInstance(string[] args)
+    {
+        // Open/create the signal BEFORE deciding who is primary: both copies then hold a handle to the
+        // same kernel object, so a launch that lands during our own startup can never find "no event
+        // to poke" and be silently swallowed.
+        var signal = new EventWaitHandle(false, EventResetMode.AutoReset, SurfaceEventName);
+        _surfaceSignal = signal;
+        _instanceMutex = new Mutex(initiallyOwned: true, InstanceMutexName, out bool isPrimary);
+
+        if (!isPrimary)
+        {
+            // An autostart/tray launch is meant to stay hidden, so it bows out silently instead of
+            // yanking the window open; every other launch is a person asking to see the app.
+            bool trayStart = args.Any(a => a.Equals("--tray", StringComparison.OrdinalIgnoreCase));
+            if (!trayStart)
+            {
+                try { signal.Set(); } catch { /* the other copy died mid-handshake — just exit */ }
+            }
+            LogStartup(trayStart
+                ? "вторая копия (--tray) — выхожу тихо"
+                : "вторая копия — сигналю первой развернуться и выхожу");
+            return false;
+        }
+
+        var waiter = new Thread(() =>
+        {
+            while (signal.WaitOne())
+                Dispatcher.BeginInvoke(() => (MainWindow as MainWindow)?.SurfaceWindow());
+        })
+        {
+            IsBackground = true,
+            Name = "single-instance-watch",
+        };
+        waiter.Start();
+        LogStartup("первая копия — работаю, слушаю сигнал разворота");
+        return true;
+    }
+
+    /// <summary>
+    /// One-line, low-noise startup journal (logs\startup.log) recording the single-instance decision.
+    /// Separate from fatal.log so that, if two windows still open on a real elevated launch, the file
+    /// says plainly whether the second copy saw the first — which pinpoints whether the shared object
+    /// is the problem. Best-effort; a logging failure never affects startup.
+    /// </summary>
+    private static void LogStartup(string msg)
+    {
+        try
+        {
+            AppPaths.EnsureCreated();
+            File.AppendAllText(
+                Path.Combine(AppPaths.LogsDir, "startup.log"),
+                $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] pid {Environment.ProcessId}: {msg}\n");
+        }
+        catch { }
+    }
+
+    protected override void OnExit(ExitEventArgs e)
+    {
+        _surfaceSignal?.Dispose();
+        _instanceMutex?.Dispose();   // closing the handle releases the mutex for the next launch
+        base.OnExit(e);
+    }
+
     private async Task RunScreenshotsAsync(string outDir)
     {
         try
@@ -114,6 +224,27 @@ public partial class App : Application
                 vm.SelectedTabIndex = idx;
                 await SettleAndSnap(window, Path.Combine(outDir, file));
             }
+
+            // Modals and dialogs get their own shots: they render ON TOP of the window, so a broken
+            // style in one of them cannot be spotted in any of the tab screenshots above.
+            // Walkthrough in both states: the held confirm button (first launch) and, after the
+            // countdown drains, the unlocked one — proves the timer actually releases the button.
+            vm.SelectedTabIndex = 0;
+            vm.OpenWelcome(withCountdown: true);
+            await SettleAndSnap(window, Path.Combine(outDir, "welcome.png"));
+            await Task.Delay(7000);
+            await SettleAndSnap(window, Path.Combine(outDir, "welcome-ready.png"));
+            vm.ShowWelcome = false;
+
+            vm.ShowHowItWorks = true;
+            await SettleAndSnap(window, Path.Combine(outDir, "howitworks.png"));
+            vm.ShowHowItWorks = false;
+
+            // Both branches of the environment check: findings (long "Что делать" text) and all-clear.
+            await SnapDialog(window, ConflictScanService.ScanEnvironment(false, false),
+                Path.Combine(outDir, "envcheck.png"));
+            await SnapDialog(window, Array.Empty<EnvFinding>(),
+                Path.Combine(outDir, "envcheck-clean.png"));
 
             window.Close();
         }
@@ -188,6 +319,16 @@ public partial class App : Application
             try { File.WriteAllText(outFile, sb.ToString()); } catch { /* best effort */ }
             Shutdown(0);
         }
+    }
+
+    /// <summary>Render the environment-check dialog non-modally (harness only) and capture it.</summary>
+    private static async Task SnapDialog(Window owner, IReadOnlyList<EnvFinding> findings, string path)
+    {
+        var dlg = ConflictDialog.CreateForHarness(findings);
+        dlg.Owner = owner;
+        dlg.Show();
+        await SettleAndSnap(dlg, path);
+        dlg.Close();
     }
 
     private static async Task SettleAndSnap(Window w, string path)

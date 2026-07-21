@@ -14,6 +14,11 @@ public sealed class Preset
     public string Name { get; set; } = "";
     public string Description { get; set; } = "";
 
+    /// <summary>Short, human-friendly one-liner shown as the PRIMARY text of the Strategies list row,
+    /// so the row reads friendly instead of leading with a cryptic technical name (e.g. "Если ALT10 не
+    /// помог"). Built-ins set it; empty for user/generated presets (they front with their own name).</summary>
+    public string Tagline { get; set; } = "";
+
     /// <summary>winws2 arguments (capture filters, --filter-*, --lua-desync=, --new, …).</summary>
     public List<string> Args { get; set; } = new();
 
@@ -39,6 +44,16 @@ public sealed class Preset
            : IsGenerated ? "✨ Сгенерировано автоподбором"
            : "Личные (созданные)")
         : "Основные (Discord / YouTube)";
+
+    /// <summary>True when a friendly tagline is set (built-ins) — gates the accent subtitle/label.</summary>
+    public bool HasTagline => !string.IsNullOrEmpty(Tagline);
+
+    /// <summary>Strategies-list primary text: the friendly tagline when present, else the name.</summary>
+    public string PrimaryLabel => HasTagline ? Tagline : Name;
+
+    /// <summary>Strategies-list secondary text: the technical name when a tagline fronts the row,
+    /// otherwise the description.</summary>
+    public string SecondaryLabel => HasTagline ? Name : Description;
 
     public Preset Clone() => new()
     {

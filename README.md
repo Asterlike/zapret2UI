@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="Assets/app-256.png" width="96" alt="Zapret UI"/>
+<img src="Assets/app-256.png" width="96" alt="Zapret2UI"/>
 
-# Zapret UI
+# Zapret2UI
 
 **Программа, которая одной кнопкой возвращает доступ к Discord, YouTube и Telegram на Windows.**
 
@@ -94,7 +94,7 @@
 
 ## 🚀 Быстрый старт для новичка
 
-Ещё нет программы? Скачайте один файл **`ZapretUI.exe`** со [**страницы релизов**](https://github.com/Asterlike/zapret2UI/releases/latest)
+Ещё нет программы? Скачайте один файл **`Zapret2UI.exe`** со [**страницы релизов**](https://github.com/Asterlike/zapret2UI/releases/latest)
 — установка не нужна, .NET ставить не надо. Дальше делайте по шагам; обычно хватает первых двух.
 
 **1. Запустите программу от имени администратора.**

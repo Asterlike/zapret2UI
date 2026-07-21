@@ -1,7 +1,9 @@
 using System.IO;
 using System.IO.Compression;
+using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -27,14 +29,77 @@ public sealed class UpdaterService
         "https://github.com/Asterlike/zapret2UI/releases/latest";
 
     private readonly HttpClient _http;
+    private readonly DohResolver _doh = new();
 
     public UpdaterService()
     {
-        _http = new HttpClient { Timeout = TimeSpan.FromMinutes(10) };
+        // Resolve every hostname over DoH first (OS resolver as fallback). This is what makes the
+        // download survive the common RU failure where github.com opens but the release asset host
+        // *.githubusercontent.com does not: the ISP poisons that name in the system resolver, while
+        // browsers (which do their own DoH) still reach it. On a healthy network DoH returns the same
+        // IPs, so behaviour is unchanged. See DohConnectAsync.
+        var handler = new SocketsHttpHandler { ConnectCallback = DohConnectAsync };
+        _http = new HttpClient(handler) { Timeout = TimeSpan.FromMinutes(10) };
         _http.DefaultRequestHeaders.UserAgent.Add(
             new ProductInfoHeaderValue("Zapret2UI", "1.0"));
         _http.DefaultRequestHeaders.Accept.Add(
             new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
+    }
+
+    /// <summary>
+    /// Custom connect for <see cref="_http"/>: resolve the target host via DoH first, then the OS
+    /// resolver, and TCP-connect to the first address that answers. TLS is still negotiated by the
+    /// handler afterwards using the real hostname (SNI + cert validation unchanged), so this only
+    /// bypasses a poisoned/blocked DNS answer — it does not weaken verification. Applies to every
+    /// request the updater makes (API, page scrape, sha256 manifest, the zip download itself), so the
+    /// whole chain — including the github.com→githubusercontent.com redirect — is DoH-resolved.
+    /// </summary>
+    private async ValueTask<Stream> DohConnectAsync(SocketsHttpConnectionContext ctx, CancellationToken ct)
+    {
+        string host = ctx.DnsEndPoint.Host;
+        int port = ctx.DnsEndPoint.Port;
+
+        var candidates = new List<IPAddress>();
+        if (IPAddress.TryParse(host, out var literal))
+            candidates.Add(literal); // already an IP — no resolution needed
+        else
+        {
+            try
+            {
+                foreach (var ip in await _doh.ResolveAsync(host, ct).ConfigureAwait(false))
+                    if (IPAddress.TryParse(ip, out var addr)) candidates.Add(addr);
+            }
+            catch { /* DoH unavailable → OS resolver below */ }
+
+            try
+            {
+                foreach (var addr in await Dns.GetHostAddressesAsync(host, ct).ConfigureAwait(false))
+                    if (!candidates.Contains(addr)) candidates.Add(addr);
+            }
+            catch { /* OS resolver failed too — any DoH candidates may still connect */ }
+        }
+
+        if (candidates.Count == 0)
+            throw new IOException($"Не удалось определить адрес {host} (ни DoH, ни системный DNS не ответили).");
+
+        Exception? last = null;
+        foreach (var addr in candidates)
+        {
+            var socket = new Socket(addr.AddressFamily, SocketType.Stream, ProtocolType.Tcp) { NoDelay = true };
+            try
+            {
+                using var connectCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                connectCts.CancelAfter(TimeSpan.FromSeconds(10));
+                await socket.ConnectAsync(addr, port, connectCts.Token).ConfigureAwait(false);
+                return new NetworkStream(socket, ownsSocket: true);
+            }
+            catch (Exception ex)
+            {
+                last = ex;
+                socket.Dispose();
+            }
+        }
+        throw last ?? new IOException($"Не удалось подключиться к {host}.");
     }
 
     /// <summary>Currently installed engine tag, or null if the engine is absent.</summary>
