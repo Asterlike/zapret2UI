@@ -561,7 +561,6 @@ dotnet build ZapretUI/ZapretUI.csproj -c Release -warnaserror -nologo
   `MonitorService` (сторож авто-починки), `HostlistService`, `SettingsService`, `AutostartService`,
   `UpdaterService`, `TcpTimestampsService`, `TelegramProxyService`+`TgProxyCore`, `AppPaths`.
 
-Полностью строение репозитория и правила разработки — в `CLAUDE.md`.
 
 ---
 
