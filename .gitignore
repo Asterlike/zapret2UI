@@ -16,6 +16,3 @@ out/
 Thumbs.db
 desktop.ini
 
-# AI assistant — local only, never publish
-CLAUDE.md
-.claude/
