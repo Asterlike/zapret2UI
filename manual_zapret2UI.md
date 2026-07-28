@@ -543,9 +543,6 @@ dotnet run --project ZapretUI/ZapretUI.csproj
 # релизный self-contained single-file exe
 dotnet publish ZapretUI/ZapretUI.csproj -c Release -o publish
 
-# гейт качества — обе конфигурации должны быть 0 предупреждений / 0 ошибок
-dotnet build ZapretUI/ZapretUI.csproj -c Debug   -warnaserror -nologo
-dotnet build ZapretUI/ZapretUI.csproj -c Release -warnaserror -nologo
 ```
 
 - .NET 9, `net9.0-windows`, x64, **WPF** + WinForms (только трей), **без сторонних NuGet-зависимостей**.
