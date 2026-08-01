@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Благодарности — документация Zapret2UI</title>
+<meta name="description" content="Проекты и люди, на которых стоит Zapret2UI: движок bol-van/zapret2, стратегии и прокси Flowseal, метод проверки DPI hyperion-cs, шрифты и библиотеки.">
+<link rel="icon" href="assets/logo.png">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+
+<header class="topbar">
+  <a class="brand" href="index.html">
+    <img src="assets/logo.png" alt="" width="26" height="26">
+    <span>Zapret2UI</span>
+  </a>
+  <nav class="topnav">
+    <a href="how-it-works.html">Как это работает</a>
+    <a href="quickstart.html">Быстрый старт</a>
+    <a href="interface.html">Интерфейс</a>
+    <a href="strategies.html">Стратегии</a>
+    <a href="reference.html">Справочник</a>
+    <a href="troubleshooting.html">Если не работает</a>
+  </nav>
+  <div class="topbar-tools">
+    <button class="search-btn" data-search-open type="button">
+      <span>Поиск по документации</span>
+      <kbd>Ctrl K</kbd>
+    </button>
+    <button class="icon-btn theme-btn" data-theme-toggle type="button" aria-label="Сменить тему">Тёмная</button>
+    <a class="icon-btn" href="https://github.com/Asterlike/zapret2UI" title="Репозиторий на GitHub" aria-label="Репозиторий на GitHub">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+    </a>
+  </div>
+</header>
+
+<div class="shell">
+
+  <aside class="sidebar">
+    <details class="sidebar-inner" open>
+      <summary>Разделы</summary>
+      <h5>Начало</h5>
+      <ul>
+        <li><a href="index.html">Обзор документации</a></li>
+        <li><a href="how-it-works.html">Как это работает</a></li>
+        <li><a href="quickstart.html">Быстрый старт</a></li>
+      </ul>
+      <h5>Программа</h5>
+      <ul>
+        <li><a href="interface.html">Интерфейс</a></li>
+        <li><a href="strategies.html">Разбор стратегий</a></li>
+      </ul>
+      <h5>Продвинутое</h5>
+      <ul>
+        <li><a href="reference.html">Справочник</a></li>
+        <li><a href="troubleshooting.html">Если не работает</a></li>
+      </ul>
+      <h5>Проект</h5>
+      <ul>
+        <li><a href="support.html">Поддержать</a></li>
+        <li><a href="credits.html" aria-current="page">Благодарности</a></li>
+      </ul>
+    </details>
+  </aside>
+
+  <nav class="toc">
+    <p>На этой странице</p>
+    <ul>
+      <li><a href="#dvizhok">Движок обхода</a></li>
+      <li><a href="#strategii">Стратегии</a></li>
+      <li><a href="#proksi">Прокси Telegram</a></li>
+      <li><a href="#ideya">Идея оболочки</a></li>
+      <li><a href="#diagnostika">Метод проверки DPI</a></li>
+      <li><a href="#shrifty">Шрифты и библиотеки</a></li>
+      <li><a href="#soobshchestvo">Сообщество</a></li>
+      <li><a href="#litsenzii">Лицензии</a></li>
+    </ul>
+  </nav>
+
+  <main class="doc">
+
+    <div class="page-head">
+      <p class="kicker">Проект</p>
+      <h1>Благодарности</h1>
+      <p class="lede">Zapret2UI это оболочка. Почти всё, что здесь реально работает, придумано и написано другими людьми, и вот кем именно.</p>
+    </div>
+
+    <p>Список не формальный: у каждого пункта указано, <b>что конкретно</b> оттуда взято, чтобы было
+      видно, из чего собрана программа и куда идти за первоисточником.</p>
+
+    <h2 id="dvizhok">Движок обхода</h2>
+
+    <div class="card">
+      <h3><a href="https://github.com/bol-van/zapret2">bol-van / zapret2</a></h3>
+      <p>Сам <code>winws2</code>: перехват пакетов, все приёмы десинхронизации, Lua-библиотеки,
+        оркестраторы, готовые блобы с приветствиями. Всё, что описано в разделах
+        <a href="how-it-works.html">Как это работает</a> и <a href="reference.html">Справочник</a>, это
+        возможности его движка.</p>
+      <p>Zapret2UI не содержит своей логики обхода вообще. Он собирает командную строку, запускает
+        процесс и показывает результат. Без этого проекта программы просто не существовало бы.</p>
+      <p><a href="https://github.com/bol-van/zapret2/blob/master/docs/manual.en.md">Официальный мануал
+        движка</a> остаётся первоисточником по любому глаголу и параметру.</p>
+    </div>
+
+    <p>Тот же автор сделал и <a href="https://github.com/bol-van/zapret">первый zapret</a>, вокруг
+      которого выросло большинство сборок и инструкций. Чем эти два поколения отличаются, разобрано
+      <a href="how-it-works.html#ne-zapret1">здесь</a>.</p>
+
+    <h2 id="strategii">Стратегии</h2>
+
+    <div class="card">
+      <h3><a href="https://github.com/Flowseal/zapret-discord-youtube">Flowseal / zapret-discord-youtube</a></h3>
+      <p>Набор рабочих конфигураций, который годами обкатывался сообществом на живых провайдерах.
+        Больше половины встроенного набора Zapret2UI это переводы оттуда на движок второго поколения:
+        <a href="strategies.html#alt10">ALT10</a>, <a href="strategies.html#alt11">ALT11</a>,
+        <a href="strategies.html#seqovl">вариант с multisplit и seqovl</a> и
+        <a href="strategies.html#alt">связка fake с fakedsplit</a>.</p>
+      <p>Оттуда же взяты подходы, которые сами по себе неочевидны: подбор значений перекрытия,
+        отечественные блобы для фейков и режим «обходим только то, что в списках».</p>
+    </div>
+
+    <h2 id="proksi">Прокси Telegram</h2>
+
+    <div class="card">
+      <h3><a href="https://github.com/Flowseal/tg-ws-proxy">Flowseal / tg-ws-proxy</a></h3>
+      <p>Идея и рабочий путь встроенного прокси: MTProto поверх WebSocket, резолв через DoH и фронтинг
+        через домены за Cloudflare, включая пул фронтов с отсевом неудачных.</p>
+      <p>Оригинал написан на Python и поставляется отдельной программой. Здесь протокол
+        <a href="interface.html#tg-otlichiya">переписан на C#</a> и встроен в приложение, чтобы не
+        тянуть второй процесс и Python-рантайм. Логика работы сохранена как есть.</p>
+    </div>
+
+    <h2 id="ideya">Идея оболочки</h2>
+
+    <div class="card">
+      <h3><a href="https://github.com/RaccoonLaptop/ZapretUI">RaccoonLaptop / ZapretUI</a></h3>
+      <p>Проект, с которого началась мысль, что движку нужен нормальный графический интерфейс, а не
+        набор bat-файлов. Zapret2UI написан с нуля и под другой движок, но отправная точка была
+        оттуда.</p>
+    </div>
+
+    <h2 id="diagnostika">Метод проверки DPI</h2>
+
+    <div class="card">
+      <h3><a href="https://github.com/hyperion-cs/dpi-checkers">hyperion-cs / dpi-checkers</a></h3>
+      <p>Способ обнаружить <b>лимит по объёму</b>: когда соединение устанавливается и первые десятки
+        килобайт проходят, а дальше поток замирает. Короткое рукопожатие под такой лимит не попадает,
+        поэтому обычная проверка показывает «чисто», и нужен отдельный тест с крупной загрузкой.</p>
+      <p>Этот метод используется в кнопке
+        <a href="interface.html#proverka-dpi">«Проверка DPI»</a>. Лицензия Apache 2.0.</p>
+    </div>
+
+    <h2 id="shrifty">Шрифты и библиотеки</h2>
+
+    <p>Интерфейс программы и этот сайт используют одну и ту же типографику.</p>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th>Что</th><th>Где используется</th><th>Лицензия</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><a href="https://fonts.google.com/specimen/Hanken+Grotesk">Hanken Grotesk</a></td>
+            <td>Основной текст интерфейса и сайта.</td>
+            <td>SIL Open Font License</td>
+          </tr>
+          <tr>
+            <td><a href="https://fonts.google.com/specimen/Space+Grotesk">Space Grotesk</a></td>
+            <td>Заголовки.</td>
+            <td>SIL Open Font License</td>
+          </tr>
+          <tr>
+            <td><a href="https://www.jetbrains.com/lp/mono/">JetBrains Mono</a></td>
+            <td>Командные строки, журнал, аргументы стратегий.</td>
+            <td>SIL Open Font License</td>
+          </tr>
+          <tr>
+            <td><a href="https://github.com/samhocevar/emoji.wpf">Emoji.Wpf</a></td>
+            <td>Цветные эмодзи в интерфейсе программы. Единственная внешняя зависимость сборки.</td>
+            <td>см. репозиторий</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>Сама программа написана на .NET 9 и WPF. Больше никаких сторонних пакетов в сборке нет: всё
+      остальное, включая прокси, диагностику и работу с сетью, сделано на стандартной библиотеке.</p>
+
+    <h2 id="soobshchestvo">Сообщество</h2>
+
+    <p>Отдельно стоит поблагодарить тех, кто пишет в <a href="https://t.me/Zapret2UI">канал</a> и
+      заводит <a href="https://github.com/Asterlike/zapret2UI/issues">задачи в репозитории</a>. Провайдеров
+      много, оборудование у всех разное, и проверить это в одиночку невозможно. Почти каждое изменение в
+      наборе встроенных стратегий появилось из чьего-то сообщения о том, что сработало, а что нет.</p>
+
+    <div class="note tip">
+      <p>Если у вас заработало что-то нестандартное, расскажите об этом: у какого провайдера, в каком
+        городе и какая стратегия. Как это помогает и что ещё можно сделать:
+        <a href="support.html#bez-deneg">Поддержать</a>.</p>
+    </div>
+
+    <h2 id="litsenzii">Лицензии</h2>
+
+    <ul>
+      <li><b>Zapret2UI</b> распространяется по лицензии MIT. Исходный код открыт, использовать и
+        изменять его можно свободно.</li>
+      <li><b>winws2</b> идёт по своей лицензии, смотрите
+        <a href="https://github.com/bol-van/zapret2">репозиторий zapret2</a>.</li>
+      <li><b>dpi-checkers</b> под Apache 2.0, шрифты под SIL Open Font License.</li>
+    </ul>
+
+    <p>Программа не связана с Discord, YouTube, Google, Telegram или VK. Названия и приветствия их
+      сервисов используются только как содержимое фейковых пакетов, то есть технически, и никакой
+      принадлежности к этим компаниям не означают.</p>
+
+    <div class="pager">
+      <a class="prev" href="support.html">
+        <small>Назад</small>
+        Поддержать
+      </a>
+      <a class="next" href="index.html">
+        <small>Дальше</small>
+        Обзор документации
+      </a>
+    </div>
+
+  </main>
+</div>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div>
+      <p>Zapret2UI: оболочка для движка <a href="https://github.com/bol-van/zapret2">bol-van/zapret2</a>.
+        Исходный код и релизы на <a href="https://github.com/Asterlike/zapret2UI">GitHub</a>.</p>
+      <p class="legal">Лицензия MIT. Движок <code>winws2</code> распространяется по своей лицензии.</p>
+    </div>
+    <nav>
+      <a href="how-it-works.html">Как это работает</a>
+      <a href="quickstart.html">Быстрый старт</a>
+      <a href="interface.html">Интерфейс</a>
+      <a href="strategies.html">Разбор стратегий</a>
+    </nav>
+    <nav>
+      <a href="reference.html">Справочник</a>
+      <a href="troubleshooting.html">Если не работает</a>
+      <a href="support.html">Поддержать</a>
+      <a href="credits.html">Благодарности</a>
+      <a href="https://t.me/Zapret2UI">Канал в Telegram</a>
+    </nav>
+  </div>
+</footer>
+
+<script src="assets/search-index.js"></script>
+<script src="assets/site.js"></script>
+</body>
+</html>

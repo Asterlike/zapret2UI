@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Документация Zapret2UI</title>
+<meta name="description" content="Документация Zapret2UI: как работает обход DPI, быстрый старт, интерфейс, разбор встроенных стратегий, справочник по winws2 и решение проблем.">
+<link rel="icon" href="assets/logo.png">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+
+<header class="topbar">
+  <a class="brand" href="index.html">
+    <img src="assets/logo.png" alt="" width="26" height="26">
+    <span>Zapret2UI</span>
+  </a>
+  <nav class="topnav">
+    <a href="how-it-works.html">Как это работает</a>
+    <a href="quickstart.html">Быстрый старт</a>
+    <a href="interface.html">Интерфейс</a>
+    <a href="strategies.html">Стратегии</a>
+    <a href="reference.html">Справочник</a>
+    <a href="troubleshooting.html">Если не работает</a>
+  </nav>
+  <div class="topbar-tools">
+    <button class="search-btn" data-search-open type="button">
+      <span>Поиск по документации</span>
+      <kbd>Ctrl K</kbd>
+    </button>
+    <button class="icon-btn theme-btn" data-theme-toggle type="button" aria-label="Сменить тему">Тёмная</button>
+    <a class="icon-btn" href="https://github.com/Asterlike/zapret2UI" title="Репозиторий на GitHub" aria-label="Репозиторий на GitHub">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+    </a>
+  </div>
+</header>
+
+<div class="shell">
+
+  <aside class="sidebar">
+    <details class="sidebar-inner" open>
+      <summary>Разделы</summary>
+      <h5>Начало</h5>
+      <ul>
+        <li><a href="index.html" aria-current="page">Обзор документации</a></li>
+        <li><a href="how-it-works.html">Как это работает</a></li>
+        <li><a href="quickstart.html">Быстрый старт</a></li>
+      </ul>
+      <h5>Программа</h5>
+      <ul>
+        <li><a href="interface.html">Интерфейс</a></li>
+        <li><a href="strategies.html">Разбор стратегий</a></li>
+      </ul>
+      <h5>Продвинутое</h5>
+      <ul>
+        <li><a href="reference.html">Справочник</a></li>
+        <li><a href="troubleshooting.html">Если не работает</a></li>
+      </ul>
+      <h5>Проект</h5>
+      <ul>
+        <li><a href="support.html">Поддержать</a></li>
+        <li><a href="credits.html">Благодарности</a></li>
+      </ul>
+    </details>
+  </aside>
+
+  <nav class="toc">
+    <p>На этой странице</p>
+    <ul>
+      <li><a href="#chto-eto">Что это такое</a></li>
+      <li><a href="#razdely">Разделы документации</a></li>
+      <li><a href="#gde-vzyat">Где взять программу</a></li>
+      <li><a href="#istochniki">Другие источники</a></li>
+    </ul>
+  </nav>
+
+  <main class="doc">
+
+    <div class="page-head">
+      <h1>Документация Zapret2UI</h1>
+      <p class="lede">Как устроен обход блокировок, как пользоваться программой и как собрать стратегию под своего провайдера.</p>
+    </div>
+
+    <h2 id="chto-eto">Что это такое</h2>
+
+    <p>Zapret2UI: приложение для Windows, которое управляет движком <code>winws2</code> из проекта
+      <a href="https://github.com/bol-van/zapret2">bol-van/zapret2</a>. Движок изменяет первые пакеты ваших
+      соединений так, что оборудование провайдера не распознаёт, к какому сайту вы подключаетесь, а сам
+      сервер получает всё правильно. Благодаря этому открываются Discord и YouTube, заблокированные по
+      имени сайта.</p>
+
+    <p>Сам движок настраивается длинными строками аргументов, и подобрать рабочую комбинацию вручную
+      тяжело. Программа берёт это на себя: девять готовых стратегий, автоматический подбор, генерация
+      личной стратегии под вашу сеть, диагностика и встроенный прокси для Telegram.</p>
+
+    <div class="note warn">
+      <p><b>Это zapret2, а не обычный zapret.</b> Движков два, и оба сделал один автор: первый
+        (<code>winws</code>), вокруг которого выросло большинство инструкций и сборок, и второй
+        (<code>winws2</code>), с которым работает эта программа. Форматы стратегий у них разные, и конфиги
+        от первого здесь <b>не запустятся</b>. Разбор различий и то, как отличить одно от другого:
+        <a href="how-it-works.html#ne-zapret1">Как это работает</a>.</p>
+    </div>
+
+    <div class="note tip">
+      <p><b>Первый раз здесь?</b> Читать всё подряд не нужно. Откройте
+        <a href="quickstart.html">Быстрый старт</a>: обычно хватает первых двух шагов. Вернётесь сюда,
+        если что-то не заработает или станет интересно, как оно устроено.</p>
+    </div>
+
+    <figure>
+      <img src="home-simple.png" alt="Главный экран Zapret2UI в простом режиме: кнопка включения обхода, карточка Telegram, выбор цели и кнопки подбора" loading="lazy">
+      <figcaption>Простой режим: одна кнопка включения и выбор того, что нужно открыть. Всё остальное живёт
+        в расширенном режиме, на семи вкладках.</figcaption>
+    </figure>
+
+    <h2 id="razdely">Разделы документации</h2>
+
+    <p>Восемь страниц, от «просто верните мне Discord» до написания собственных стратегий.</p>
+
+    <div class="index-grid">
+
+      <a class="index-card" href="how-it-works.html">
+        <h3>Как это работает</h3>
+        <p>Теория без формул: почему блокировка вообще обходится и что именно делает движок с вашими пакетами.</p>
+        <ul>
+          <li>SNI и DPI</li><li>разрезка</li><li>фейковые пакеты</li><li>fooling</li>
+          <li>zapret2 против zapret</li><li>чем это не VPN</li>
+        </ul>
+      </a>
+
+      <a class="index-card" href="quickstart.html">
+        <h3>Быстрый старт</h3>
+        <p>Скачать, запустить от администратора, нажать кнопку. И что делать, если с первого раза не сработало.</p>
+        <ul>
+          <li>требования</li><li>установка</li><li>пять шагов</li><li>подбор и генерация</li>
+          <li>автозапуск</li>
+        </ul>
+      </a>
+
+      <a class="index-card" href="interface.html">
+        <h3>Интерфейс</h3>
+        <p>Каждый экран программы со скриншотом: что делает кнопка, что означает цвет, куда смотреть при сбое.</p>
+        <ul>
+          <li>семь вкладок</li><li>диагностика</li><li>хостлисты</li><li>прокси Telegram</li>
+          <li>все настройки</li><li>файлы на диске</li>
+        </ul>
+      </a>
+
+      <a class="index-card" href="strategies.html">
+        <h3>Разбор стратегий</h3>
+        <p>Девять встроенных стратегий построчно: что делает каждый аргумент и почему стратегия собрана именно так.</p>
+        <ul>
+          <li>общий скелет комбо</li><li>разбор каждой</li><li>чем они отличаются</li>
+          <li>какую брать под симптом</li>
+        </ul>
+      </a>
+
+      <a class="index-card" href="reference.html">
+        <h3>Справочник</h3>
+        <p>Формат аргументов <code>winws2</code>: всё, что нужно, чтобы написать свою стратегию и не получить код 87.</p>
+        <ul>
+          <li>структура команды</li><li>глаголы desync</li><li>fooling</li><li>позиционные маркеры</li>
+          <li>токены</li><li>блобы</li><li>оркестраторы</li>
+        </ul>
+      </a>
+
+      <a class="index-card" href="troubleshooting.html">
+        <h3>Если не работает</h3>
+        <p>Порядок действий сверху вниз, коды выхода движка и разбор случая «в диагностике всё зелёное, а сайт не открывается».</p>
+        <ul>
+          <li>что делать по порядку</li><li>частые ситуации</li><li>коды ошибок</li>
+          <li>частые вопросы</li>
+        </ul>
+      </a>
+
+      <a class="index-card" href="support.html">
+        <h3>Поддержать</h3>
+        <p>Как поддержать проект деньгами и чем можно помочь без них: обратная связь по провайдерам ценнее донатов.</p>
+        <ul>
+          <li>донат</li><li>VPN от автора</li><li>обратная связь</li><li>задачи и звёзды</li>
+        </ul>
+      </a>
+
+      <a class="index-card" href="credits.html">
+        <h3>Благодарности</h3>
+        <p>Все, на ком стоит программа, с указанием что конкретно откуда взято: движок, стратегии, прокси, метод проверки DPI.</p>
+        <ul>
+          <li>bol-van</li><li>Flowseal</li><li>hyperion-cs</li><li>RaccoonLaptop</li>
+          <li>шрифты</li><li>лицензии</li>
+        </ul>
+      </a>
+
+    </div>
+
+    <h2 id="gde-vzyat">Где взять программу</h2>
+
+    <p>Один файл <code>Zapret2UI.exe</code> на
+      <a href="https://github.com/Asterlike/zapret2UI/releases/latest">странице релизов</a>. Установка не
+      нужна, .NET ставить не надо. Движок докачивается при первом запуске и проверяется по контрольной
+      сумме SHA-256.</p>
+
+    <p>Нужны Windows 10 или 11 и права администратора: движок загружает сетевой драйвер в ядро. Для
+      встроенного прокси Telegram администратор не нужен. Подробности в
+      <a href="quickstart.html">Быстром старте</a>.</p>
+
+    <h2 id="istochniki">Другие источники</h2>
+
+    <ul class="linklist">
+      <li>
+        <b><a href="https://github.com/bol-van/zapret2/blob/master/docs/manual.en.md">Официальный мануал движка</a></b>
+        <span>Полный справочник по <code>winws2</code> от автора движка, на английском. Первоисточник по всем
+          глаголам и параметрам.</span>
+      </li>
+      <li>
+        <b><a href="https://github.com/Asterlike/zapret2UI">Репозиторий Zapret2UI</a></b>
+        <span>Исходный код, релизы и трекер задач. Там же файл <code>manual_zapret2UI.md</code>: тот же
+          материал, что здесь, одним документом для чтения офлайн.</span>
+      </li>
+      <li>
+        <b><a href="https://t.me/Zapret2UI">Канал в Telegram</a></b>
+        <span>Новости о версиях и обсуждение того, что у кого работает и у какого провайдера.</span>
+      </li>
+      <li>
+        <b><a href="https://github.com/Flowseal/zapret-discord-youtube">Flowseal / zapret-discord-youtube</a></b>
+        <span>Сборник рабочих стратегий для первого zapret. Часть встроенных стратегий здесь: переводы
+          оттуда на движок второго поколения.</span>
+      </li>
+    </ul>
+
+    <div class="pager">
+      <a class="next" href="how-it-works.html" style="margin-left:auto">
+        <small>Дальше</small>
+        Как это работает
+      </a>
+    </div>
+
+  </main>
+</div>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div>
+      <p>Zapret2UI: оболочка для движка <a href="https://github.com/bol-van/zapret2">bol-van/zapret2</a>.
+        Исходный код и релизы на <a href="https://github.com/Asterlike/zapret2UI">GitHub</a>.</p>
+      <p class="legal">Лицензия MIT. Движок <code>winws2</code> распространяется по своей лицензии.</p>
+    </div>
+    <nav>
+      <a href="how-it-works.html">Как это работает</a>
+      <a href="quickstart.html">Быстрый старт</a>
+      <a href="interface.html">Интерфейс</a>
+      <a href="strategies.html">Разбор стратегий</a>
+    </nav>
+    <nav>
+      <a href="reference.html">Справочник</a>
+      <a href="troubleshooting.html">Если не работает</a>
+      <a href="support.html">Поддержать</a>
+      <a href="credits.html">Благодарности</a>
+      <a href="https://t.me/Zapret2UI">Канал в Telegram</a>
+      <a href="https://github.com/Asterlike/zapret2UI/releases/latest">Релизы</a>
+    </nav>
+  </div>
+</footer>
+
+<script src="assets/search-index.js"></script>
+<script src="assets/site.js"></script>
+</body>
+</html>

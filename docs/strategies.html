@@ -1,0 +1,712 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Разбор стратегий — документация Zapret2UI</title>
+<meta name="description" content="Девять встроенных стратегий Zapret2UI построчно: что делает каждый аргумент, почему стратегия собрана именно так и какую брать под какой симптом.">
+<link rel="icon" href="assets/logo.png">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+
+<header class="topbar">
+  <a class="brand" href="index.html">
+    <img src="assets/logo.png" alt="" width="26" height="26">
+    <span>Zapret2UI</span>
+  </a>
+  <nav class="topnav">
+    <a href="how-it-works.html">Как это работает</a>
+    <a href="quickstart.html">Быстрый старт</a>
+    <a href="interface.html">Интерфейс</a>
+    <a href="strategies.html" aria-current="page">Стратегии</a>
+    <a href="reference.html">Справочник</a>
+    <a href="troubleshooting.html">Если не работает</a>
+  </nav>
+  <div class="topbar-tools">
+    <button class="search-btn" data-search-open type="button">
+      <span>Поиск по документации</span>
+      <kbd>Ctrl K</kbd>
+    </button>
+    <button class="icon-btn theme-btn" data-theme-toggle type="button" aria-label="Сменить тему">Тёмная</button>
+    <a class="icon-btn" href="https://github.com/Asterlike/zapret2UI" title="Репозиторий на GitHub" aria-label="Репозиторий на GitHub">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+    </a>
+  </div>
+</header>
+
+<div class="shell">
+
+  <aside class="sidebar">
+    <details class="sidebar-inner" open>
+      <summary>Разделы</summary>
+      <h5>Начало</h5>
+      <ul>
+        <li><a href="index.html">Обзор документации</a></li>
+        <li><a href="how-it-works.html">Как это работает</a></li>
+        <li><a href="quickstart.html">Быстрый старт</a></li>
+      </ul>
+      <h5>Программа</h5>
+      <ul>
+        <li><a href="interface.html">Интерфейс</a></li>
+        <li><a href="strategies.html" aria-current="page">Разбор стратегий</a></li>
+      </ul>
+      <h5>Продвинутое</h5>
+      <ul>
+        <li><a href="reference.html">Справочник</a></li>
+        <li><a href="troubleshooting.html">Если не работает</a></li>
+      </ul>
+      <h5>Проект</h5>
+      <ul>
+        <li><a href="support.html">Поддержать</a></li>
+        <li><a href="credits.html">Благодарности</a></li>
+      </ul>
+    </details>
+  </aside>
+
+  <nav class="toc">
+    <p>На этой странице</p>
+    <ul>
+      <li><a href="#skelet">Общий скелет</a></li>
+      <li><a href="#globalnaya">Глобальная часть</a></li>
+      <li><a href="#profili">Семь профилей</a></li>
+      <li><a href="#rekomenduemyy">Комбо (рекомендуемый)</a></li>
+      <li><a href="#vk">Отечественный (VK)</a></li>
+      <li><a href="#alt10">Flowseal ALT10</a></li>
+      <li><a href="#alt11">Flowseal ALT11</a></li>
+      <li><a href="#seqovl">Flowseal (multisplit)</a></li>
+      <li><a href="#alt">Flowseal ALT</a></li>
+      <li><a href="#wssize">Окно (wssize)</a></li>
+      <li><a href="#golos">Голос Discord</a></li>
+      <li><a href="#circular">Адаптивный</a></li>
+      <li><a href="#kakuyu-brat">Какую брать</a></li>
+    </ul>
+  </nav>
+
+  <main class="doc">
+
+    <div class="page-head">
+      <p class="kicker">Программа</p>
+      <h1>Разбор стратегий</h1>
+      <p class="lede">Девять встроенных стратегий построчно: что делает каждый аргумент, за что он отвечает и почему собрано именно так, а не иначе.</p>
+    </div>
+
+    <p>Стратегия в Zapret2UI: это список аргументов для движка <code>winws2</code>. Ниже разобрана каждая
+      из встроенных. Если незнакомы слова «фейк», «разрезка» и «fooling», сначала стоит прочитать
+      <a href="how-it-works.html">Как это работает</a>. Формальное описание всех глаголов и параметров:
+      <a href="reference.html">Справочник</a>.</p>
+
+    <div class="note">
+      <p>Все встроенные стратегии сделаны из проверенных на практике рабочих конфигураций, в том числе
+        переводов набора <a href="https://github.com/Flowseal/zapret-discord-youtube">Flowseal</a> на движок
+        второго поколения. Это надёжные отправные точки, но <b>не гарантия</b>: у вашего провайдера может
+        сработать любая из них или ни одна. Именно поэтому в программе есть подбор и генерация.</p>
+    </div>
+
+    <h2 id="skelet">Общий скелет</h2>
+
+    <p>Семь стратегий с приставкой «Комбо» устроены одинаково и отличаются <b>только приёмами для
+      TLS</b>. Всё остальное у них общее: та же ширина перехвата, те же блобы, те же профили для QUIC и
+      голоса. Понимание скелета один раз избавляет от необходимости разбирать каждую заново.</p>
+
+    <p>Ключевая идея комбо: <b>маршрутизация по имени сайта</b>. Discord, YouTube и весь остальной трафик
+      идут через <i>разные</i> приёмы в одной команде. Это важно, потому что то, что пробивает Discord,
+      часто не подходит для YouTube, и наоборот. Раньше приходилось переключаться между стратегиями,
+      теперь достаточно одной.</p>
+
+    <h3 id="globalnaya">Глобальная часть</h3>
+
+    <p>До первого <code>--new</code> идут настройки, действующие на всю команду.</p>
+
+<pre><code><span class="t-flag">--wf-tcp-out</span>=<span class="t-num">80,443-65535</span>
+<span class="t-flag">--wf-udp-out</span>=<span class="t-num">443,19294-19344,50000-65535</span>
+<span class="t-flag">--ctrack-disable</span>=<span class="t-num">0</span>
+<span class="t-flag">--ipcache-lifetime</span>=<span class="t-num">8400</span>
+<span class="t-flag">--ipcache-hostname</span>=<span class="t-num">1</span>
+<span class="t-flag">--lua-init</span>=fake_default_tls = tls_mod(fake_default_tls,'rnd,rndsni')
+<span class="t-flag">--blob</span>=tls_google:@{FILES}\fake\tls_clienthello_www_google_com.bin
+<span class="t-flag">--blob</span>=tls_vk:@{FILES}\fake\tls_clienthello_vk_com.bin
+<span class="t-flag">--blob</span>=tls_sber:@{FILES}\fake\tls_clienthello_sberbank_ru.bin
+<span class="t-flag">--blob</span>=tls_gos:@{FILES}\fake\tls_clienthello_gosuslugi_ru.bin
+<span class="t-flag">--blob</span>=quic_google:@{FILES}\fake\quic_initial_www_google_com.bin
+<span class="t-flag">--blob</span>=quic_vk:@{FILES}\fake\quic_initial_vk_com.bin
+<span class="t-flag">--wf-raw-part</span>=@{WF}\windivert_part.stun.txt
+<span class="t-flag">--wf-raw-part</span>=@{WF}\windivert_part.quic_initial_ietf.txt</code></pre>
+
+    <dl class="why">
+      <dt>--wf-tcp-out</dt>
+      <dd>Ширина перехвата по TCP. Не только 443: медиа и вложения Discord ходят по <b>высоким портам</b>,
+        и профиль, ловящий один 443, теряет половину сервиса. Порты перечисляются через запятую
+        в <b>одном</b> флаге, повторное указание перезаписывает предыдущее.</dd>
+
+      <dt>--wf-udp-out</dt>
+      <dd>То же для UDP: 443 под QUIC плюс голосовой диапазон Discord. Игровой фильтр в настройках
+        расширяет это до всех высоких портов.</dd>
+
+      <dt>--ipcache-hostname</dt>
+      <dd>Включает запоминание имени сайта для адреса. Обязателен для приёмов вроде <code>wssize</code>,
+        которые срабатывают <b>до</b> того, как имя сайта вообще появится в потоке, и иначе не знают, к
+        кому применяться.</dd>
+
+      <dt>--blob</dt>
+      <dd>Даёт короткое имя файлу с готовым ClientHello. Дальше в приёмах пишется просто
+        <code>blob=tls_google</code>. Блобы <code>tls_vk</code> и <code>quic_vk</code>: настоящие
+        приветствия от <code>vk.com</code>. Смысл в том, что ТСПУ пропускает отечественный трафик
+        свободнее, поэтому фейк «под VK» иногда выживает там, где фейк «под Google» режут.</dd>
+
+      <dt>--wf-raw-part</dt>
+      <dd>Подключает готовые куски фильтра перехвата для STUN и для первого пакета QUIC. Без них голос
+        Discord и HTTP/3 просто не попадут в обработку.</dd>
+    </dl>
+
+    <h3 id="profili">Семь профилей</h3>
+
+    <p>Дальше команда делится на профили: каждый начинается с <code>--new</code> и описывает, к кому
+      применяться и что делать. Порядок именно такой во всех комбо.</p>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th>Профиль</th><th>Кого ловит</th><th>Что делает</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><b>1. Discord TLS</b></td>
+            <td><code>--filter-tcp=443-65535 --filter-l7=tls</code> плюс список доменов Discord</td>
+            <td>Вход, gateway, медиа. Здесь стоит приём, который в стратегиях отличается.</td>
+          </tr>
+          <tr>
+            <td><b>2. YouTube TLS</b></td>
+            <td>То же, но список доменов YouTube и Google</td>
+            <td>Сайт и видео. Свой приём, обычно другой, чем у Discord.</td>
+          </tr>
+          <tr>
+            <td><b>3. Остальной TLS</b></td>
+            <td>Всё прочее, <b>кроме</b> списка исключений</td>
+            <td>Запасной вариант для всего остального. Исключения защищают банки, госуслуги и подобное
+              от вмешательства.</td>
+          </tr>
+          <tr>
+            <td><b>4. QUIC YouTube</b></td>
+            <td><code>--filter-udp=443-65535 --filter-l7=quic</code>, список YouTube</td>
+            <td>Фейк QUIC-блобом, <code>repeats=11</code>.</td>
+          </tr>
+          <tr>
+            <td><b>5. QUIC Discord</b></td>
+            <td>То же, список Discord</td>
+            <td>Отдельный профиль нужен для вложений и CDN, которые ходят по HTTP/3.</td>
+          </tr>
+          <tr>
+            <td><b>6. QUIC остальное</b></td>
+            <td>Всё прочее, кроме исключений</td>
+            <td>Фейк стандартным блобом.</td>
+          </tr>
+          <tr>
+            <td><b>7. Голос Discord</b></td>
+            <td><code>--filter-udp=19294-19344,50000-65535 --filter-l7=discord,stun</code></td>
+            <td>Отдельный приём для голоса. Разобран ниже.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>В профилях TLS перед приёмом всегда стоят два «липких» флага:</p>
+
+    <dl class="why">
+      <dt>--payload=tls_client_hello</dt>
+      <dd>Ограничивает срабатывание первым пакетом рукопожатия. Без него приём применялся бы ко всем
+        пакетам подряд и ломал бы соединение.</dd>
+      <dt>--out-range=-d10</dt>
+      <dd>Ограничивает область действия первыми пакетами исходящих данных. Дальше по соединению движок не
+        вмешивается.</dd>
+    </dl>
+
+    <div class="note warn">
+      <p>Эти флаги <b>липкие</b>: они действуют с места указания и до переопределения, поэтому обязаны
+        стоять <i>перед</i> тем <code>--lua-desync</code>, на который влияют. Перестановка их местами
+        меняет поведение молча, без ошибки.</p>
+    </div>
+
+    <h3 id="golos-obshchiy">Голосовой профиль</h3>
+
+    <p>Он одинаков во всех комбо, кроме ALT10 и ALT11, и заслуживает отдельного объяснения, потому что
+      логика тут вывернутая.</p>
+
+<pre><code><span class="t-flag">--filter-udp</span>=<span class="t-num">19294-19344,50000-65535</span> <span class="t-flag">--filter-l7</span>=discord,stun
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">fake</span>:blob=quic_google:ip_autottl=<span class="t-num">-2,3-20</span>:ip6_autottl=<span class="t-num">-2,3-20</span>:repeats=<span class="t-num">2</span></code></pre>
+
+    <dl class="why">
+      <dt>диапазон портов</dt>
+      <dd>Весь высокий диапазон, а не узкие 50000 до 50100. Узкий диапазон пропускал половину голосовых
+        серверов, из-за чего получался вечный пинг 5000.</dd>
+
+      <dt>blob=quic_google</dt>
+      <dd>В голосовой поток подмешивается пакет, который для него является <b>мусором</b>. Сервер
+        отбрасывает его, не разбирая, поэтому нумерация голосового потока не портится и не возникает
+        ошибки маршрутизации. Фейк здесь нужен исключительно для DPI.</dd>
+
+      <dt>ip_autottl</dt>
+      <dd>Фейк умирает по дороге и до сервера не доходит. Благодаря этому провайдер видит «шум» и не
+        душит поток, а настоящий голос идёт без ограничения скорости.</dd>
+
+      <dt>repeats=2</dt>
+      <dd>Совсем лёгкое вмешательство. Голос чувствителен к задержкам, и большое число повторов вредит
+        сильнее, чем помогает.</dd>
+    </dl>
+
+    <h2>Разбор стратегий</h2>
+
+    <p>Дальше идут сами стратегии, в том же порядке, в каком их стоит перебирать вручную. Показан только
+      блок TLS-приёмов: всё остальное берётся из скелета выше.</p>
+
+    <!-- 1 -->
+    <div class="anatomy" id="rekomenduemyy">
+      <header>
+        <h3>Комбо (рекомендуемый)</h3>
+        <span class="badge rec">по умолчанию</span>
+        <span class="tagline">Универсальная, начните с неё</span>
+      </header>
+      <div class="anatomy-body">
+<pre><code><span class="t-cmt"># Discord и весь остальной TLS</span>
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">hostfakesplit</span>:host=www.google.com:tcp_ts=<span class="t-num">-1000</span>:tcp_md5:repeats=<span class="t-num">4</span>
+
+<span class="t-cmt"># YouTube и Google</span>
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">fake</span>:blob=tls_google:tcp_md5:tcp_seq=<span class="t-num">-10000</span>:repeats=<span class="t-num">6</span>
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">multidisorder</span>:pos=<span class="t-num">1,midsld</span></code></pre>
+
+        <dl class="why">
+          <dt>hostfakesplit</dt>
+          <dd>Режет пакет <b>точно по имени сайта</b> и подставляет фальшивое имя такой же длины. Главное
+            следствие: приём подстраивается под <b>любой</b> размер ClientHello. Поэтому он пускает не
+            только на страницу входа Discord, но и к gateway, у которого приветствие другого размера.
+            Стратегии с фиксированным перекрытием на этом спотыкаются: логин проходит, а подключения к
+            серверам нет.</dd>
+
+          <dt>host=www.google.com</dt>
+          <dd>Имя, которое подставляется вместо настоящего. Безобидное и заведомо не заблокированное.</dd>
+
+          <dt>tcp_ts=-1000</dt>
+          <dd>Фейк получает более старую временную метку и отбрасывается на стороне сервера механизмом
+            PAWS. Значение обязано быть <b>отрицательным</b>: при положительном отбрасываться будет
+            настоящий пакет, а не фейк.</dd>
+
+          <dt>tcp_md5</dt>
+          <dd>Второй способ убить фейк, на случай если временные метки не сработают. Выбран вместо
+            <code>badsum</code> потому, что <b>безопасен за домашним NAT</b>: роутер не выбрасывает такой
+            пакет заранее.</dd>
+
+          <dt>repeats=4</dt>
+          <dd>Фейк отправляется четыре раза. Чем больше повторов, тем выше шанс, что DPI успеет его
+            заметить и запомнить соединение как разрешённое.</dd>
+
+          <dt>fake + multidisorder</dt>
+          <dd>Для YouTube связка другая: сначала фейковый ClientHello, следом настоящий, разрезанный и
+            отправленный в обратном порядке. Один приём тут обычно не пробивает, работает именно
+            сочетание.</dd>
+
+          <dt>pos=1,midsld</dt>
+          <dd>Две точки разреза: сразу после первого байта и в середине домена второго уровня. Второй
+            маркер обязателен: <code>pos=1</code> сам по себе движок вырезает, и приём превращается в
+            ничего не делающий.</dd>
+        </dl>
+
+        <p><b>Когда брать.</b> Всегда первой. Она включена по умолчанию и на большинстве провайдеров
+          закрывает вопрос.</p>
+      </div>
+    </div>
+
+    <!-- 2 -->
+    <div class="anatomy" id="vk">
+      <header>
+        <h3>Комбо, отечественный (VK, целевой)</h3>
+        <span class="tagline">Маскировка под VK</span>
+      </header>
+      <div class="anatomy-body">
+<pre><code><span class="t-cmt"># Discord и остальной TLS</span>
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">hostfakesplit</span>:host=vk.com:tcp_ts=<span class="t-num">-1000</span>:tcp_md5:repeats=<span class="t-num">4</span>
+
+<span class="t-cmt"># YouTube: без изменений, как в рекомендуемой</span></code></pre>
+
+        <dl class="why">
+          <dt>host=vk.com</dt>
+          <dd>Единственное отличие от рекомендуемой. ТСПУ относится к отечественному трафику мягче, и фейк
+            «под VK» проходит там, где фейк «под Google» режут. Это заметный тренд последних лет: в других
+            наборах для той же цели берут Ozon или облако Сбера.</dd>
+
+          <dt>YouTube остаётся на google-фейке</dt>
+          <dd>Сознательно. Для видеосерверов Google фейк «под VK» не годится: там нужен обычный рабочий
+            профиль, и подмена домена только мешает.</dd>
+        </dl>
+
+        <p><b>Когда брать.</b> Первым делом после рекомендуемой, особенно в характерной ситуации: в
+          диагностике всё зелёное, а Discord всё равно не открывается.</p>
+      </div>
+    </div>
+
+    <!-- 3 -->
+    <div class="anatomy" id="alt10">
+      <header>
+        <h3>Комбо, Flowseal ALT10 (двойной fake + ts)</h3>
+        <span class="tagline">Когда не работают голос и медиа</span>
+      </header>
+      <div class="anatomy-body">
+<pre><code><span class="t-cmt"># Discord и остальной TLS: два фейка подряд</span>
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">fake</span>:blob=tls_google:tcp_ts=<span class="t-num">-1000</span>:repeats=<span class="t-num">6</span>
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">fake</span>:blob=tls_vk:tcp_ts=<span class="t-num">-1000</span>:repeats=<span class="t-num">6</span>
+
+<span class="t-cmt"># YouTube</span>
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">fake</span>:blob=tls_google:tcp_ts=<span class="t-num">-1000</span>:ip_id=zero:repeats=<span class="t-num">6</span>
+
+<span class="t-cmt"># голос: отечественный блоб вместо google</span>
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">fake</span>:blob=quic_vk:repeats=<span class="t-num">6</span></code></pre>
+
+        <dl class="why">
+          <dt>никакой разрезки</dt>
+          <dd>Настоящий пакет не трогается вообще. Вся работа делается фейками. Именно поэтому стратегия
+            часто чинит медиа и голос: разрезка иногда пускает только в логин, а дальше соединения ведут
+            себя иначе и ломаются.</dd>
+
+          <dt>два фейка подряд</dt>
+          <dd>Сначала «под Google», сразу за ним «под VK». Расчёт на то, что хотя бы один из двух устроит
+            конкретную железку. Дешёвая страховка: лишний фейк всё равно умрёт по дороге.</dd>
+
+          <dt>только tcp_ts</dt>
+          <dd>Единственный способ убийства фейка. Отсюда важное следствие: стратегия <b>полностью
+            зависит</b> от включённых TCP timestamps. Программа включает их сама на время сеанса, но если
+            бы не включала, стратегия молча ничего не делала бы.</dd>
+
+          <dt>ip_id=zero</dt>
+          <dd>Обнуляет поле идентификатора в заголовке IP у фейка. Дополнительный признак, по которому
+            часть DPI отличает пакеты и обрабатывает их иначе.</dd>
+
+          <dt>blob=quic_vk для голоса</dt>
+          <dd>Голосовой мусор тоже отечественный. На части сетей именно это чинит пинг 5000 и «подключается,
+            но никого не слышно».</dd>
+        </dl>
+
+        <p><b>Когда брать.</b> Классический случай: вход в Discord проходит, а дальше ничего. Не
+          подключается к серверам, не грузятся вложения, молчит голос.</p>
+      </div>
+    </div>
+
+    <!-- 4 -->
+    <div class="anatomy" id="alt11">
+      <header>
+        <h3>Комбо, Flowseal ALT11 (fake+ts, затем seqovl)</h3>
+        <span class="tagline">Фейк и разрезка внахлёст</span>
+      </header>
+      <div class="anatomy-body">
+<pre><code><span class="t-cmt"># Discord</span>
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">fake</span>:blob=tls_google:tcp_ts=<span class="t-num">-1000</span>:repeats=<span class="t-num">6</span>
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">multisplit</span>:pos=<span class="t-num">1,midsld</span>:seqovl=<span class="t-num">681</span>:seqovl_pattern=tls_google:optional
+
+<span class="t-cmt"># остальной TLS: то же, но перекрытие 664 байта</span>
+<span class="t-cmt"># голос: quic_vk, как в ALT10</span></code></pre>
+
+        <dl class="why">
+          <dt>fake сначала, разрезка потом</dt>
+          <dd>Порядок принципиален. Фейк с временной меткой идёт первым и «готовит» соединение, и только
+            после этого применяется разрезка с перекрытием. Без этой подготовки большое перекрытие ломало
+            бы подключение к gateway.</dd>
+
+          <dt>seqovl=681</dt>
+          <dd>Перекрытие: к началу настоящего пакета дописывается 681 байт постороннего содержимого, так
+            что DPI и сервер собирают поток по-разному. Для <code>multisplit</code> это число <b>байт</b>,
+            а не позиция. У <code>multidisorder</code> тот же параметр означает совсем другое.</dd>
+
+          <dt>seqovl_pattern=tls_google</dt>
+          <dd>Дописывается не случайный мусор, а настоящее приветствие от Google. Правдоподобное начало
+            переживает проверки, которые случайные байты не проходят.</dd>
+
+          <dt>:optional</dt>
+          <dd>Если разрезка по каким-то причинам не применилась, приём тихо пропускается, а не роняет всю
+            обработку соединения.</dd>
+
+          <dt>664 вместо 681</dt>
+          <dd>Для профиля «остальное» перекрытие чуть меньше. Значения подобраны эмпирически в исходном
+            наборе Flowseal и перенесены как есть.</dd>
+        </dl>
+
+        <p><b>Когда брать.</b> Сразу после ALT10, если та не зашла. Это два варианта одной идеи от одного
+          автора.</p>
+      </div>
+    </div>
+
+    <!-- 5 -->
+    <div class="anatomy" id="seqovl">
+      <header>
+        <h3>Комбо, Flowseal (multisplit seqovl)</h3>
+        <span class="tagline">Разрезка запроса</span>
+      </header>
+      <div class="anatomy-body">
+<pre><code><span class="t-cmt"># Discord</span>
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">multisplit</span>:pos=<span class="t-num">2</span>:seqovl=<span class="t-num">681</span>:seqovl_pattern=tls_google:optional
+
+<span class="t-cmt"># YouTube: то же плюс ip_id=zero</span>
+<span class="t-cmt"># остальное: перекрытие 568</span></code></pre>
+
+        <dl class="why">
+          <dt>никаких фейков</dt>
+          <dd>Чистая разрезка с перекрытием, без единого поддельного пакета. Значит, никакого fooling не
+            нужно вовсе, и стратегия не зависит от TCP timestamps и от поведения домашнего роутера. Самая
+            «нетребовательная» из всех.</dd>
+
+          <dt>pos=2</dt>
+          <dd>Одна точка разреза, после второго байта. Здесь второй маркер не нужен, потому что основную
+            работу делает перекрытие, а не сам разрез.</dd>
+        </dl>
+
+        <p><b>Когда брать.</b> Когда варианты с фейками не срабатывают. Часто это признак того, что DPI
+          проверяет пакеты слишком тщательно и фейкам просто не верит.</p>
+      </div>
+    </div>
+
+    <!-- 6 -->
+    <div class="anatomy" id="alt">
+      <header>
+        <h3>Комбо, Flowseal ALT (fake + fakedsplit)</h3>
+        <span class="tagline">Фейк и ложная разрезка</span>
+      </header>
+      <div class="anatomy-body">
+<pre><code><span class="t-cmt"># одинаково для Discord, YouTube и остального</span>
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">fake</span>:blob=tls_google:tcp_ts=<span class="t-num">-1000</span>:repeats=<span class="t-num">6</span>
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">fakedsplit</span>:tcp_ts=<span class="t-num">-1000</span></code></pre>
+
+        <dl class="why">
+          <dt>fakedsplit</dt>
+          <dd>Разрезка, при которой между настоящими сегментами вставляются поддельные. Ключевое отличие
+            от <code>multisplit</code>: fooling применяется <b>только к поддельным</b> сегментам, поэтому
+            <code>tcp_ts</code> здесь безопасен. У <code>multisplit</code> он подействовал бы и на
+            настоящие сегменты и сломал бы соединение.</dd>
+
+          <dt>одинаково для всех</dt>
+          <dd>Единственная стратегия, где все три профиля TLS используют один и тот же приём. Простая и
+            предсказуемая, удобна как контрольная точка при переборе.</dd>
+        </dl>
+
+        <p><b>Когда брать.</b> Если и фейки по отдельности, и чистая разрезка не помогли. Иногда работает
+          именно их сочетание.</p>
+      </div>
+    </div>
+
+    <!-- 7 -->
+    <div class="anatomy" id="wssize">
+      <header>
+        <h3>Комбо, окно (wssize)</h3>
+        <span class="tagline">Дробит ответ сервера</span>
+      </header>
+      <div class="anatomy-body">
+<pre><code><span class="t-cmt"># Discord и остальной TLS</span>
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">multisplit</span>:pos=<span class="t-num">2,midsld-2</span>:seqovl=<span class="t-num">1</span>:seqovl_pattern=tls_google:optional
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">wssize</span>:wsize=<span class="t-num">1</span>:scale=<span class="t-num">6</span>
+
+<span class="t-cmt"># YouTube: fake + multidisorder, как в рекомендуемой</span></code></pre>
+
+        <dl class="why">
+          <dt>wssize</dt>
+          <dd>Единственная стратегия, которая работает с <b>ответом сервера</b>, а не с вашим запросом.
+            Объявляется крошечное окно приёма, сервер вынужден отдавать ответ мелкими порциями, и DPI не
+            собирает из него сигнатуру.</dd>
+
+          <dt>wsize=1:scale=6</dt>
+          <dd>Размер окна и множитель масштабирования. Комбинация даёт очень маленькое окно на первых
+            пакетах, дальше оно восстанавливается.</dd>
+
+          <dt>цена</dt>
+          <dd>Дробление ответа означает больше пакетов и заметно <b>медленнее</b> загрузку. Это осознанный
+            размен, поэтому стратегия и стоит в списке последней среди комбо.</dd>
+
+          <dt>midsld-2</dt>
+          <dd>Разрез на два байта левее середины домена. Смещения к маркерам записываются вот так.</dd>
+        </dl>
+
+        <p><b>Когда брать.</b> Когда упрямо не открывается именно страница входа и ничего другое не
+          помогло. Готовьтесь к тому, что будет медленнее.</p>
+      </div>
+    </div>
+
+    <!-- 8 -->
+    <div class="anatomy" id="golos">
+      <header>
+        <h3>Discord, голос (QUIC-фейк)</h3>
+        <span class="badge solo">точечная</span>
+        <span class="tagline">Только голос Discord</span>
+      </header>
+      <div class="anatomy-body">
+<pre><code><span class="t-cmt"># лёгкая разрезка управляющего соединения discord.media</span>
+<span class="t-flag">--filter-tcp</span>=<span class="t-num">443-65535</span> <span class="t-flag">--filter-l7</span>=tls {HOSTLIST:discord}
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">multisplit</span>:pos=<span class="t-num">2,midsld-2</span>:seqovl=<span class="t-num">1</span>:seqovl_pattern=tls_google:optional
+<span class="t-flag">--new</span>
+<span class="t-cmt"># голос: фейк QUIC-блобом, без ограничения TTL</span>
+<span class="t-flag">--filter-udp</span>=<span class="t-num">19294-19344,50000-65535</span> <span class="t-flag">--filter-l7</span>=discord,stun
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">fake</span>:blob=quic_google:repeats=<span class="t-num">6</span></code></pre>
+
+        <dl class="why">
+          <dt>это не комбо</dt>
+          <dd>YouTube и остальной трафик не трогаются вообще. Стратегия чинит одну конкретную вещь, и
+            только её.</dd>
+
+          <dt>без ip_autottl</dt>
+          <dd>Главное отличие от голосового профиля в комбо. Подбор TTL зависит от маршрута и на некоторых
+            сетях мешает. Здесь его нет, фейк просто отбрасывается сервером как мусор.</dd>
+
+          <dt>repeats=6</dt>
+          <dd>Больше повторов, чем в комбо, потому что нет второго механизма и вся надежда на то, что DPI
+            заметит фейк.</dd>
+        </dl>
+
+        <p><b>Когда брать.</b> Ровно один случай: текст в Discord работает, а в голосовом канале вечное
+          подключение, пинг 5000 или никого не слышно.</p>
+      </div>
+    </div>
+
+    <!-- 9 -->
+    <div class="anatomy" id="circular">
+      <header>
+        <h3>Discord, адаптивный (circular)</h3>
+        <span class="badge exp">экспериментальная</span>
+        <span class="tagline">Подбирает способ на ходу</span>
+      </header>
+      <div class="anatomy-body">
+<pre><code><span class="t-flag">--filter-tcp</span>=<span class="t-num">443-65535</span> <span class="t-flag">--filter-l7</span>=tls {HOSTLIST:discord}
+<span class="t-flag">--in-range</span>=<span class="t-num">-s5556</span> <span class="t-flag">--out-range</span>=<span class="t-num">-d10</span> <span class="t-flag">--payload</span>=tls_client_hello
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">circular</span>:fails=<span class="t-num">2</span>:time=<span class="t-num">300</span>
+  <span class="t-cmt"># вариант 1: hostfakesplit</span>
+  <span class="t-flag">--lua-desync</span>=<span class="t-verb">hostfakesplit</span>:host=www.google.com:tcp_ts=<span class="t-num">-1000</span>:tcp_md5:repeats=<span class="t-num">4</span>:strategy=<span class="t-num">1</span>
+  <span class="t-cmt"># вариант 2: двойной fake</span>
+  <span class="t-flag">--lua-desync</span>=<span class="t-verb">fake</span>:blob=tls_google:tcp_ts=<span class="t-num">-1000</span>:repeats=<span class="t-num">6</span>:strategy=<span class="t-num">2</span>
+  <span class="t-flag">--lua-desync</span>=<span class="t-verb">fake</span>:blob=tls_vk:tcp_ts=<span class="t-num">-1000</span>:repeats=<span class="t-num">6</span>:strategy=<span class="t-num">2</span>
+  <span class="t-cmt"># вариант 3: fake плюс перекрытие</span>
+  <span class="t-flag">--lua-desync</span>=<span class="t-verb">fake</span>:blob=tls_google:tcp_ts=<span class="t-num">-1000</span>:repeats=<span class="t-num">6</span>:strategy=<span class="t-num">3</span>
+  <span class="t-flag">--lua-desync</span>=<span class="t-verb">multisplit</span>:pos=<span class="t-num">1,midsld</span>:seqovl=<span class="t-num">681</span>:seqovl_pattern=tls_google:strategy=<span class="t-num">3</span>:optional</code></pre>
+
+        <dl class="why">
+          <dt>circular</dt>
+          <dd>Не приём, а <b>распорядитель</b>: он переключает варианты сам, когда его детектор ловит
+            провал. Успешный вариант больше не трогается, и всё это происходит на лету, без перезапуска
+            движка.</dd>
+
+          <dt>fails=2:time=300</dt>
+          <dd>Переключаться после двух неудач; окно счёта 300 единиц времени.</dd>
+
+          <dt>strategy=1, 2, 3</dt>
+          <dd>Метки вариантов. Нумерация начинается с единицы и идёт без пропусков. Внутри одного варианта
+            может быть несколько приёмов, как в варианте 2.</dd>
+
+          <dt>три независимо рабочих варианта</dt>
+          <dd>Это не случайный набор: 1 повторяет рекомендуемую, 2 повторяет ALT10, 3 повторяет ALT11. То
+            есть перебираются три подхода, каждый из которых у кого-то работает сам по себе.</dd>
+
+          <dt>--in-range обязателен</dt>
+          <dd>Без кэша входящих пакетов детектор не увидит сброс от DPI и переключаться будет нечему.
+            Пропустить этот флаг означает получить неработающую ротацию.</dd>
+        </dl>
+
+        <div class="note warn">
+          <p><b>Дайте ей несколько секунд после старта.</b> Стратегия перебирает варианты в реальном
+            времени, поэтому сразу после включения может ещё «искать». И помните: она трогает только
+            Discord, YouTube остаётся без обхода.</p>
+        </div>
+
+        <p><b>Когда брать.</b> Когда именно Discord ведёт себя нестабильно: то подключается, то нет.
+          Помечена экспериментальной, потому что зависит от распорядителя, которого движок подгружает
+          отдельной библиотекой.</p>
+      </div>
+    </div>
+
+    <h2 id="kakuyu-brat">Какую брать под какой симптом</h2>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th>Что происходит</th><th>Что пробовать</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Ничего не пробовал, просто нужно чтобы работало</td>
+            <td><b>Комбо (рекомендуемый)</b>, оно уже включено</td>
+          </tr>
+          <tr>
+            <td>В диагностике зелёное, а Discord не открывается</td>
+            <td><b>Отечественный (VK)</b>, затем <b>ALT10</b></td>
+          </tr>
+          <tr>
+            <td>Вход проходит, но не подключает к серверам, не грузятся вложения</td>
+            <td><b>ALT10</b>, затем <b>ALT11</b></td>
+          </tr>
+          <tr>
+            <td>Текст работает, голос молчит или пинг 5000</td>
+            <td><b>Discord, голос (QUIC-фейк)</b>, затем <b>ALT10</b></td>
+          </tr>
+          <tr>
+            <td>Фейковые пакеты не помогают ни в одном варианте</td>
+            <td><b>Flowseal (multisplit seqovl)</b>: там фейков нет вовсе</td>
+          </tr>
+          <tr>
+            <td>Упрямо не открывается страница входа</td>
+            <td><b>Окно (wssize)</b>, приготовьтесь к замедлению</td>
+          </tr>
+          <tr>
+            <td>Discord работает через раз, нестабильно</td>
+            <td><b>Адаптивный (circular)</b></td>
+          </tr>
+          <tr>
+            <td>YouTube открывается, видео бесконечно грузится</td>
+            <td>Стратегия ни при чём: отключите QUIC в настройках</td>
+          </tr>
+          <tr>
+            <td>Перепробовал всё</td>
+            <td>«Подобрать», затем «Сгенерировать» на вкладке Диагностика</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note tip">
+      <p>Собственную стратегию можно написать руками или получить генерацией, а потом доработать. Все
+        правила формата, включая те, нарушение которых даёт «зелено, но не работает», собраны в
+        <a href="reference.html">Справочнике</a>.</p>
+    </div>
+
+    <div class="pager">
+      <a class="prev" href="interface.html">
+        <small>Назад</small>
+        Интерфейс
+      </a>
+      <a class="next" href="reference.html">
+        <small>Дальше</small>
+        Справочник
+      </a>
+    </div>
+
+  </main>
+</div>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div>
+      <p>Zapret2UI: оболочка для движка <a href="https://github.com/bol-van/zapret2">bol-van/zapret2</a>.
+        Исходный код и релизы на <a href="https://github.com/Asterlike/zapret2UI">GitHub</a>.</p>
+      <p class="legal">Лицензия MIT. Движок <code>winws2</code> распространяется по своей лицензии.</p>
+    </div>
+    <nav>
+      <a href="how-it-works.html">Как это работает</a>
+      <a href="quickstart.html">Быстрый старт</a>
+      <a href="interface.html">Интерфейс</a>
+      <a href="strategies.html">Разбор стратегий</a>
+    </nav>
+    <nav>
+      <a href="reference.html">Справочник</a>
+      <a href="troubleshooting.html">Если не работает</a>
+      <a href="support.html">Поддержать</a>
+      <a href="credits.html">Благодарности</a>
+      <a href="https://t.me/Zapret2UI">Канал в Telegram</a>
+      <a href="https://github.com/Asterlike/zapret2UI/releases/latest">Релизы</a>
+    </nav>
+  </div>
+</footer>
+
+<script src="assets/search-index.js"></script>
+<script src="assets/site.js"></script>
+</body>
+</html>

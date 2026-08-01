@@ -1,0 +1,575 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Справочник — документация Zapret2UI</title>
+<meta name="description" content="Формат стратегий winws2: структура команды, фильтры, токены, глаголы desync, fooling, позиционные маркеры, блобы и оркестраторы.">
+<link rel="icon" href="assets/logo.png">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+
+<header class="topbar">
+  <a class="brand" href="index.html">
+    <img src="assets/logo.png" alt="" width="26" height="26">
+    <span>Zapret2UI</span>
+  </a>
+  <nav class="topnav">
+    <a href="how-it-works.html">Как это работает</a>
+    <a href="quickstart.html">Быстрый старт</a>
+    <a href="interface.html">Интерфейс</a>
+    <a href="strategies.html">Стратегии</a>
+    <a href="reference.html" aria-current="page">Справочник</a>
+    <a href="troubleshooting.html">Если не работает</a>
+  </nav>
+  <div class="topbar-tools">
+    <button class="search-btn" data-search-open type="button">
+      <span>Поиск по документации</span>
+      <kbd>Ctrl K</kbd>
+    </button>
+    <button class="icon-btn theme-btn" data-theme-toggle type="button" aria-label="Сменить тему">Тёмная</button>
+    <a class="icon-btn" href="https://github.com/Asterlike/zapret2UI" title="Репозиторий на GitHub" aria-label="Репозиторий на GitHub">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+    </a>
+  </div>
+</header>
+
+<div class="shell">
+
+  <aside class="sidebar">
+    <details class="sidebar-inner" open>
+      <summary>Разделы</summary>
+      <h5>Начало</h5>
+      <ul>
+        <li><a href="index.html">Обзор документации</a></li>
+        <li><a href="how-it-works.html">Как это работает</a></li>
+        <li><a href="quickstart.html">Быстрый старт</a></li>
+      </ul>
+      <h5>Программа</h5>
+      <ul>
+        <li><a href="interface.html">Интерфейс</a></li>
+        <li><a href="strategies.html">Разбор стратегий</a></li>
+      </ul>
+      <h5>Продвинутое</h5>
+      <ul>
+        <li><a href="reference.html" aria-current="page">Справочник</a></li>
+        <li><a href="troubleshooting.html">Если не работает</a></li>
+      </ul>
+      <h5>Проект</h5>
+      <ul>
+        <li><a href="support.html">Поддержать</a></li>
+        <li><a href="credits.html">Благодарности</a></li>
+      </ul>
+    </details>
+  </aside>
+
+  <nav class="toc">
+    <p>На этой странице</p>
+    <ul>
+      <li><a href="#struktura">Структура команды</a></li>
+      <li><a href="#lipkie">Липкие флаги</a></li>
+      <li><a href="#filtry">Фильтры профиля</a></li>
+      <li><a href="#tokeny">Токены</a></li>
+      <li><a href="#glagoly">Глаголы desync</a></li>
+      <li><a href="#fooling">Fooling</a></li>
+      <li><a href="#markery">Позиционные маркеры</a></li>
+      <li><a href="#seqovl">Про seqovl</a></li>
+      <li><a href="#bloby">Блобы</a></li>
+      <li><a href="#orkestratory">Оркестраторы</a></li>
+      <li><a href="#primer">Полный пример</a></li>
+      <li><a href="#oshibki">Частые ошибки</a></li>
+    </ul>
+  </nav>
+
+  <main class="doc">
+
+    <div class="page-head">
+      <p class="kicker">Продвинутое</p>
+      <h1>Справочник</h1>
+      <p class="lede">Формат аргументов <code>winws2</code>: всё, что нужно, чтобы написать свою стратегию и не наткнуться на «зелено, но не работает».</p>
+    </div>
+
+    <p>Свою стратегию можно создать на вкладке «Стратегии»: продублировать встроенную и отредактировать
+      копию. Сохраняется она в <code>presets.json</code>. Проверить получившуюся командную строку целиком,
+      не запуская движок, помогает предпросмотр команды в интерфейсе.</p>
+
+    <div class="note">
+      <p>Здесь собраны практические правила, проверенные на движке, который поставляется с программой.
+        Исчерпывающий первоисточник по всем возможностям:
+        <a href="https://github.com/bol-van/zapret2/blob/master/docs/manual.en.md">официальный мануал
+        zapret2</a>, на английском.</p>
+    </div>
+
+    <h2 id="struktura">Структура команды</h2>
+
+    <p>Команда состоит из <b>глобальной части</b> и одного или нескольких <b>профилей</b>. Каждый
+      следующий профиль начинается с <code>--new</code>.</p>
+
+<pre><code><span class="t-cmt"># глобальная часть: ширина перехвата, блобы, кэш</span>
+<span class="t-flag">--wf-tcp-out</span>=<span class="t-num">80,443-65535</span>
+<span class="t-flag">--blob</span>=tls_google:@{FILES}\fake\tls_clienthello_www_google_com.bin
+
+<span class="t-cmt"># первый профиль идёт сразу, без --new</span>
+<span class="t-flag">--filter-tcp</span>=<span class="t-num">443-65535</span> <span class="t-flag">--filter-l7</span>=tls {HOSTLIST:discord}
+<span class="t-flag">--payload</span>=tls_client_hello
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">fake</span>:blob=tls_google:tcp_ts=<span class="t-num">-1000</span>:repeats=<span class="t-num">6</span>
+
+<span class="t-flag">--new</span>
+<span class="t-cmt"># второй профиль</span>
+<span class="t-flag">--filter-udp</span>=<span class="t-num">443-65535</span> <span class="t-flag">--filter-l7</span>=quic {HOSTLIST:discord}
+<span class="t-flag">--payload</span>=quic_initial
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">fake</span>:blob=quic_google:repeats=<span class="t-num">11</span></code></pre>
+
+    <ul>
+      <li><b>Глобальная часть</b> идёт до первого <code>--new</code> и содержит <code>--wf-*</code>,
+        <code>--blob=</code>, <code>--ipcache-*</code>, <code>--lua-init=</code>. Первый профиль живёт там
+        же.</li>
+      <li><b>Порты перехвата</b> перечисляются через запятую в <b>одном</b> флаге. Второй
+        <code>--wf-tcp-out</code> не добавит порты, а перезапишет предыдущий.</li>
+      <li><b>Профиль</b> отвечает на два вопроса: к кому применяться (фильтры) и что делать
+        (<code>--lua-desync</code>). Приёмов в профиле может быть несколько, они выполняются по
+        порядку.</li>
+    </ul>
+
+    <h2 id="lipkie">Липкие флаги</h2>
+
+    <p>Три флага действуют <b>с места указания и до переопределения</b>, а не на весь профиль. Это самая
+      частая причина стратегий, которые выглядят правильно, но ведут себя не так.</p>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th>Флаг</th><th>Что задаёт</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>--payload=</code></td><td>Какой пакет считается целевым: <code>tls_client_hello</code>, <code>quic_initial</code> и другие.</td></tr>
+          <tr><td><code>--out-range=</code></td><td>Диапазон исходящих пакетов, к которым применяется приём. Например <code>-d10</code>.</td></tr>
+          <tr><td><code>--in-range=</code></td><td>То же для входящих. Нужен оркестраторам, чтобы видеть сбросы от DPI.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note danger">
+      <p><b>Ставьте их перед тем <code>--lua-desync</code>, на который они влияют.</b> Если поставить
+        после, приём отработает с прежними значениями. Ошибки при этом не будет: движок запустится, а
+        обход просто не сработает.</p>
+    </div>
+
+    <p>Флаги <code>--filter-*</code>, <code>--hostlist</code> и <code>--ipset</code> липкими не являются,
+      их порядок внутри профиля значения не имеет.</p>
+
+    <h2 id="filtry">Фильтры профиля</h2>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th>Флаг</th><th>Значение</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>--filter-tcp=</code></td><td>Порты TCP, например <code>443-65535</code>.</td></tr>
+          <tr><td><code>--filter-udp=</code></td><td>Порты UDP, например <code>19294-19344,50000-65535</code>.</td></tr>
+          <tr><td><code>--filter-l7=</code></td><td>Протокол: <code>tls</code>, <code>quic</code>, <code>http</code>, <code>discord</code>, <code>stun</code>. Можно перечислить несколько через запятую.</td></tr>
+          <tr><td><code>--hostlist=</code></td><td>Применять только к доменам из файла.</td></tr>
+          <tr><td><code>--hostlist-exclude=</code></td><td>Не применять к доменам из файла. Так защищают банки и госуслуги от профилей, ловящих всё подряд.</td></tr>
+          <tr><td><code>--ipset=</code></td><td>Применять к подсетям из файла. Для случая, когда сервис режут по адресам.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2 id="tokeny">Токены</h2>
+
+    <p>Стратегии хранятся не с абсолютными путями, а с токенами. Программа разворачивает их при запуске,
+      подставляя актуальные пути и текущие настройки.</p>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th>Токен</th><th>Разворачивается в</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>{FILES}</code></td><td>Путь к папке <code>engine\files</code>, где лежат блобы.</td></tr>
+          <tr><td><code>{WF}</code></td><td>Путь к папке <code>engine\windivert.filter</code>.</td></tr>
+          <tr><td><code>{WF_TCP}</code></td><td><code>--wf-tcp-out=80,443-65535</code>: ширина перехвата TCP.</td></tr>
+          <tr><td><code>{WF_UDP}</code></td><td><code>--wf-udp-out=</code> с 443, STUN и голосом Discord. Игровой фильтр расширяет диапазон.</td></tr>
+          <tr><td><code>{HOSTLIST}</code></td><td><code>--hostlist=</code> с активным списком, или пусто.</td></tr>
+          <tr><td><code>{HOSTLIST:имя}</code></td><td><code>--hostlist=lists\имя.txt</code>, или пусто, если файла нет.</td></tr>
+          <tr><td><code>{EXCLUDE:имя}</code></td><td><code>--hostlist-exclude=lists\имя.txt</code>.</td></tr>
+          <tr><td><code>{IPSET}</code></td><td><code>--ipset=</code> с собранным списком подсетей Discord, если он есть.</td></tr>
+          <tr><td><code>{IPSET:имя}</code></td><td><code>--ipset=lists\ipset-имя.txt</code>.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>Пустой токен просто выбрасывается из команды. Например, <code>{HOSTLIST}</code> без активного списка
+      не оставит после себя ничего.</p>
+
+    <h2 id="glagoly">Глаголы desync</h2>
+
+    <p>Задаются как <code>--lua-desync=<i>глагол</i>:<i>параметр</i>=<i>значение</i>:...</code>. Самая
+      важная колонка здесь последняя: она определяет, какой fooling можно использовать, а какой сломает
+      соединение.</p>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th>Глагол</th><th>Что делает</th><th>Fooling применяется к</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>fake</code></td>
+            <td>Вставляет фейковый пакет из блоба.</td>
+            <td><b>только фейкам</b>, настоящий пакет уходит чистым</td>
+          </tr>
+          <tr>
+            <td><code>multisplit</code></td>
+            <td>Разрезает настоящий пакет на сегменты.</td>
+            <td><b>всем сегментам</b>, включая настоящие</td>
+          </tr>
+          <tr>
+            <td><code>multidisorder</code></td>
+            <td>Разрезает и отправляет куски в обратном порядке.</td>
+            <td><b>всем сегментам</b></td>
+          </tr>
+          <tr>
+            <td><code>multidisorder_legacy</code></td>
+            <td>Прежний вариант того же приёма.</td>
+            <td><b>всем сегментам</b></td>
+          </tr>
+          <tr>
+            <td><code>hostfakesplit</code></td>
+            <td>Режет по маркеру имени и подставляет фальшивое имя такой же длины. Подстраивается под
+              размер пакета.</td>
+            <td>только фейкам, fooling обязателен</td>
+          </tr>
+          <tr>
+            <td><code>fakedsplit</code></td>
+            <td>Разрезка со вставкой поддельных сегментов.</td>
+            <td>только поддельным</td>
+          </tr>
+          <tr>
+            <td><code>fakeddisorder</code></td>
+            <td>То же с обратным порядком.</td>
+            <td>только поддельным</td>
+          </tr>
+          <tr>
+            <td><code>syndata</code></td>
+            <td>Кладёт данные в пакет установки соединения.</td>
+            <td>ничему разрушающему: <code>tcp_seq</code>, <code>tcp_ack</code> и <code>badsum</code> сломают рукопожатие</td>
+          </tr>
+          <tr>
+            <td><code>tcpseg</code></td>
+            <td>Один сегмент с перекрытием. <b>Не убирает оригинал</b>, добавляйте следом <code>--lua-desync=drop</code>.</td>
+            <td></td>
+          </tr>
+          <tr>
+            <td><code>wssize</code>, <code>wsize</code></td>
+            <td>Уменьшают TCP-окно, заставляя сервер дробить ответ.</td>
+            <td>не применяется</td>
+          </tr>
+          <tr>
+            <td><code>drop</code>, <code>pass</code></td>
+            <td>Отбросить или пропустить пакет.</td>
+            <td>не применяется</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note danger">
+      <p><b>Главное правило.</b> В <code>multisplit</code> и <code>multidisorder</code> нельзя класть
+        <code>tcp_ack</code>, <code>tcp_seq</code>, <code>badsum</code> и битый TTL: они применятся к
+        настоящим сегментам и сломают соединение. Туда идут только <code>pos</code>, <code>seqovl</code> и
+        безобидные вроде <code>ip_id</code>. Разрушающий fooling живёт в <code>fake</code> и семействе
+        <code>faked*</code>.</p>
+    </div>
+
+    <p>Общие параметры: <code>repeats=N</code> задаёт число повторов фейка, <code>:optional</code> просит
+      тихо пропустить приём, если он не применился, вместо того чтобы прерывать обработку.</p>
+
+    <h2 id="fooling">Fooling</h2>
+
+    <p>Приёмы, заставляющие фейк не дойти до сервера. Подробнее о том, зачем это нужно:
+      <a href="how-it-works.html#fooling">Как это работает</a>.</p>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th>Параметр</th><th>Механизм</th><th>Оговорки</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>tcp_ts=-N</code></td>
+            <td>Более старая временная метка, пакет отбрасывается по PAWS.</td>
+            <td><b>Только отрицательное значение.</b> Нужны включённые TCP timestamps.</td>
+          </tr>
+          <tr>
+            <td><code>tcp_md5</code></td>
+            <td>Добавляет опцию MD5-подписи, обычный сервер такой пакет не принимает.</td>
+            <td>Безопасен за домашним NAT. Хорошая замена <code>badsum</code>.</td>
+          </tr>
+          <tr>
+            <td><code>tcp_seq=-N</code></td>
+            <td>Сдвигает порядковый номер за пределы окна.</td>
+            <td>Часть DPI тоже проверяет номера и перестаёт верить фейку.</td>
+          </tr>
+          <tr>
+            <td><code>badsum</code></td>
+            <td>Портит контрольную сумму.</td>
+            <td>Часто бесполезен дома: роутер за NAT выбросит пакет раньше DPI.</td>
+          </tr>
+          <tr>
+            <td><code>ip_autottl</code>, <code>ip6_autottl</code></td>
+            <td>Подбирает TTL так, чтобы пакет истёк между DPI и сервером.</td>
+            <td>Зависит от маршрута, при смене сети может перестать подходить.</td>
+          </tr>
+          <tr>
+            <td><code>ip_id=zero</code></td>
+            <td>Обнуляет идентификатор в заголовке IP.</td>
+            <td>Дополнительный признак, безопасен.</td>
+          </tr>
+          <tr>
+            <td><code>tls_mod=rnd,rndsni</code></td>
+            <td>Меняет содержимое фейкового приветствия, чтобы оно не повторялось.</td>
+            <td>Применяется к блобу, а не к настоящему пакету.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note danger">
+      <p><b>Знак у <code>tcp_ts</code> критичен.</b> PAWS отбрасывает пакет с меньшей меткой. Отрицательное
+        значение убивает фейк, положительное убивает <b>настоящий</b> пакет. Во втором случае соединение
+        ломается тихо, и выглядит это как «обход включён, но ничего не открывается».</p>
+      <p>Кроме того, ts-приёмы бессмысленны без включённых TCP timestamps. Windows держит их в состоянии
+        <code>allowed</code>, которое не гарантирует наличие метки в исходящих пакетах, поэтому Zapret2UI
+        переключает их в <code>enabled</code> на время сеанса и возвращает как было при остановке.</p>
+    </div>
+
+    <h2 id="markery">Позиционные маркеры</h2>
+
+    <p>Задают, где резать пакет. Используются в <code>pos=</code> и допускают смещения: <code>sld+1</code>,
+      <code>midsld-2</code>. Несколько точек разреза перечисляются через запятую.</p>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th>Маркер</th><th>Куда указывает</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>method</code></td><td>Начало метода запроса.</td></tr>
+          <tr><td><code>host</code></td><td>Начало имени сайта.</td></tr>
+          <tr><td><code>endhost</code></td><td>Конец имени сайта.</td></tr>
+          <tr><td><code>sld</code></td><td>Начало домена второго уровня.</td></tr>
+          <tr><td><code>midsld</code></td><td>Середина домена второго уровня. Самый ходовой вариант.</td></tr>
+          <tr><td><code>endsld</code></td><td>Конец домена второго уровня.</td></tr>
+          <tr><td><code>sniext</code></td><td>Начало расширения с именем сайта.</td></tr>
+          <tr><td><code>extlen</code></td><td>Поле длины расширения.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note warn">
+      <p><b><code>pos=1</code> сам по себе ничего не делает.</b> Движок вырезает эту позицию, и приём
+        превращается в пустышку. Нужен второй, настоящий маркер: <code>pos=1,midsld</code>.</p>
+    </div>
+
+    <h2 id="seqovl">Про seqovl</h2>
+
+    <p>Параметр <code>seqovl</code> означает <b>разное</b> у разных глаголов, и это регулярный источник
+      ошибок.</p>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th>Где</th><th>Что означает</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>multisplit</code></td>
+            <td><b>Число байт</b>: сколько байт содержимого дописать внахлёст к началу настоящего пакета.
+              Значения бывают большими, вроде 681.</td>
+          </tr>
+          <tr>
+            <td><code>multidisorder</code></td>
+            <td><b>Позиция-маркер</b>, и она должна быть <b>меньше</b> первой точки разреза.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>Параметр <code>seqovl_pattern=</code> указывает, чем именно заполнять перекрытие. Осмысленно
+      подставлять туда настоящий ClientHello, например <code>tls_google</code>: правдоподобное начало
+      переживает проверки, которые случайный мусор не проходит.</p>
+
+    <h2 id="bloby">Блобы</h2>
+
+    <p>Блоб: файл с готовым сетевым пакетом, который используется как фейк. Сначала ему дают имя в
+      глобальной части, потом обращаются по имени.</p>
+
+<pre><code><span class="t-flag">--blob</span>=tls_google:@{FILES}\fake\tls_clienthello_www_google_com.bin
+...
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">fake</span>:blob=tls_google:repeats=<span class="t-num">6</span></code></pre>
+
+    <p>В комплекте с движком идут приветствия от <code>www.google.com</code>, <code>vk.com</code>,
+      <code>sberbank.ru</code>, <code>gosuslugi.ru</code>, а также их варианты для QUIC. В стратегиях они
+      доступны как <code>tls_google</code>, <code>tls_vk</code>, <code>tls_sber</code>,
+      <code>tls_gos</code>, <code>quic_google</code>, <code>quic_vk</code>.</p>
+
+    <div class="note warn">
+      <p><b>Имена вроде <code>tls5</code>, <code>tls7</code>, <code>tls1</code> здесь не существуют.</b>
+        Они встречаются в чужих сборках, где блобы свои. Если переносите стратегию оттуда, замените любой
+        такой <code>tlsN</code> на <code>tls_google</code>. Неизвестное имя блоба даст ошибку запуска.</p>
+    </div>
+
+    <h2 id="orkestratory">Оркестраторы</h2>
+
+    <p>Отдельный класс: они не меняют пакеты, а управляют другими приёмами. Живут в библиотеке
+      <code>zapret-auto.lua</code>, которую движок подгружает автоматически.</p>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th>Оркестратор</th><th>Что делает</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>circular</code></td><td>Перебирает варианты по кругу, переключаясь при провале.</td></tr>
+          <tr><td><code>repeater</code></td><td>Повторяет приём.</td></tr>
+          <tr><td><code>stopif</code></td><td>Прерывает цепочку по условию.</td></tr>
+          <tr><td><code>condition</code></td><td>Применяет приём по условию.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>Самый полезный из них <code>circular</code>. Правила такие:</p>
+
+    <ul>
+      <li>Объявляется как <code>--lua-desync=circular:fails=N:time=T</code>, дальше идут варианты.</li>
+      <li>Каждый приём помечается тегом <code>strategy=K</code>. Нумерация начинается с единицы и идёт
+        <b>без пропусков</b>. В один вариант может входить несколько приёмов.</li>
+      <li><b>Требует <code>--in-range=</code></b>: без кэша входящих пакетов детектор не увидит сброс от
+        DPI, и переключаться будет нечему.</li>
+      <li>Без пометки <code>final</code> варианты крутятся по кругу, пока не найдётся рабочий. Найденный
+        больше не трогается, движок при этом не перезапускается.</li>
+    </ul>
+
+    <p>Готовый рабочий пример разобран в
+      <a href="strategies.html#circular">разборе адаптивной стратегии</a>.</p>
+
+    <h2 id="primer">Полный пример</h2>
+
+    <p>Минимальная работающая стратегия под Discord: TLS с фейком и разрезкой, QUIC с фейком, голос.</p>
+
+<pre><code>{WF_TCP}
+{WF_UDP}
+<span class="t-flag">--ipcache-hostname</span>=<span class="t-num">1</span>
+<span class="t-flag">--blob</span>=tls_google:@{FILES}\fake\tls_clienthello_www_google_com.bin
+<span class="t-flag">--blob</span>=quic_google:@{FILES}\fake\quic_initial_www_google_com.bin
+<span class="t-flag">--wf-raw-part</span>=@{WF}\windivert_part.stun.txt
+<span class="t-flag">--wf-raw-part</span>=@{WF}\windivert_part.quic_initial_ietf.txt
+
+<span class="t-cmt"># 1. Discord по TLS</span>
+<span class="t-flag">--filter-tcp</span>=<span class="t-num">443-65535</span> <span class="t-flag">--filter-l7</span>=tls {HOSTLIST:discord}
+<span class="t-flag">--out-range</span>=<span class="t-num">-d10</span> <span class="t-flag">--payload</span>=tls_client_hello
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">fake</span>:blob=tls_google:tcp_md5:tcp_seq=<span class="t-num">-10000</span>:repeats=<span class="t-num">6</span>
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">multisplit</span>:pos=<span class="t-num">1,midsld</span>:seqovl=<span class="t-num">681</span>:seqovl_pattern=tls_google:optional
+
+<span class="t-flag">--new</span>
+<span class="t-cmt"># 2. Discord по QUIC: вложения и CDN</span>
+<span class="t-flag">--filter-udp</span>=<span class="t-num">443-65535</span> <span class="t-flag">--filter-l7</span>=quic {HOSTLIST:discord}
+<span class="t-flag">--payload</span>=quic_initial
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">fake</span>:blob=quic_google:repeats=<span class="t-num">11</span>
+
+<span class="t-flag">--new</span>
+<span class="t-cmt"># 3. Голос</span>
+<span class="t-flag">--filter-udp</span>=<span class="t-num">19294-19344,50000-65535</span> <span class="t-flag">--filter-l7</span>=discord,stun
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">fake</span>:blob=quic_google:repeats=<span class="t-num">6</span></code></pre>
+
+    <div class="note tip">
+      <p>Движок запускается только с правами администратора, поэтому единственный настоящий способ
+        проверить стратегию: запустить её. Предпросмотр команды в интерфейсе покажет строку целиком и
+        поможет поймать опечатки заранее.</p>
+    </div>
+
+    <h2 id="oshibki">Частые ошибки</h2>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th>Симптом</th><th>Причина</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Движок падает с кодом 87</td>
+            <td>Недопустимый параметр: опечатка в имени глагола, неизвестное имя блоба или отсутствующая
+              библиотека. В журнале будет строка с подробностью.</td>
+          </tr>
+          <tr>
+            <td>Обход включён, но ничего не изменилось</td>
+            <td>Липкий флаг стоит после приёма. Или <code>pos=1</code> без второго маркера. Или
+              <code>tcp_ts</code> без включённых timestamps.</td>
+          </tr>
+          <tr>
+            <td>Соединение полностью ломается</td>
+            <td>Разрушающий fooling попал в <code>multisplit</code> или <code>multidisorder</code> и
+              применился к настоящим сегментам. Либо <code>tcp_ts</code> задан положительным.</td>
+          </tr>
+          <tr>
+            <td>Работает вход, но не работает всё остальное</td>
+            <td>Захват слишком узкий. Медиа Discord ходит по высоким портам, ловить один 443
+              недостаточно.</td>
+          </tr>
+          <tr>
+            <td>Голос не работает ни при какой стратегии</td>
+            <td>Нет профиля на голосовой диапазон UDP или не подключён <code>windivert_part.stun.txt</code>.</td>
+          </tr>
+          <tr>
+            <td><code>tcpseg</code> не даёт эффекта</td>
+            <td>Он не убирает оригинальный пакет. Нужен следующий приём <code>drop</code>.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="pager">
+      <a class="prev" href="strategies.html">
+        <small>Назад</small>
+        Разбор стратегий
+      </a>
+      <a class="next" href="troubleshooting.html">
+        <small>Дальше</small>
+        Если не работает
+      </a>
+    </div>
+
+  </main>
+</div>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div>
+      <p>Zapret2UI: оболочка для движка <a href="https://github.com/bol-van/zapret2">bol-van/zapret2</a>.
+        Исходный код и релизы на <a href="https://github.com/Asterlike/zapret2UI">GitHub</a>.</p>
+      <p class="legal">Лицензия MIT. Движок <code>winws2</code> распространяется по своей лицензии.</p>
+    </div>
+    <nav>
+      <a href="how-it-works.html">Как это работает</a>
+      <a href="quickstart.html">Быстрый старт</a>
+      <a href="interface.html">Интерфейс</a>
+      <a href="strategies.html">Разбор стратегий</a>
+    </nav>
+    <nav>
+      <a href="reference.html">Справочник</a>
+      <a href="troubleshooting.html">Если не работает</a>
+      <a href="support.html">Поддержать</a>
+      <a href="credits.html">Благодарности</a>
+      <a href="https://t.me/Zapret2UI">Канал в Telegram</a>
+      <a href="https://github.com/Asterlike/zapret2UI/releases/latest">Релизы</a>
+    </nav>
+  </div>
+</footer>
+
+<script src="assets/search-index.js"></script>
+<script src="assets/site.js"></script>
+</body>
+</html>
