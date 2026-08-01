@@ -433,8 +433,6 @@ dotnet run --project ZapretUI/ZapretUI.csproj
 # релизный self-contained single-file exe
 dotnet publish ZapretUI/ZapretUI.csproj -c Release -o publish
 
-# сборка с проверкой предупреждений (должно быть 0 warn / 0 err)
-dotnet build ZapretUI/ZapretUI.csproj -c Release -warnaserror -nologo
 ```
 
 **Требования:** Windows 10/11 x64, права администратора (движок грузит драйвер в ядро), интернет при
