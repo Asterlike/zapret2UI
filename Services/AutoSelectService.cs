@@ -1,6 +1,4 @@
-using System.Diagnostics;
 using System.IO;
-using System.Text;
 using Zapret2UI.Models;
 
 namespace Zapret2UI.Services;
@@ -37,13 +35,10 @@ public sealed class AutoSelectService : IDisposable
     /// <summary>Fired after each goal host is probed (host, TLS1.2, TLS1.3, HTTPS-GET result).</summary>
     public event Action<string, DiagStatus, DiagStatus, DiagStatus>? HostProbed;
 
-    private Process? _proc;
-    // Signalled when the running candidate's winws2 reports WinDivert is attached ("…capture is
-    // started"), so probing starts the moment the engine is actually ready instead of after a fixed
-    // delay. Recreated per StartEngine; each process's handlers capture their own instance.
-    private TaskCompletionSource? _ready;
+    // Throwaway winws2 per candidate — start, wait for WinDivert, kill. Shared with the generator.
+    private readonly ProbeEngineRunner _runner = new();
 
-    public void Dispose() => StopEngine();
+    public void Dispose() => _runner.Dispose();
 
     public async Task<(ComboStrategy strategy, AutoScore score)?> RunAsync(
         IReadOnlyList<ComboStrategy> candidates, IReadOnlyList<string> goalHosts, CancellationToken ct)
@@ -104,11 +99,11 @@ public sealed class AutoSelectService : IDisposable
         StartEngine(cand);
         try
         {
-            await WaitEngineReadyAsync(ct); // wait until WinDivert is actually attached (capped at the old 1500ms)
+            await _runner.WaitReadyAsync(ct); // until WinDivert is attached (capped at the old 1500ms)
             // 3 signals per host: TLS 1.2, TLS 1.3, and a full HTTPS GET (the request must actually
             // complete, not just the handshake — a handshake-only check ranks "TLS OK but resets" too high).
             int total = hosts.Count * 3;
-            if (_proc is null || _proc.HasExited)
+            if (!_runner.IsAlive)
                 return new AutoScore(cand.Name, 0, total, total, cand,
                     hosts.Select(h => new AutoHostResult(h, DiagStatus.Fail, DiagStatus.Fail, DiagStatus.Fail)).ToList());
 
@@ -133,99 +128,19 @@ public sealed class AutoSelectService : IDisposable
         }
         finally
         {
-            StopEngine();
+            _runner.Stop();
             await Task.Delay(300, CancellationToken.None);
         }
     }
 
     private void StartEngine(ComboStrategy cand)
     {
-        StopEngine(); // defensive: never leave a previous candidate's winws2 alive (two engines
-                      // would fight over WinDivert and poison every subsequent probe).
         var preset = new Preset { Name = cand.Name, Args = cand.Args };
-        var psi = new ProcessStartInfo
-        {
-            FileName = AppPaths.WinwsExe,
-            WorkingDirectory = AppPaths.EngineDir,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            StandardOutputEncoding = Encoding.UTF8,
-            StandardErrorEncoding = Encoding.UTF8,
-        };
         // Global catalog candidates are catch-alls → probe with bypassAll=true so the goal hosts are
         // actually desynced. A scoped preset candidate (saved-for-network / built-in) carries its own
         // hostlists → probe as it really runs, bypassAll=false. cand.BypassAll encodes which.
-        foreach (var a in EngineService.BuildArguments(preset, null, gameFilter: false, bypassAll: cand.BypassAll, forLaunch: true))
-            psi.ArgumentList.Add(a);
-
-        var ready = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        _ready = ready;
-        var p = new Process { StartInfo = psi, EnableRaisingEvents = true };
-        // Signal readiness on the WinDivert "capture is started" line; also unblock on early exit
-        // (bad args) so a candidate whose engine dies instantly fails fast instead of waiting the cap.
-        p.OutputDataReceived += (_, e) => { if (IsWinDivertReady(e.Data)) ready.TrySetResult(); };
-        p.ErrorDataReceived += (_, e) => { if (IsWinDivertReady(e.Data)) ready.TrySetResult(); };
-        p.Exited += (_, _) => ready.TrySetResult();
-        _proc = p;
-        try
-        {
-            p.Start();
-            p.BeginOutputReadLine();
-            p.BeginErrorReadLine();
-        }
-        catch
-        {
-            StopEngine();
-            throw;
-        }
-    }
-
-    /// <summary>True for a winws2 log line that means WinDivert is attached and capturing.</summary>
-    private static bool IsWinDivertReady(string? line) =>
-        line is not null &&
-        (line.Contains("capture is started", StringComparison.OrdinalIgnoreCase) ||
-         line.Contains("windivert initialized", StringComparison.OrdinalIgnoreCase));
-
-    /// <summary>Wait until the engine reports WinDivert is attached, capped at 1500 ms (the old fixed
-    /// delay) so an absent/changed log line falls back to today's behaviour. A short settle follows so
-    /// the filter is live before probing.</summary>
-    private async Task WaitEngineReadyAsync(CancellationToken ct)
-    {
-        var ready = _ready;
-        if (ready is null)
-        {
-            await Task.Delay(1500, ct).ConfigureAwait(false);
-            return;
-        }
-        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        timeout.CancelAfter(1500); // cap = the old fixed delay → exact fallback when no ready line appears
-        try
-        {
-            await ready.Task.WaitAsync(timeout.Token).ConfigureAwait(false);
-            // Ready line seen: let WinDivert go live before probing (skipped on timeout — already waited the cap).
-            await Task.Delay(150, ct).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException) when (!ct.IsCancellationRequested) { /* no ready line within cap → behave like the old fixed 1500ms delay */ }
-    }
-
-    private void StopEngine()
-    {
-        try
-        {
-            if (_proc is { HasExited: false })
-            {
-                _proc.Kill(entireProcessTree: true);
-                _proc.WaitForExit(4000);
-            }
-        }
-        catch { }
-        finally
-        {
-            try { _proc?.Dispose(); } catch { }
-            _proc = null;
-        }
+        _runner.Start(EngineService.BuildArguments(
+            preset, null, gameFilter: false, bypassAll: cand.BypassAll, forLaunch: true));
     }
 
     /// <summary>Build a saveable preset from a chosen combo strategy.</summary>

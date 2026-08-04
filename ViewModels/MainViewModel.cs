@@ -249,6 +249,8 @@ public sealed partial class MainViewModel : ObservableObject
         _engine.BypassAllSites = Settings.BypassAllSites;
         _engine.DisableQuic = Settings.DisableQuic;
         _engine.CoverTgProxy = Settings.TgProxyCoverage;
+        _engine.DebugLog = Settings.DebugLog;
+        _tgProxy.Verbose = Settings.DebugLog;
 
         // Built-in Telegram proxy: restore the persisted port/secret (or persist a fresh one) so the
         // tg:// link is stable across runs; the proxy itself is started on demand from the card.

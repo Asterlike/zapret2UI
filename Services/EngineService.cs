@@ -49,6 +49,12 @@ public sealed class EngineService : IDisposable
     /// users don't need it, and it's inert unless the proxy is actually connecting. Set from settings.</summary>
     public bool CoverTgProxy { get; set; }
 
+    /// <summary>Verbose engine log: adds <c>--debug=1</c>, which makes winws2 write per-connection
+    /// decisions to stdout — the only way to see WHY a desync did or didn't fire. Off by default
+    /// because it is noisy. Captured by the same stdout pipe as the normal output, so it lands in the
+    /// Журнал tab and the session log file. Set from settings by the VM; consumed by <see cref="Start"/>.</summary>
+    public bool DebugLog { get; set; }
+
     /// <summary>The preset that is currently running (null when stopped).</summary>
     public Preset? ActivePreset { get; private set; }
 
@@ -66,9 +72,15 @@ public sealed class EngineService : IDisposable
     /// merely showing the command line never writes a file.</summary>
     public static List<string> BuildArguments(Preset preset, string? hostlistPath,
         bool gameFilter = false, bool bypassAll = false, bool disableQuic = false,
-        bool coverTgProxy = false, bool forLaunch = false)
+        bool coverTgProxy = false, bool debugLog = false, bool forLaunch = false)
     {
-        var args = new List<string>
+        var args = new List<string>();
+
+        // Verbose log. Must come before the --lua-init loads so the library loading itself is traced;
+        // =1 means "to console", which is exactly what the redirected stdout pipe reads.
+        if (debugLog) args.Add("--debug=1");
+
+        args.AddRange(new[]
         {
             // Mandatory: load the bundled Lua libraries, in the SAME order and set as the canonical
             // zapret2 launch (init.d/.../functions): base helpers, the DPI-attack verbs, AND the
@@ -79,7 +91,7 @@ public sealed class EngineService : IDisposable
             "--lua-init=@" + Path.Combine(AppPaths.LuaDir, "zapret-lib.lua"),
             "--lua-init=@" + Path.Combine(AppPaths.LuaDir, "zapret-antidpi.lua"),
             "--lua-init=@" + Path.Combine(AppPaths.LuaDir, "zapret-auto.lua"),
-        };
+        });
 
         // {WF_TCP}/{WF_UDP}: WinDivert capture width (the ports the kernel hands to winws2 — a profile's
         // --filter-tcp can only match what was captured). TCP is ALWAYS 80,443-65535: the per-service
@@ -381,10 +393,11 @@ public sealed class EngineService : IDisposable
 
     /// <summary>Human-readable preview of the command line that will be launched.</summary>
     public static string PreviewCommandLine(Preset preset, string? hostlistPath,
-        bool gameFilter = false, bool bypassAll = false, bool disableQuic = false, bool coverTgProxy = false)
+        bool gameFilter = false, bool bypassAll = false, bool disableQuic = false,
+        bool coverTgProxy = false, bool debugLog = false)
     {
         var sb = new StringBuilder("winws2.exe");
-        foreach (var a in BuildArguments(preset, hostlistPath, gameFilter, bypassAll, disableQuic, coverTgProxy))
+        foreach (var a in BuildArguments(preset, hostlistPath, gameFilter, bypassAll, disableQuic, coverTgProxy, debugLog))
             sb.Append(a.Contains(' ') ? $" \"{a}\"" : $" {a}");
         return sb.ToString();
     }
@@ -412,7 +425,7 @@ public sealed class EngineService : IDisposable
                 StandardOutputEncoding = Encoding.UTF8,
                 StandardErrorEncoding = Encoding.UTF8,
             };
-            foreach (var a in BuildArguments(preset, hostlistPath, GameFilter, BypassAllSites, DisableQuic, CoverTgProxy, forLaunch: true))
+            foreach (var a in BuildArguments(preset, hostlistPath, GameFilter, BypassAllSites, DisableQuic, CoverTgProxy, DebugLog, forLaunch: true))
                 psi.ArgumentList.Add(a);
 
             OpenLogFile(preset);

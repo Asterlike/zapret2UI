@@ -39,6 +39,11 @@ public sealed class AppSettings
     /// don't need it; turn on only if the proxy connects but keeps dropping. Needs the engine running.</summary>
     public bool TgProxyCoverage { get; set; }
 
+    /// <summary>Verbose engine log (<c>--debug=1</c>): winws2 reports per-connection decisions, which is
+    /// what you need to see WHY a desync did or didn't fire. Off by default — it is noisy, and the
+    /// Журнал buffer is capped, so ordinary startup messages scroll away faster while it is on.</summary>
+    public bool DebugLog { get; set; }
+
     /// <summary>Per-network memory: a local network fingerprint (see <see cref="NetworkFingerprint"/>) →
     /// the last strategy that ran there. Lets the app re-suggest a known-good preset when you return to
     /// a network, instead of the generic default. Keyed locally; no external calls, no IPs stored.</summary>

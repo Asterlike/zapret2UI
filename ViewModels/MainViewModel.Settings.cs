@@ -32,6 +32,13 @@ public sealed partial class MainViewModel
     private double _updateProgress;
     public double UpdateProgress { get => _updateProgress; private set => SetField(ref _updateProgress, value); }
 
+    /// <summary>True only while the engine zip is actually being fetched/installed. The progress bar
+    /// binds to THIS, not to <see cref="IsUpdating"/>: a routine "is there a newer engine?" check is
+    /// also an update operation, and showing a progress bar (holding its previous value, no less) for
+    /// a plain network check made it look like the engine re-downloads on every launch.</summary>
+    private bool _isDownloadingEngine;
+    public bool IsDownloadingEngine { get => _isDownloadingEngine; private set => SetField(ref _isDownloadingEngine, value); }
+
     private string _updateStatus = "";
     public string UpdateStatus { get => _updateStatus; private set => SetField(ref _updateStatus, value); }
 
@@ -181,6 +188,31 @@ public sealed partial class MainViewModel
             OnPropertyChanged();
             OnPropertyChanged(nameof(CommandPreview));
             if (IsRunning) _ = ApplyStrategyAsync(); // relaunch so QUIC handling changes now
+        }
+    }
+
+    /// <summary>Verbose engine log (<c>--debug=1</c>) toggled from the Журнал tab. Relaunches a running
+    /// engine, because winws2 only reads the flag at startup — without the relaunch the switch would
+    /// look like it did nothing until the next manual restart.</summary>
+    public bool DebugLog
+    {
+        get => Settings.DebugLog;
+        set
+        {
+            if (value == Settings.DebugLog) return;
+            Settings.DebugLog = value;
+            _settingsSvc.Save();
+            _engine.DebugLog = value;
+            _tgProxy.Verbose = value; // the same switch governs both panes of the Журнал tab
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(CommandPreview));
+            if (IsRunning)
+            {
+                AppendLog(value
+                    ? "Подробный режим включён (--debug=1), перезапуск движка…"
+                    : "Подробный режим выключен, перезапуск движка…");
+                _ = ApplyStrategyAsync(); // relaunch so the new log level applies
+            }
         }
     }
 

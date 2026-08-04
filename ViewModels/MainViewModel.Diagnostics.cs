@@ -358,6 +358,20 @@ public sealed partial class MainViewModel
     {
         if (IsUpdating) return;
         IsUpdating = true;
+
+        // The engine binary disappeared while its version stamp stayed behind — nothing here deletes it,
+        // so an antivirus quarantined it. Re-downloading (below) fixes today and nothing else: next
+        // launch it is gone again. Name the cause instead of silently repeating the download.
+        bool vanished = _updater.EngineBinaryVanished;
+        if (vanished)
+        {
+            AppendLog("Файл движка winws2.exe исчез, хотя он был установлен — почти наверняка его удалил "
+                    + "антивирус (ложное срабатывание). Скачиваю заново, но без исключений он удалит его "
+                    + "снова: Настройки → «Добавить в исключения».");
+            Notify?.Invoke("Антивирус удалил движок",
+                           "Скачиваю заново. Чтобы это не повторялось — Настройки → «Добавить в исключения».");
+        }
+
         try
         {
             UpdateStatus = "Проверка обновлений…";
@@ -397,6 +411,8 @@ public sealed partial class MainViewModel
                 });
                 try
                 {
+                    UpdateProgress = 0;            // never flash the previous run's fill
+                    IsDownloadingEngine = true;    // only NOW does the progress bar appear
                     await _updater.InstallAsync(latest, progress);
                 }
                 catch (Exception ex)
@@ -427,6 +443,7 @@ public sealed partial class MainViewModel
         finally
         {
             IsUpdating = false;
+            IsDownloadingEngine = false;
         }
     }
 

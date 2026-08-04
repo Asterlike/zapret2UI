@@ -1,6 +1,4 @@
-using System.Diagnostics;
 using System.IO;
-using System.Text;
 using System.Text.RegularExpressions;
 using Zapret2UI.Models;
 
@@ -23,13 +21,10 @@ public sealed class StrategyGeneratorService : IDisposable
     /// <summary>Fired with the candidate's overall score (for the live popup).</summary>
     public event Action<AutoScore>? ScoreReady;
 
-    private Process? _proc;
-    // Signalled when the running combo's winws2 reports WinDivert is attached ("…capture is started"),
-    // so probing starts the moment the engine is ready instead of after a fixed delay. Recreated per
-    // StartEngine; each process's handlers capture their own instance.
-    private TaskCompletionSource? _ready;
+    // Throwaway winws2 per combo — start, wait for WinDivert, kill. Shared with the auto-selector.
+    private readonly ProbeEngineRunner _runner = new();
 
-    public void Dispose() => StopEngine();
+    public void Dispose() => _runner.Dispose();
 
     /// <summary>One candidate building block: a named TLS-desync bundle.</summary>
     public sealed record GenBundle(string Name, string[] Tls);
@@ -331,8 +326,8 @@ public sealed class StrategyGeneratorService : IDisposable
         StartEngine(comboArgs, gameFilter);
         try
         {
-            await WaitEngineReadyAsync(ct); // wait until WinDivert is actually attached (capped at the old 1500ms)
-            bool up = _proc is { HasExited: false };
+            await _runner.WaitReadyAsync(ct); // until WinDivert is attached (capped at the old 1500ms)
+            bool up = _runner.IsAlive;
             using var gate = new SemaphoreSlim(8);
             var probes = hosts.Select(async host =>
             {
@@ -351,94 +346,14 @@ public sealed class StrategyGeneratorService : IDisposable
         }
         finally
         {
-            StopEngine();
+            _runner.Stop();
             await Task.Delay(300, CancellationToken.None);
         }
     }
 
     private void StartEngine(List<string> comboArgs, bool gameFilter)
     {
-        StopEngine(); // defensive: never leave the previous candidate's winws2 alive (two engines
-                      // would fight over WinDivert and poison every subsequent probe).
         var preset = new Preset { Name = "generator", Args = comboArgs };
-        var psi = new ProcessStartInfo
-        {
-            FileName = AppPaths.WinwsExe,
-            WorkingDirectory = AppPaths.EngineDir,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            StandardOutputEncoding = Encoding.UTF8,
-            StandardErrorEncoding = Encoding.UTF8,
-        };
-        foreach (var a in EngineService.BuildArguments(preset, null, gameFilter, forLaunch: true)) psi.ArgumentList.Add(a);
-
-        var ready = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        _ready = ready;
-        var p = new Process { StartInfo = psi, EnableRaisingEvents = true };
-        // Signal readiness on the WinDivert "capture is started" line; also unblock on early exit
-        // (bad args) so a combo whose engine dies instantly fails fast instead of waiting the cap.
-        p.OutputDataReceived += (_, e) => { if (IsWinDivertReady(e.Data)) ready.TrySetResult(); };
-        p.ErrorDataReceived += (_, e) => { if (IsWinDivertReady(e.Data)) ready.TrySetResult(); };
-        p.Exited += (_, _) => ready.TrySetResult();
-        _proc = p;
-        try
-        {
-            p.Start();
-            p.BeginOutputReadLine();
-            p.BeginErrorReadLine();
-        }
-        catch
-        {
-            StopEngine();
-            throw;
-        }
-    }
-
-    /// <summary>True for a winws2 log line that means WinDivert is attached and capturing.</summary>
-    private static bool IsWinDivertReady(string? line) =>
-        line is not null &&
-        (line.Contains("capture is started", StringComparison.OrdinalIgnoreCase) ||
-         line.Contains("windivert initialized", StringComparison.OrdinalIgnoreCase));
-
-    /// <summary>Wait until the engine reports WinDivert is attached, capped at 1500 ms (the old fixed
-    /// delay) so an absent/changed log line falls back to today's behaviour. A short settle follows so
-    /// the filter is live before probing.</summary>
-    private async Task WaitEngineReadyAsync(CancellationToken ct)
-    {
-        var ready = _ready;
-        if (ready is null)
-        {
-            await Task.Delay(1500, ct).ConfigureAwait(false);
-            return;
-        }
-        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        timeout.CancelAfter(1500); // cap = the old fixed delay → exact fallback when no ready line appears
-        try
-        {
-            await ready.Task.WaitAsync(timeout.Token).ConfigureAwait(false);
-            // Ready line seen: let WinDivert go live before probing (skipped on timeout — already waited the cap).
-            await Task.Delay(150, ct).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException) when (!ct.IsCancellationRequested) { /* no ready line within cap → behave like the old fixed 1500ms delay */ }
-    }
-
-    private void StopEngine()
-    {
-        try
-        {
-            if (_proc is { HasExited: false })
-            {
-                _proc.Kill(entireProcessTree: true);
-                _proc.WaitForExit(4000);
-            }
-        }
-        catch { }
-        finally
-        {
-            try { _proc?.Dispose(); } catch { }
-            _proc = null;
-        }
+        _runner.Start(EngineService.BuildArguments(preset, null, gameFilter, forLaunch: true));
     }
 }

@@ -123,10 +123,33 @@ internal static class TgProxyProto
         new byte[] { 0x16, 0x03, 0x01, 0x02 },
     };
 
+    /// <summary>Map the DC index a client put in its init onto a real Telegram datacentre (1..5).
+    ///
+    /// The protocol does not constrain this field, and clients are seen sending 203 (an alias for DC2).
+    /// Only the relay init we forward upstream should carry the client's raw value; EVERYTHING else —
+    /// the direct-IP table, the front blacklist, the WS hostnames and the log — must key off the real
+    /// DC. Previously the 203 fix-up lived inside <see cref="WsDomains"/> alone, so such a connection
+    /// silently skipped DC2's direct-IP fast path, got its own blacklist bucket, and printed as the
+    /// nonsensical "DC203". Anything outside 1..5 falls back to DC2 (the one with a direct IP).</summary>
+    public static int NormalizeDc(int dc)
+    {
+        if (dc == 203) return 2;
+        return dc is >= 1 and <= 5 ? dc : 2;
+    }
+
+    /// <summary>Offset Telegram Desktop adds to a DC index to mark the TEST network (10001-10003).</summary>
+    public const int TestDcOffset = 10_000;
+
+    /// <summary>True when the client asked for Telegram's TEST infrastructure. We only ever reach the
+    /// production edge, so such a connection cannot possibly authenticate — and without this check it
+    /// would fall through <see cref="NormalizeDc"/> into production DC2 and hang as an eternal
+    /// "подключение" with nothing in the journal to explain why.</summary>
+    public static bool IsTestDc(int dc) => dc - TestDcOffset is >= 1 and <= 3;
+
     /// <summary>Upstream WebSocket SNI/Host candidates for a DC (kws-N being the "media" edge).</summary>
     public static string[] WsDomains(int dc, bool isMedia)
     {
-        if (dc == 203) dc = 2;
+        dc = NormalizeDc(dc);
         return isMedia
             ? new[] { $"kws{dc}-1.web.telegram.org", $"kws{dc}.web.telegram.org" }
             : new[] { $"kws{dc}.web.telegram.org", $"kws{dc}-1.web.telegram.org" };
@@ -472,6 +495,10 @@ internal sealed class CfProxyBalancer
             _dcToDomain[dc] = _domains[_rng.Next(_domains.Length)];
     }
 
+    /// <summary>Pseudo-front under which the direct DC IP shares this cooldown store. It has no base
+    /// domain of its own, but it fails the same way (and costs the same 8 s timeout) when blocked.</summary>
+    public const string DirectKey = "direct";
+
     /// <summary>Yield the per-DC sticky domain first, then the rest shuffled — skipping any front
     /// recently seen not to relay (see <see cref="MarkBad"/>), so a client's retry rotates off it.</summary>
     public IEnumerable<string> DomainsForDc(int dc)
@@ -479,9 +506,17 @@ internal sealed class CfProxyBalancer
         _dcToDomain.TryGetValue(dc, out string? current);
         if (current is not null && IsBad(dc, current)) current = null; // rotate off a dead sticky
         if (current is not null) yield return current;
-        foreach (string d in _domains.OrderBy(_ => _rng.Next()))
-            if (d != current && !IsBad(dc, d)) yield return d;
+
+        var rest = _domains.Where(d => d != current).OrderBy(_ => _rng.Next()).ToList();
+        var fresh = rest.Where(d => !IsBad(dc, d)).ToList();
+        // A blackout cools every front down at once. Yielding nothing there would turn a temporary
+        // outage into "нет доступных адресов" with no attempt made at all — and nothing would ever
+        // clear the cooldowns, since only a real attempt can. Cooldowns are a preference, not a ban.
+        foreach (string d in fresh.Count > 0 ? fresh : rest) yield return d;
     }
+
+    /// <summary>Is this front (or <see cref="DirectKey"/>) still cooling down for this DC?</summary>
+    public bool IsCooling(int dc, string key) => IsBad(dc, key);
 
     /// <summary>Cool a front down for this DC (skip it in <see cref="DomainsForDc"/> for
     /// <paramref name="cooldownMs"/>, then it heals). Default ~2 min for a non-relaying front; callers

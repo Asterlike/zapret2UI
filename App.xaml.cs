@@ -310,6 +310,11 @@ public partial class App : Application
             sb.AppendLine("# preset: " + rec.Name);
             sb.AppendLine(EngineService.PreviewCommandLine(rec, null));
             sb.AppendLine();
+            // Same preset with the Журнал tab's verbose switch on — lets the --debug=1 flag be
+            // verified without elevation (the engine still needs admin to actually run).
+            sb.AppendLine("# with verbose log:");
+            sb.AppendLine(EngineService.PreviewCommandLine(rec, null, debugLog: true));
+            sb.AppendLine();
             sb.AppendLine($"# tgproxy-fronts.txt ({hostlists.ReadDomains("tgproxy-fronts").Count} domains):");
             sb.AppendLine(hostlists.Read("tgproxy-fronts"));
         }

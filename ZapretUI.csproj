@@ -13,7 +13,7 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <Platforms>x64</Platforms>
     <PlatformTarget>x64</PlatformTarget>
-    <Version>0.9.9</Version>
+    <Version>1.0.0</Version>
     <Product>Zapret2UI</Product>
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
     <!-- Self-contained single-file publish so the user needs nothing installed -->
@@ -21,9 +21,14 @@
     <SelfContained>true</SelfContained>
     <PublishSingleFile>true</PublishSingleFile>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
-    <!-- Compress the bundled runtime inside the single file (~35-45% smaller exe; small one-time
-         decompress on cold start). -->
-    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <!-- Compression is deliberately OFF: it trades RAM for disk at a bad rate. Uncompressed assemblies
+         are memory-MAPPED out of the exe (file-backed pages the OS can evict); compressed ones must be
+         decompressed into private memory at startup. Measured: on a minimal WPF app with these exact
+         settings compression cost +100 MB working set / +59 MB private; on THIS app it saved 93.5 MB on
+         disk (72.4 MB compressed vs 166.0 MB). So the trade is roughly 1:1 — ~94 MB of download for
+         ~100 MB of RAM. This app sits in the tray all day, so the memory side wins. Re-enable only with
+         a fresh measurement. -->
+    <EnableCompressionInSingleFile>false</EnableCompressionInSingleFile>
     <!-- NB: InvariantGlobalization is NOT usable here — WPF's own font cache
          (MS.Internal.FontCache.MajorLanguages) constructs named CultureInfo("en"/…) and throws
          CultureNotFoundException in invariant mode, crashing every text render. Verified via the
@@ -39,6 +44,12 @@
          so System.Windows.Application (WPF) is not ambiguous everywhere. -->
     <Using Remove="System.Windows.Forms" />
     <Using Remove="System.Drawing" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The protocol/parsing types worth testing (TgProxyProto, MsgSplitter, CfProxyBalancer) are
+         internal by design — this opens them to the test assembly only, and ships nothing extra. -->
+    <InternalsVisibleTo Include="Zapret2UI.Tests" />
   </ItemGroup>
 
   <ItemGroup>

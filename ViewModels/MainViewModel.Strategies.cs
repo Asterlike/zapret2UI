@@ -95,7 +95,8 @@ public sealed partial class MainViewModel
         SelectedPreset is null
             ? ""
             : EngineService.PreviewCommandLine(SelectedPreset, ActiveHostlistPath, Settings.GameFilter,
-                                               Settings.BypassAllSites, Settings.DisableQuic, Settings.TgProxyCoverage);
+                                               Settings.BypassAllSites, Settings.DisableQuic, Settings.TgProxyCoverage,
+                                               Settings.DebugLog);
 
     // ---- hostlists ---------------------------------------------------------
 

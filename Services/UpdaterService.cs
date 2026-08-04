@@ -14,7 +14,8 @@ namespace Zapret2UI.Services;
 /// <summary>
 /// Silently keeps the zapret2 engine up to date from the official GitHub releases.
 /// Downloads the release zip, verifies the Windows binaries against the release
-/// sha256sum.txt, and installs only the files we actually need.
+/// sha256sum.txt, and installs only the files we actually need. Verification is
+/// mandatory — no manifest, no install.
 /// </summary>
 public sealed class UpdaterService
 {
@@ -118,6 +119,16 @@ public sealed class UpdaterService
     }
 
     public bool IsEngineInstalled => File.Exists(AppPaths.WinwsExe);
+
+    /// <summary>
+    /// The engine was installed at some point — the version stamp is still there — but winws2.exe is
+    /// gone. Nothing in the app deletes it, so this is the signature of an antivirus quarantining the
+    /// binary (it is an unsigned DPI-bypass tool shipping a kernel driver: a classic false positive).
+    /// Without this the app just silently re-downloads the engine on every single launch, which reads
+    /// as "it downloads the engine again every time" and hides the actual problem.
+    /// </summary>
+    public bool EngineBinaryVanished =>
+        !File.Exists(AppPaths.WinwsExe) && File.Exists(AppPaths.EngineVersionFile);
 
     // ---- app (this UI) self-update check ----------------------------------
 
@@ -292,14 +303,23 @@ public sealed class UpdaterService
             await DownloadFileAsync(release.ZipUrl, zipPath, release.ZipSize, progress, ct)
                 .ConfigureAwait(false);
 
-            // 2. Pull the checksum manifest (per-binary hashes).
-            Dictionary<string, string> hashes = new(StringComparer.OrdinalIgnoreCase);
-            if (release.Sha256Url is not null)
-            {
-                progress?.Report(new UpdateProgress(UpdatePhase.Verifying, 0, "Проверка контрольных сумм…"));
-                string shaText = await _http.GetStringAsync(release.Sha256Url, ct).ConfigureAwait(false);
-                hashes = ParseSha256Sum(shaText);
-            }
+            // 2. Pull the checksum manifest (per-binary hashes). MANDATORY, not best-effort: the engine
+            //    ships an unsigned kernel driver and is launched elevated, so installing binaries we
+            //    could not verify is never the safer option. Previously a missing manifest silently
+            //    skipped verification — and that is exactly the path taken when api.github.com is
+            //    blocked and we fall back to scraping the release page.
+            if (release.Sha256Url is null)
+                throw new InvalidOperationException(
+                    $"В релизе {release.Tag} не найден sha256sum.txt — проверить целостность движка нечем, "
+                    + "установка отменена. Скачайте движок вручную со страницы релиза zapret2 "
+                    + "или повторите попытку позже.");
+
+            progress?.Report(new UpdateProgress(UpdatePhase.Verifying, 0, "Проверка контрольных сумм…"));
+            string shaText = await _http.GetStringAsync(release.Sha256Url, ct).ConfigureAwait(false);
+            var hashes = ParseSha256Sum(shaText);
+            if (hashes.Count == 0)
+                throw new InvalidOperationException(
+                    $"Манифест sha256 релиза {release.Tag} пуст или не разобран — установка отменена.");
 
             // 3. Extract only what we need into a staging folder.
             progress?.Report(new UpdateProgress(UpdatePhase.Extracting, 0, "Распаковка…"));
@@ -307,8 +327,7 @@ public sealed class UpdaterService
             ExtractNeeded(zipPath, stageDir, ct);
 
             // 4. Verify the Windows binaries against the manifest (integrity).
-            if (hashes.Count > 0)
-                VerifyBinaries(stageDir, hashes);
+            VerifyBinaries(stageDir, hashes);
 
             // 5. Move staged engine into place.
             progress?.Report(new UpdateProgress(UpdatePhase.Extracting, 0.95, "Установка…"));
@@ -356,8 +375,10 @@ public sealed class UpdaterService
         }
     }
 
-    /// <summary>Parse <c>&lt;hash&gt;␠␠&lt;path&gt;</c> lines, keyed by file name.</summary>
-    private static Dictionary<string, string> ParseSha256Sum(string text)
+    /// <summary>Parse <c>&lt;hash&gt;␠␠&lt;path&gt;</c> lines, keyed by file name. Internal (not private)
+    /// so the test suite can pin the format — this is the gate that decides whether an engine binary
+    /// is trusted, so a silent parsing regression would disable verification entirely.</summary>
+    internal static Dictionary<string, string> ParseSha256Sum(string text)
     {
         var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var rawLine in text.Split('\n'))
@@ -459,10 +480,10 @@ public sealed class UpdaterService
             if (name.Equals("winws2.exe", StringComparison.OrdinalIgnoreCase)) winwsVerified = true;
         }
 
-        // Fail closed: a manifest was provided (caller only calls us when hashes.Count > 0), so it must
-        // actually cover what we staged. Zero matches = the manifest doesn't line up with the release →
-        // we verified nothing. And if the manifest lists winws2.exe, that match is mandatory — otherwise
-        // a tampered engine binary could install just because its name wasn't a manifest key.
+        // Fail closed: a manifest is required to get here, so it must actually cover what we staged.
+        // Zero matches = the manifest doesn't line up with the release → we verified nothing. And if the
+        // manifest lists winws2.exe, that match is mandatory — otherwise a tampered engine binary could
+        // install just because its name wasn't a manifest key.
         bool manifestHasWinws = hashes.Keys.Any(k => k.EndsWith("winws2.exe", StringComparison.OrdinalIgnoreCase));
         if (verified == 0 || (manifestHasWinws && !winwsVerified))
             throw new InvalidOperationException(

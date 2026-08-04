@@ -37,6 +37,13 @@ public sealed class TelegramProxyService : IDisposable
     // (e.g. home/desktop) connection lives far longer, so this never fires there → no harm to PC users.
     private const int FlakyDeathMs = 6_000;
 
+    // A path that just failed to connect costs a full 8 s timeout per attempt, and Telegram opens many
+    // connections — so bench it briefly instead of paying that on every one of them. Both windows are
+    // preferences, never hard blocks: they heal on their own, and the pool falls back to the full list
+    // if everything is cooling (see CfProxyBalancer.DomainsForDc).
+    private const int DirectFailCooldownMs = 60_000; // direct DC IP (2 domains × 8 s = 16 s when blocked)
+    private const int FrontFailCooldownMs = 30_000;  // a Cloudflare front that didn't open
+
     private enum BridgeOutcome { Ok, DeadFront, FlakyDeath }
 
     public string Host { get; } = "127.0.0.1";
@@ -56,6 +63,18 @@ public sealed class TelegramProxyService : IDisposable
 
     /// <summary>Raised for user-facing log lines (subscriber marshals to the UI thread).</summary>
     public event Action<string>? LogLine;
+
+    /// <summary>Verbose journal, driven by the same switch as the engine's. Telegram Desktop keeps
+    /// several connections open at once and re-opens them on every network hiccup, so a line per
+    /// connection buries the events that actually mean something (a front that stopped relaying, a
+    /// failure to connect). Off by default: only notable events are logged.</summary>
+    public bool Verbose { get; set; }
+
+    /// <summary>Per-connection chatter — emitted only while <see cref="Verbose"/> is on.</summary>
+    private void LogDetail(string line)
+    {
+        if (Verbose) LogLine?.Invoke(line);
+    }
     /// <summary>Raised when <see cref="IsRunning"/> flips.</summary>
     public event Action? StateChanged;
 
@@ -64,6 +83,7 @@ public sealed class TelegramProxyService : IDisposable
     private TcpListener? _listener;
     private CancellationTokenSource? _cts;
     private bool _loggedFirstSuccess; // log "соединение установлено" once per session, not per connection
+    private int _connSeq;             // per-connection number, so open/close lines can be paired by eye
 
     /// <summary>Apply persisted port/secret before starting. A blank/invalid secret keeps the
     /// current random one; supply the persisted value so the tg:// link stays stable across runs.</summary>
@@ -151,35 +171,58 @@ public sealed class TelegramProxyService : IDisposable
                 return; // wrong secret / not an MTProto client
 
             var (dc, isMedia, protoTag, prekeyIv) = decoded.Value;
+
+            // Telegram Desktop marks the TEST network by adding 10000 to the DC index. We only ever
+            // reach the production edge, so such a connection can never authenticate — and routed into
+            // production DC2 by the NormalizeDc fallback it just hangs as an eternal "подключение" with
+            // nothing in the journal. Say what happened and drop it.
+            if (TgProxyProto.IsTestDc(dc))
+            {
+                LogLine?.Invoke($"[tg-proxy] клиент просит тестовый дата-центр (DC{dc - TgProxyProto.TestDcOffset} "
+                              + "тестовой сети Telegram) — прокси работает только с обычным Telegram. "
+                              + "Отключите тестовый режим в клиенте.");
+                return;
+            }
+
             int dcIdx = isMedia ? -dc : dc;
             uint protoInt = TgProxyProto.ProtoInt(protoTag);
+
+            // The relay init keeps the client's RAW index (that is what Telegram routes on); everything
+            // local — upstream selection, blacklist keying and the log — uses the real DC. See NormalizeDc.
+            int dcKey = TgProxyProto.NormalizeDc(dc);
 
             byte[] relayInit = TgProxyProto.GenerateRelayInit(protoTag, dcIdx);
             ctx = TgProxyProto.BuildCryptoCtx(prekeyIv, _secret, relayInit);
 
-            var up = await ConnectUpstreamAsync(dc, isMedia, ct);
+            var up = await ConnectUpstreamAsync(dcKey, isMedia, ct);
             if (up is null)
                 return; // ConnectUpstreamAsync already logged the specific cause (DNS/TCP/TLS/upgrade)
             ws = up.Value.Ws;
 
             var splitter = new MsgSplitter(relayInit, protoInt);
             await ws.SendAsync(relayInit, ct);
-            var outcome = await BridgeAsync(stream, ws, ctx, splitter, dc, ct);
+
+            // Number every bridge and log both ends of its life, so the journal can be read as pairs
+            // instead of a wall of identical "DC2" lines (see BridgeAsync's closing note).
+            int id = Interlocked.Increment(ref _connSeq);
+            LogDetail($"[tg-proxy] #{id} DC{dcKey}: открыто через {up.Value.FrontId ?? "прямой IP"}");
+
+            var outcome = await BridgeAsync(stream, ws, ctx, splitter, dcKey, id, ct);
             if (up.Value.FrontId is { } frontId)
             {
                 if (outcome == BridgeOutcome.DeadFront)
                 {
-                    _balancer.MarkBad(dc, frontId);
+                    _balancer.MarkBad(dcKey, frontId);
                     _loggedFirstSuccess = false; // let the next working path re-announce success
-                    LogLine?.Invoke($"[tg-proxy] DC{dc}: {frontId} не доводит трафик до Telegram — исключаю на время");
+                    LogLine?.Invoke($"[tg-proxy] DC{dcKey}: {frontId} не доводит трафик до Telegram — исключаю на время");
                 }
                 else if (outcome == BridgeOutcome.FlakyDeath)
                 {
                     // Relayed but the upstream killed it almost instantly (mobile TSPU/CF) — rotate off it
                     // briefly so the client's retry lands on a different front instead of churning here.
-                    _balancer.MarkBad(dc, frontId, 30_000);
+                    _balancer.MarkBad(dcKey, frontId, 30_000);
                     _loggedFirstSuccess = false;
-                    LogLine?.Invoke($"[tg-proxy] DC{dc}: {frontId} рвёт соединение сразу — пробую другой фронт");
+                    LogLine?.Invoke($"[tg-proxy] DC{dcKey}: {frontId} рвёт соединение сразу — пробую другой фронт");
                 }
             }
         }
@@ -206,8 +249,13 @@ public sealed class TelegramProxyService : IDisposable
 
         // 1) Direct DC IP (DC2/DC4): no DNS needed, but the SNI is the real telegram host → SNI-blockable.
         //    FrontId=null: the real Telegram edge either relays or is TCP-blocked, so never blacklist it.
-        if (TgProxyProto.DcRedirects.TryGetValue(dc, out string? ip))
+        //    It IS cooled down after a failed connect though: where it's blocked, both attempts hit the
+        //    full 8 s timeout, and Telegram opens connections constantly — so without this every single
+        //    one of them stalls ~16 s before the Cloudflare fallback is even tried.
+        if (TgProxyProto.DcRedirects.TryGetValue(dc, out string? ip)
+            && !_balancer.IsCooling(dc, CfProxyBalancer.DirectKey))
         {
+            int failsBefore = fails.Count;
             foreach (string domain in TgProxyProto.WsDomains(dc, isMedia))
             {
                 if (attempts++ >= MaxUpstreamAttempts) break;
@@ -215,6 +263,9 @@ public sealed class TelegramProxyService : IDisposable
                 if (r.Ok) return LogSuccess(dc, $"{ip} ({domain})", r.Ws!, null);
                 fails.Add($"{domain}: {StageText(r)}");
             }
+            // Every attempt we made failed (a success returns above) → bench the path, it heals itself.
+            if (fails.Count > failsBefore)
+                _balancer.MarkBad(dc, CfProxyBalancer.DirectKey, DirectFailCooldownMs);
         }
 
         // 2) Cloudflare-fronted domains: resolve via DoH first (bypasses ISP DNS poisoning), OS DNS second.
@@ -237,8 +288,10 @@ public sealed class TelegramProxyService : IDisposable
             var r = await TgWebSocket.ConnectAsync(host, domain, timeout, sni: domain, ct: ct);
             if (r.Ok) return LogSuccess(dc, $"{domain} ({via})", r.Ws!, baseDomain);
             // CF rate-limit (429) — common on mobile CGNAT where many users hammer the same shared
-            // domains: cool this one down and rotate, exactly like the reference does.
-            if (r.Status == 429) _balancer.MarkBad(dc, baseDomain, 45_000);
+            // domains: cool this one down and rotate, exactly like the reference does. Any other failure
+            // (TCP/TLS/upgrade) burned a full timeout, and the next connection would have picked the same
+            // sticky front and burned it again — so bench it briefly too.
+            _balancer.MarkBad(dc, baseDomain, r.Status == 429 ? 45_000 : FrontFailCooldownMs);
             fails.Add($"{domain} ({via}): {StageText(r)}");
         }
 
@@ -425,7 +478,7 @@ public sealed class TelegramProxyService : IDisposable
     /// <see cref="BridgeOutcome.FlakyDeath"/> (relayed but the upstream dropped it almost instantly), or
     /// <see cref="BridgeOutcome.Ok"/> — the caller cools the front down accordingly.</returns>
     private async Task<BridgeOutcome> BridgeAsync(NetworkStream client, TgWebSocket ws, CryptoCtx ctx,
-        MsgSplitter splitter, int dc, CancellationToken outerCt)
+        MsgSplitter splitter, int dc, int id, CancellationToken outerCt)
     {
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(outerCt);
         CancellationToken ct = linked.Token;
@@ -435,6 +488,11 @@ public sealed class TelegramProxyService : IDisposable
         int clientClosed = 0;   // set to 1 when the CLIENT closes gracefully (r==0) — not an upstream drop
         bool deadFront = false; // client spoke but Telegram never answered → front upgraded but doesn't relay
         long startTick = Environment.TickCount64;
+
+        // Who ended the bridge — first writer wins, because whoever finished first is the actual cause and
+        // everyone else is just unwinding from its linked.Cancel().
+        string? endCause = null;
+        void EndedBy(string cause) => Interlocked.CompareExchange(ref endCause, cause, null);
 
         async Task ClientToTg()
         {
@@ -448,6 +506,7 @@ public sealed class TelegramProxyService : IDisposable
                     if (r == 0)
                     {
                         Volatile.Write(ref clientClosed, 1); // client hung up gracefully — not an upstream kill
+                        EndedBy("Telegram Desktop закрыл соединение");
                         var tail = splitter.Flush();
                         if (tail.Count > 0) await ws.SendAsync(tail[0], ct);
                         break;
@@ -461,7 +520,8 @@ public sealed class TelegramProxyService : IDisposable
                     else await ws.SendAsync(parts[0], ct);
                 }
             }
-            catch { /* falls through to cancel the peer loop */ }
+            catch (OperationCanceledException) { /* the peer loop ended first — it owns the cause */ }
+            catch { EndedBy("обрыв на стороне Telegram Desktop"); }
             finally { linked.Cancel(); }
         }
 
@@ -472,9 +532,9 @@ public sealed class TelegramProxyService : IDisposable
                 while (true)
                 {
                     byte[]? data = await ws.RecvAsync(ct);
-                    if (data is null) break;
+                    if (data is null) { EndedBy("Telegram закрыл канал"); break; }
                     if (Interlocked.Exchange(ref tgResponded, 1) == 0)
-                        LogLine?.Invoke($"[tg-proxy] DC{dc}: пошли данные — держу соединение");
+                        LogDetail($"[tg-proxy] #{id} DC{dc}: трафик пошёл");
                     Volatile.Write(ref lastActivity, Environment.TickCount64);
                     byte[] plain = ctx.TgDec.Update(data);
                     byte[] enc = ctx.CltEnc.Update(plain);
@@ -482,7 +542,8 @@ public sealed class TelegramProxyService : IDisposable
                     await client.FlushAsync(ct);
                 }
             }
-            catch { /* falls through to cancel the peer loop */ }
+            catch (OperationCanceledException) { /* the peer loop ended first — it owns the cause */ }
+            catch { EndedBy("обрыв канала до Telegram"); }
             finally { linked.Cancel(); }
         }
 
@@ -497,6 +558,7 @@ public sealed class TelegramProxyService : IDisposable
             {
                 while (Environment.TickCount64 - Volatile.Read(ref lastActivity) <= IdleTimeoutMs)
                     await Task.Delay(IdlePollMs, ct);
+                EndedBy($"молчало {IdleTimeoutMs / 60_000} мин");
             }
             catch { /* cancelled */ }
             finally { linked.Cancel(); }
@@ -517,6 +579,7 @@ public sealed class TelegramProxyService : IDisposable
                     if (spoke != 0 && Environment.TickCount64 - spoke > FirstResponseMs)
                     {
                         deadFront = true;
+                        EndedBy("фронт не довёл трафик до Telegram");
                         linked.Cancel(); // ONLY a genuinely dead front tears the bridge down
                         return;
                     }
@@ -529,11 +592,22 @@ public sealed class TelegramProxyService : IDisposable
 
         long lifeMs = Environment.TickCount64 - startTick;
         bool relayed = Volatile.Read(ref tgResponded) != 0;
+        bool stopping = outerCt.IsCancellationRequested; // we tore it down ourselves — nobody is at fault
         // Lifetime of a connection that actually flowed — the churn tell: sub-second repeatedly = still
-        // torn down early; long/rare = healthy. (Silent/failed connections aren't logged to avoid spam.)
+        // torn down early; long/rare = healthy. Verbose-only, and always tagged with the connection
+        // number: Telegram Desktop keeps ~4-8 connections open and re-opens them all on any network
+        // change, so these lines arrive interleaved with the OPEN lines of the fresh connections. Without
+        // the number the pair "открыто … закрыто через 45 с" reads as if a connection that just opened
+        // claimed a 45-second life, when in fact the two lines belong to different connections.
         if (relayed)
-            LogLine?.Invoke($"[tg-proxy] DC{dc}: соединение закрыто через {lifeMs / 1000.0:0.0}с");
+        {
+            string cause = stopping ? "остановка прокси" : endCause ?? "разрыв";
+            LogDetail($"[tg-proxy] #{id} DC{dc}: закрыто через {lifeMs / 1000.0:0.0} с — {cause}");
+        }
 
+        // Stopping the proxy kills every bridge at once; without this guard those look exactly like an
+        // upstream that drops connections instantly, and Stop would blacklist a pile of healthy fronts.
+        if (stopping) return BridgeOutcome.Ok;
         if (deadFront) return BridgeOutcome.DeadFront;
         // Relayed, lived < FlakyDeathMs, and the CLIENT didn't close it → the upstream dropped it fast.
         if (relayed && Volatile.Read(ref clientClosed) == 0 && lifeMs < FlakyDeathMs) return BridgeOutcome.FlakyDeath;

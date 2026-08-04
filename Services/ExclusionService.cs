@@ -57,10 +57,7 @@ public sealed class ExclusionService
     {
         var (code, output) = await RunAsync("powershell.exe", new[]
         {
-            "-NoProfile", "-NonInteractive", "-Command",
-            // -ErrorAction Stop makes a failure (Defender off / third-party AV) terminating, so
-            // powershell.exe exits non-zero and we report it honestly instead of a false success.
-            $"Add-MpPreference -ExclusionPath '{PsQuote(path)}' -ErrorAction Stop",
+            "-NoProfile", "-NonInteractive", "-Command", DefenderAddAndVerify("ExclusionPath", path),
         });
         return Note(log, code == 0, $"Defender · папка «{path}»", output);
     }
@@ -69,11 +66,27 @@ public sealed class ExclusionService
     {
         var (code, output) = await RunAsync("powershell.exe", new[]
         {
-            "-NoProfile", "-NonInteractive", "-Command",
-            $"Add-MpPreference -ExclusionProcess '{PsQuote(exe)}' -ErrorAction Stop",
+            "-NoProfile", "-NonInteractive", "-Command", DefenderAddAndVerify("ExclusionProcess", exe),
         });
         return Note(log, code == 0, $"Defender · процесс «{System.IO.Path.GetFileName(exe)}»", output);
     }
+
+    /// <summary>
+    /// Add a Defender exclusion AND read it back to confirm it stuck.
+    ///
+    /// A zero exit code from <c>Add-MpPreference</c> is NOT proof: with Tamper Protection on (default
+    /// on Windows 11), or under a third-party AV / MDM policy, the call can report success while the
+    /// exclusion is quietly dropped — and the engine keeps getting quarantined while the app claims
+    /// "✓ добавлено". <c>-ErrorAction Stop</c> turns a real failure into a non-zero exit; the read-back
+    /// catches the silent case. Paths are compared case-insensitively, ignoring a trailing backslash,
+    /// because Defender normalises what it stores.
+    /// </summary>
+    private static string DefenderAddAndVerify(string kind, string value) =>
+        $"$v = '{PsQuote(value)}'; " +
+        $"Add-MpPreference -{kind} $v -ErrorAction Stop; " +
+        $"$cur = @((Get-MpPreference -ErrorAction Stop).{kind}); " +
+        "if (-not ($cur | Where-Object { $_ -and $_.TrimEnd('\\') -ieq $v.TrimEnd('\\') })) " +
+        "{ throw 'Windows не сохранил исключение (Tamper Protection или политика антивируса)' }";
 
     private static async Task<bool> FirewallAllowAsync(string name, string exe, List<string> log)
     {

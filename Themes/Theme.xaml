@@ -660,6 +660,44 @@
         </Setter>
     </Style>
 
+    <!-- ================= Compact on/off chip (ToggleButton) =================
+         A small monospace pill that keeps the badge look but reads as a control:
+         accent border + tinted fill when on. Used for the verbose-log switch on
+         the Журнал tab. -->
+    <Style x:Key="ChipToggle" TargetType="ToggleButton">
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="FontFamily" Value="{StaticResource MonoFont}"/>
+        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="Foreground" Value="{StaticResource Muted2Brush}"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderBrush" Value="{StaticResource BorderBrush2}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ToggleButton">
+                    <Border x:Name="Chip" CornerRadius="6" Padding="7,2" SnapsToDevicePixels="True"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1">
+                        <ContentPresenter VerticalAlignment="Center"
+                                          TextElement.FontFamily="{StaticResource MonoFont}"
+                                          TextElement.FontSize="11"
+                                          TextElement.Foreground="{TemplateBinding Foreground}"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Chip" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                            <Setter Property="Foreground" Value="{StaticResource FgBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Chip" Property="Background" Value="{StaticResource AccentSoftBrush}"/>
+                            <Setter TargetName="Chip" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                            <Setter Property="Foreground" Value="{StaticResource AccentBrush}"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- ====================== Toggle switch (CheckBox) ====================== -->
     <Style x:Key="ToggleSwitch" TargetType="CheckBox">
         <Setter Property="Foreground" Value="{StaticResource FgBrush}"/>
