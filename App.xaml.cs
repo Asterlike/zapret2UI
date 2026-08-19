@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using Zapret2UI.Localization;
 using Zapret2UI.Services;
 using Zapret2UI.ViewModels;
 
@@ -18,6 +19,26 @@ public partial class App : Application
         DispatcherUnhandledException += OnDispatcherUnhandledException;
         AppDomain.CurrentDomain.UnhandledException += (_, args) =>
             WriteFatal(args.ExceptionObject as Exception);
+
+        // Language relaunch gate (see RelaunchSelf): a copy started by the language switch carries
+        // `--awaitpid <old>` and waits for the previous copy to exit before going on, so the
+        // single-instance mutex below is free by the time it is checked. Not a one-shot mode — it
+        // just holds, then falls through to a normal startup in the newly-chosen language.
+        int wi = Array.FindIndex(e.Args, a => a.Equals("--awaitpid", StringComparison.OrdinalIgnoreCase));
+        if (wi >= 0 && wi + 1 < e.Args.Length && int.TryParse(e.Args[wi + 1], out int waitPid))
+        {
+            try { using var prev = System.Diagnostics.Process.GetProcessById(waitPid); prev.WaitForExit(5000); }
+            catch { /* already gone — nothing to wait for */ }
+        }
+
+        // UI language: chosen once, before any window is parsed (the XAML {loc:Loc …} extension resolves
+        // at parse time). Restart-to-apply, so a plain read here is enough. A `--lang ru|en` argument
+        // overrides the saved setting — used by the screenshot harness to render either language without
+        // touching settings.json. Best-effort — a settings read failure just leaves the app on Russian.
+        string? langArg = null;
+        int li = Array.FindIndex(e.Args, a => a.Equals("--lang", StringComparison.OrdinalIgnoreCase));
+        if (li >= 0 && li + 1 < e.Args.Length) langArg = e.Args[li + 1];
+        try { Loc.Init(langArg ?? new SettingsService().Settings.Language); } catch { Loc.Init(langArg); }
 
         // Screenshot harness: `Zapret2UI.exe --screenshot <outDir>` renders each tab to PNG and exits
         // (used to regenerate docs/*.png without a manual desktop capture). Needs no admin, so flip the
@@ -86,7 +107,7 @@ public partial class App : Application
         catch (Exception ex)
         {
             WriteFatal(ex);
-            MessageBox.Show(ex.ToString(), "Zapret UI — критическая ошибка запуска",
+            MessageBox.Show(ex.ToString(), Loc.T("Zapret UI — критическая ошибка запуска"),
                 MessageBoxButton.OK, MessageBoxImage.Error);
             Shutdown(1);
         }
@@ -190,6 +211,29 @@ public partial class App : Application
         _surfaceSignal?.Dispose();
         _instanceMutex?.Dispose();   // closing the handle releases the mutex for the next launch
         base.OnExit(e);
+    }
+
+    /// <summary>
+    /// Restart-to-apply for the language switch: start a fresh copy that waits for THIS one to exit, then
+    /// shut down. <c>UseShellExecute=false</c> makes the child inherit our already-elevated token with no
+    /// second UAC prompt; its <c>--awaitpid</c> gate holds it until our single-instance mutex is released
+    /// on exit (otherwise the child would see the slot taken and just re-surface us). The language itself
+    /// is persisted by the caller before this runs.
+    /// </summary>
+    public static void RelaunchSelf()
+    {
+        try
+        {
+            string? exe = Environment.ProcessPath;
+            if (exe is not null)
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(exe)
+                {
+                    UseShellExecute = false,
+                    Arguments = "--awaitpid " + Environment.ProcessId,
+                });
+        }
+        catch (Exception ex) { WriteFatal(ex); }
+        finally { Current.Shutdown(0); }
     }
 
     private async Task RunScreenshotsAsync(string outDir)
@@ -354,7 +398,7 @@ public partial class App : Application
     private void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
     {
         WriteFatal(e.Exception);
-        MessageBox.Show(e.Exception.Message, "Zapret UI — ошибка",
+        MessageBox.Show(e.Exception.Message, Loc.T("Zapret UI — ошибка"),
             MessageBoxButton.OK, MessageBoxImage.Error);
         e.Handled = true;
     }

@@ -2,6 +2,7 @@
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Data;
+using Zapret2UI.Localization;
 using Zapret2UI.Models;
 using Zapret2UI.Mvvm;
 using Zapret2UI.Services;
@@ -32,6 +33,8 @@ public sealed partial class MainViewModel
                 OnPropertyChanged(nameof(IsStrategyChangePending));
                 OnPropertyChanged(nameof(RunStatusText));
                 OnPropertyChanged(nameof(CanStart));
+                OnPropertyChanged(nameof(SelectedPresetOrHint));
+                OnPropertyChanged(nameof(ApplyPillText));
                 RaiseCommandStates();
             }
         }
@@ -56,6 +59,7 @@ public sealed partial class MainViewModel
             if (SetField(ref _runningPreset, value))
             {
                 OnPropertyChanged(nameof(RunningPresetName));
+                OnPropertyChanged(nameof(RunningPresetLine));
                 OnPropertyChanged(nameof(IsStrategyChangePending));
                 OnPropertyChanged(nameof(RunStatusText));
                 RaiseCommandStates();
@@ -65,6 +69,25 @@ public sealed partial class MainViewModel
 
     public string RunningPresetName => RunningPreset?.Name ?? "—";
 
+    // Localized text for XAML spots that can't use the {loc:Loc} markup extension directly: a binding
+    // StringFormat / FallbackValue carrying Russian, or a literal that contains a brace ({0}, {IPSET}).
+    // These route through Loc.T instead. Change-notified alongside the values they depend on.
+
+    /// <summary>Caption-bar apply pill: "Применить: &lt;preset&gt;". The name is translated too.</summary>
+    public string ApplyPillText => Loc.T("Применить: {0}", Loc.T(SelectedPreset?.Name ?? ""));
+
+    /// <summary>Selected preset name (translated for display), or the hint shown when none is selected.</summary>
+    public string SelectedPresetOrHint =>
+        SelectedPreset is { } p ? Loc.T(p.Name) : Loc.T("Выберите пресет");
+
+    /// <summary>Running-strategy line under the state badge on the Стратегии tab.</summary>
+    public string RunningPresetLine =>
+        Loc.T("Сейчас включён: {0}. Смена стратегии требует перезапуска движка.",
+              RunningPreset is { } rp ? Loc.T(rp.Name) : RunningPresetName);
+
+    /// <summary>Selected hostlist name, or the hint shown when none is selected.</summary>
+    public string SelectedHostlistOrHint => SelectedHostlist ?? Loc.T("Выберите или создайте список");
+
     /// <summary>True when the engine runs one preset but the user has selected a different one.</summary>
     public bool IsStrategyChangePending =>
         IsRunning && RunningPreset is not null && SelectedPreset is not null
@@ -73,8 +96,8 @@ public sealed partial class MainViewModel
     /// <summary>Sub-line under the state badge: what is ENABLED (running), not just selected.</summary>
     public string RunStatusText =>
         IsRunning
-            ? $"Включён: {RunningPresetName}"
-            : SelectedPreset is null ? "пресет не выбран" : $"Выбран: {SelectedPreset.Name}";
+            ? Loc.T("Включён: {0}", Loc.T(RunningPresetName))
+            : SelectedPreset is null ? Loc.T("пресет не выбран") : Loc.T("Выбран: {0}", Loc.T(SelectedPreset.Name));
 
     /// <summary>Args of the selected preset, one per line, for editing.</summary>
     public string PresetArgsText
@@ -112,6 +135,7 @@ public sealed partial class MainViewModel
                 _settingsSvc.Save();
                 HostlistContent = value is null ? "" : _hostlists.Read(value);
                 OnPropertyChanged(nameof(CommandPreview));
+                OnPropertyChanged(nameof(SelectedHostlistOrHint));
                 RaiseCommandStates();
             }
         }

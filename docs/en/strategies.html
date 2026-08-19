@@ -1,0 +1,722 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Strategies explained — Zapret2UI documentation</title>
+<meta name="description" content="All nine built-in Zapret2UI strategies line by line: the shared skeleton, what every argument does, and which strategy to reach for with which symptom.">
+<link rel="icon" href="../assets/logo.png">
+<link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+
+<header class="topbar">
+  <a class="brand" href="index.html">
+    <img src="../assets/logo.png" alt="" width="26" height="26">
+    <span>Zapret2UI</span>
+  </a>
+  <nav class="topnav">
+    <a href="how-it-works.html">How it works</a>
+    <a href="quickstart.html">Quick start</a>
+    <a href="interface.html">Interface</a>
+    <a href="strategies.html" aria-current="page">Strategies</a>
+    <a href="reference.html">Reference</a>
+    <a href="troubleshooting.html">Troubleshooting</a>
+  </nav>
+  <div class="topbar-tools">
+    <div class="lang-switch" role="group" aria-label="Page language">
+      <span class="lang-opt is-current" lang="en" aria-current="true">EN</span>
+      <a class="lang-opt" href="../strategies.html" hreflang="ru" lang="ru" title="Читать по-русски">RU</a>
+    </div>
+    <button class="search-btn" data-search-open type="button">
+      <span>Search the docs</span>
+      <kbd>Ctrl K</kbd>
+    </button>
+    <button class="icon-btn theme-btn" data-theme-toggle type="button" aria-label="Switch theme">Dark</button>
+    <a class="icon-btn" href="https://github.com/Asterlike/zapret2UI" title="GitHub repository" aria-label="GitHub repository">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+    </a>
+  </div>
+</header>
+
+<div class="shell">
+
+  <aside class="sidebar">
+    <details class="sidebar-inner" open>
+      <summary>Sections</summary>
+      <h5>Start here</h5>
+      <ul>
+        <li><a href="index.html">Documentation overview</a></li>
+        <li><a href="how-it-works.html">How it works</a></li>
+        <li><a href="quickstart.html">Quick start</a></li>
+      </ul>
+      <h5>The program</h5>
+      <ul>
+        <li><a href="interface.html">Interface</a></li>
+        <li><a href="strategies.html" aria-current="page">Strategies explained</a></li>
+      </ul>
+      <h5>Advanced</h5>
+      <ul>
+        <li><a href="reference.html">Reference</a></li>
+        <li><a href="troubleshooting.html">Troubleshooting</a></li>
+      </ul>
+      <h5>Project</h5>
+      <ul>
+        <li><a href="support.html">Support</a></li>
+        <li><a href="credits.html">Credits</a></li>
+      </ul>
+    </details>
+  </aside>
+
+  <nav class="toc">
+    <p>On this page</p>
+    <ul>
+      <li><a href="#skelet">The shared skeleton</a></li>
+      <li><a href="#globalnaya">The global part</a></li>
+      <li><a href="#profili">Seven profiles</a></li>
+      <li><a href="#rekomenduemyy">Combo (recommended)</a></li>
+      <li><a href="#vk">Domestic (VK)</a></li>
+      <li><a href="#alt10">Flowseal ALT10</a></li>
+      <li><a href="#alt11">Flowseal ALT11</a></li>
+      <li><a href="#seqovl">Flowseal (multisplit)</a></li>
+      <li><a href="#alt">Flowseal ALT</a></li>
+      <li><a href="#wssize">Window (wssize)</a></li>
+      <li><a href="#golos">Discord voice</a></li>
+      <li><a href="#circular">Adaptive</a></li>
+      <li><a href="#kakuyu-brat">Which one to take</a></li>
+    </ul>
+  </nav>
+
+  <main class="doc">
+
+    <div class="page-head">
+      <p class="kicker">The program</p>
+      <h1>Strategies explained</h1>
+      <p class="lede">All nine built-in strategies line by line: what every argument does, what it is responsible for, and why it is assembled this way rather than another.</p>
+    </div>
+
+    <p>A strategy in Zapret2UI is a list of arguments for the <code>winws2</code> engine. Each built-in one
+      is broken down below. If the words "fake", "split" and "fooling" are unfamiliar, read
+      <a href="how-it-works.html">How it works</a> first. The formal description of every verb and
+      parameter is in the <a href="reference.html">Reference</a>.</p>
+
+    <div class="note">
+      <p>All the built-in strategies are made from configurations proven in practice, including
+        translations of the <a href="https://github.com/Flowseal/zapret-discord-youtube">Flowseal</a> set
+        onto the second-generation engine. They are reliable starting points but <b>not a guarantee</b>:
+        with your provider any of them, or none, may work. That is exactly why the program has selection
+        and generation.</p>
+    </div>
+
+    <h2 id="skelet">The shared skeleton</h2>
+
+    <p>The seven strategies prefixed "Combo" are built the same way and differ <b>only in the techniques
+      used for TLS</b>. Everything else is shared: the same capture width, the same blobs, the same
+      profiles for QUIC and voice. Understanding the skeleton once saves you from taking each one apart
+      again.</p>
+
+    <p>The key idea of a combo is <b>routing by site name</b>. Discord, YouTube and all other traffic go
+      through <i>different</i> techniques within one command. That matters because what punches through for
+      Discord often does not suit YouTube, and the other way round. It used to mean switching between
+      strategies; now one is enough.</p>
+
+    <h3 id="globalnaya">The global part</h3>
+
+    <p>Everything before the first <code>--new</code> applies to the whole command.</p>
+
+<pre><code><span class="t-flag">--wf-tcp-out</span>=<span class="t-num">80,443-65535</span>
+<span class="t-flag">--wf-udp-out</span>=<span class="t-num">443,19294-19344,50000-65535</span>
+<span class="t-flag">--ctrack-disable</span>=<span class="t-num">0</span>
+<span class="t-flag">--ipcache-lifetime</span>=<span class="t-num">8400</span>
+<span class="t-flag">--ipcache-hostname</span>=<span class="t-num">1</span>
+<span class="t-flag">--lua-init</span>=fake_default_tls = tls_mod(fake_default_tls,'rnd,rndsni')
+<span class="t-flag">--blob</span>=tls_google:@{FILES}\fake\tls_clienthello_www_google_com.bin
+<span class="t-flag">--blob</span>=tls_vk:@{FILES}\fake\tls_clienthello_vk_com.bin
+<span class="t-flag">--blob</span>=tls_sber:@{FILES}\fake\tls_clienthello_sberbank_ru.bin
+<span class="t-flag">--blob</span>=tls_gos:@{FILES}\fake\tls_clienthello_gosuslugi_ru.bin
+<span class="t-flag">--blob</span>=quic_google:@{FILES}\fake\quic_initial_www_google_com.bin
+<span class="t-flag">--blob</span>=quic_vk:@{FILES}\fake\quic_initial_vk_com.bin
+<span class="t-flag">--wf-raw-part</span>=@{WF}\windivert_part.stun.txt
+<span class="t-flag">--wf-raw-part</span>=@{WF}\windivert_part.quic_initial_ietf.txt</code></pre>
+
+    <dl class="why">
+      <dt>--wf-tcp-out</dt>
+      <dd>The TCP capture width. Not just 443: Discord media and attachments travel on <b>high ports</b>,
+        and a profile that catches 443 alone loses half the service. Ports are listed comma-separated in
+        <b>one</b> flag; specifying it again overwrites the previous value.</dd>
+
+      <dt>--wf-udp-out</dt>
+      <dd>The same for UDP: 443 for QUIC plus the Discord voice range. The game filter in Settings widens
+        this to all high ports.</dd>
+
+      <dt>--ipcache-hostname</dt>
+      <dd>Enables remembering the site name for an address. Mandatory for techniques such as
+        <code>wssize</code> that fire <b>before</b> the site name appears in the stream at all, and
+        otherwise have no idea who to apply to.</dd>
+
+      <dt>--blob</dt>
+      <dd>Gives a short name to a file containing a ready-made ClientHello. From then on techniques simply
+        write <code>blob=tls_google</code>. The <code>tls_vk</code> and <code>quic_vk</code> blobs are real
+        client hellos from <code>vk.com</code>. The point is that TSPU lets domestic traffic through more
+        freely, so a "VK-flavoured" fake sometimes survives where a "Google-flavoured" one is cut.</dd>
+
+      <dt>--wf-raw-part</dt>
+      <dd>Attaches ready-made pieces of the capture filter for STUN and for the first QUIC packet. Without
+        them Discord voice and HTTP/3 never enter processing at all.</dd>
+    </dl>
+
+    <h3 id="profili">Seven profiles</h3>
+
+    <p>The command then splits into profiles: each begins with <code>--new</code> and describes who to
+      apply to and what to do. The order is the same in every combo.</p>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th>Profile</th><th>What it catches</th><th>What it does</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><b>1. Discord TLS</b></td>
+            <td><code>--filter-tcp=443-65535 --filter-l7=tls</code> plus the Discord domain list</td>
+            <td>Login, gateway, media. This is where the technique that differs between strategies sits.</td>
+          </tr>
+          <tr>
+            <td><b>2. YouTube TLS</b></td>
+            <td>The same, but with the YouTube and Google domain list</td>
+            <td>The site and the video. Its own technique, usually different from Discord's.</td>
+          </tr>
+          <tr>
+            <td><b>3. Other TLS</b></td>
+            <td>Everything else, <b>except</b> the exclusion list</td>
+            <td>The fallback for everything else. The exclusions protect banks, government services and the
+              like from interference.</td>
+          </tr>
+          <tr>
+            <td><b>4. QUIC YouTube</b></td>
+            <td><code>--filter-udp=443-65535 --filter-l7=quic</code>, the YouTube list</td>
+            <td>A fake with a QUIC blob, <code>repeats=11</code>.</td>
+          </tr>
+          <tr>
+            <td><b>5. QUIC Discord</b></td>
+            <td>The same, the Discord list</td>
+            <td>A separate profile is needed for attachments and the CDN, which use HTTP/3.</td>
+          </tr>
+          <tr>
+            <td><b>6. QUIC other</b></td>
+            <td>Everything else, except the exclusions</td>
+            <td>A fake with the standard blob.</td>
+          </tr>
+          <tr>
+            <td><b>7. Discord voice</b></td>
+            <td><code>--filter-udp=19294-19344,50000-65535 --filter-l7=discord,stun</code></td>
+            <td>A separate technique for voice. Explained below.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>In the TLS profiles, two "sticky" flags always come before the technique:</p>
+
+    <dl class="why">
+      <dt>--payload=tls_client_hello</dt>
+      <dd>Restricts firing to the first packet of the handshake. Without it the technique would apply to
+        every packet in a row and break the connection.</dd>
+      <dt>--out-range=-d10</dt>
+      <dd>Restricts the effect to the first outgoing data packets. Further along the connection the engine
+        does not interfere.</dd>
+    </dl>
+
+    <div class="note warn">
+      <p>These flags are <b>sticky</b>: they apply from where they are written until they are overridden, so
+        they must come <i>before</i> the <code>--lua-desync</code> they affect. Swapping them around
+        changes behaviour silently, with no error.</p>
+    </div>
+
+    <h3 id="golos-obshchiy">The voice profile</h3>
+
+    <p>It is the same in every combo except ALT10 and ALT11, and deserves its own explanation, because the
+      logic here is inverted.</p>
+
+<pre><code><span class="t-flag">--filter-udp</span>=<span class="t-num">19294-19344,50000-65535</span> <span class="t-flag">--filter-l7</span>=discord,stun
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">fake</span>:blob=quic_google:ip_autottl=<span class="t-num">-2,3-20</span>:ip6_autottl=<span class="t-num">-2,3-20</span>:repeats=<span class="t-num">2</span></code></pre>
+
+    <dl class="why">
+      <dt>the port range</dt>
+      <dd>The whole high range, not a narrow 50000 to 50100. A narrow range missed half the voice servers,
+        which produced a permanent ping of 5000.</dd>
+
+      <dt>blob=quic_google</dt>
+      <dd>A packet is mixed into the voice stream that is <b>junk</b> as far as that stream is concerned.
+        The server discards it without parsing, so the voice stream's numbering is not corrupted and no
+        routing error occurs. The fake here exists purely for the DPI.</dd>
+
+      <dt>ip_autottl</dt>
+      <dd>The fake dies on the way and never reaches the server. Thanks to that the provider sees "noise"
+        and does not throttle the stream, while the real voice runs without a speed limit.</dd>
+
+      <dt>repeats=2</dt>
+      <dd>A very light touch. Voice is sensitive to latency, and a large number of repeats hurts more than
+        it helps.</dd>
+    </dl>
+
+    <h2>The strategies</h2>
+
+    <p>What follows are the strategies themselves, in the order you should try them by hand. Only the TLS
+      technique block is shown: everything else comes from the skeleton above.</p>
+
+    <!-- 1 -->
+    <div class="anatomy" id="rekomenduemyy">
+      <header>
+        <h3>Combo (recommended)</h3>
+        <span class="badge rec">default</span>
+        <span class="tagline">The general-purpose one, start here</span>
+      </header>
+      <div class="anatomy-body">
+<pre><code><span class="t-cmt"># Discord and all other TLS</span>
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">hostfakesplit</span>:host=www.google.com:tcp_ts=<span class="t-num">-1000</span>:tcp_md5:repeats=<span class="t-num">4</span>
+
+<span class="t-cmt"># YouTube and Google</span>
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">fake</span>:blob=tls_google:tcp_md5:tcp_seq=<span class="t-num">-10000</span>:repeats=<span class="t-num">6</span>
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">multidisorder</span>:pos=<span class="t-num">1,midsld</span></code></pre>
+
+        <dl class="why">
+          <dt>hostfakesplit</dt>
+          <dd>Cuts the packet <b>exactly on the site name</b> and substitutes a false name of the same
+            length. The main consequence: the technique adapts to <b>any</b> ClientHello size. That is why
+            it gets you not only to the Discord login page but also to the gateway, whose client hello is a
+            different size. Strategies with a fixed overlap stumble here: login goes through, but there is
+            no connection to the servers.</dd>
+
+          <dt>host=www.google.com</dt>
+          <dd>The name substituted for the real one. Harmless and certainly not blocked.</dd>
+
+          <dt>tcp_ts=-1000</dt>
+          <dd>The fake gets an older timestamp and is discarded on the server side by the PAWS mechanism.
+            The value must be <b>negative</b>: with a positive one it is the real packet that gets
+            discarded, not the fake.</dd>
+
+          <dt>tcp_md5</dt>
+          <dd>A second way to kill the fake, in case timestamps do not work. Chosen over
+            <code>badsum</code> because it is <b>safe behind a home NAT</b>: the router does not drop such
+            a packet in advance.</dd>
+
+          <dt>repeats=4</dt>
+          <dd>The fake is sent four times. The more repeats, the higher the chance the DPI notices it and
+            remembers the connection as allowed.</dd>
+
+          <dt>fake + multidisorder</dt>
+          <dd>For YouTube the combination is different: first a fake ClientHello, then the real one, cut up
+            and sent in reverse order. One technique usually does not punch through here; it is the
+            combination that works.</dd>
+
+          <dt>pos=1,midsld</dt>
+          <dd>Two cut points: right after the first byte, and in the middle of the second-level domain. The
+            second marker is mandatory: the engine strips <code>pos=1</code> on its own, and the technique
+            becomes a no-op.</dd>
+        </dl>
+
+        <p><b>When to use it.</b> Always first. It is enabled by default and settles the question with most
+          providers.</p>
+      </div>
+    </div>
+
+    <!-- 2 -->
+    <div class="anatomy" id="vk">
+      <header>
+        <h3>Combo, domestic (VK, targeted)</h3>
+        <span class="tagline">Disguised as VK</span>
+      </header>
+      <div class="anatomy-body">
+<pre><code><span class="t-cmt"># Discord and other TLS</span>
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">hostfakesplit</span>:host=vk.com:tcp_ts=<span class="t-num">-1000</span>:tcp_md5:repeats=<span class="t-num">4</span>
+
+<span class="t-cmt"># YouTube: unchanged, as in the recommended one</span></code></pre>
+
+        <dl class="why">
+          <dt>host=vk.com</dt>
+          <dd>The only difference from the recommended strategy. TSPU treats domestic traffic more gently,
+            and a "VK-flavoured" fake gets through where a "Google-flavoured" one is cut. This is a marked
+            trend of recent years: other sets use Ozon or Sber's cloud for the same purpose.</dd>
+
+          <dt>YouTube stays on the google fake</dt>
+          <dd>Deliberately. A "VK-flavoured" fake is no good for Google's video servers: what is needed
+            there is an ordinary working profile, and substituting the domain only gets in the way.</dd>
+        </dl>
+
+        <p><b>When to use it.</b> Right after the recommended one, especially in the characteristic case:
+          diagnostics is all green and Discord still will not open.</p>
+      </div>
+    </div>
+
+    <!-- 3 -->
+    <div class="anatomy" id="alt10">
+      <header>
+        <h3>Combo, Flowseal ALT10 (double fake + ts)</h3>
+        <span class="tagline">When voice and media do not work</span>
+      </header>
+      <div class="anatomy-body">
+<pre><code><span class="t-cmt"># Discord and other TLS: two fakes in a row</span>
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">fake</span>:blob=tls_google:tcp_ts=<span class="t-num">-1000</span>:repeats=<span class="t-num">6</span>
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">fake</span>:blob=tls_vk:tcp_ts=<span class="t-num">-1000</span>:repeats=<span class="t-num">6</span>
+
+<span class="t-cmt"># YouTube</span>
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">fake</span>:blob=tls_google:tcp_ts=<span class="t-num">-1000</span>:ip_id=zero:repeats=<span class="t-num">6</span>
+
+<span class="t-cmt"># voice: the domestic blob instead of google</span>
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">fake</span>:blob=quic_vk:repeats=<span class="t-num">6</span></code></pre>
+
+        <dl class="why">
+          <dt>no splitting at all</dt>
+          <dd>The real packet is not touched in any way. All the work is done by fakes. That is exactly why
+            this strategy often fixes media and voice: splitting sometimes only gets you into login, while
+            further connections behave differently and break.</dd>
+
+          <dt>two fakes in a row</dt>
+          <dd>First a "Google" one, then a "VK" one right behind it. The bet is that at least one of the two
+            suits that particular box. Cheap insurance: the surplus fake dies on the way regardless.</dd>
+
+          <dt>tcp_ts only</dt>
+          <dd>The single mechanism killing the fake. An important consequence follows: the strategy
+            <b>depends entirely</b> on TCP timestamps being enabled. The program enables them itself for
+            the session, but if it did not, the strategy would silently do nothing.</dd>
+
+          <dt>ip_id=zero</dt>
+          <dd>Zeroes the identifier field in the fake's IP header. An extra signal that some DPIs use to
+            tell packets apart and handle them differently.</dd>
+
+          <dt>blob=quic_vk for voice</dt>
+          <dd>The voice junk is domestic too. On some networks this is exactly what fixes a ping of 5000 and
+            "it connects but nobody can be heard".</dd>
+        </dl>
+
+        <p><b>When to use it.</b> The classic case: Discord login goes through and then nothing. It will not
+          connect to servers, attachments will not load, voice is silent.</p>
+      </div>
+    </div>
+
+    <!-- 4 -->
+    <div class="anatomy" id="alt11">
+      <header>
+        <h3>Combo, Flowseal ALT11 (fake+ts, then seqovl)</h3>
+        <span class="tagline">A fake and an overlapping split</span>
+      </header>
+      <div class="anatomy-body">
+<pre><code><span class="t-cmt"># Discord</span>
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">fake</span>:blob=tls_google:tcp_ts=<span class="t-num">-1000</span>:repeats=<span class="t-num">6</span>
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">multisplit</span>:pos=<span class="t-num">1,midsld</span>:seqovl=<span class="t-num">681</span>:seqovl_pattern=tls_google:optional
+
+<span class="t-cmt"># other TLS: the same, but with a 664-byte overlap</span>
+<span class="t-cmt"># voice: quic_vk, as in ALT10</span></code></pre>
+
+        <dl class="why">
+          <dt>fake first, split second</dt>
+          <dd>The order is essential. The fake with the timestamp goes first and "prepares" the connection,
+            and only then is the overlapping split applied. Without that preparation, a large overlap would
+            break the connection to the gateway.</dd>
+
+          <dt>seqovl=681</dt>
+          <dd>The overlap: 681 bytes of foreign content are prepended to the start of the real packet, so
+            the DPI and the server assemble the stream differently. For <code>multisplit</code> this is a
+            number of <b>bytes</b>, not a position. In <code>multidisorder</code> the same parameter means
+            something entirely different.</dd>
+
+          <dt>seqovl_pattern=tls_google</dt>
+          <dd>What gets prepended is not random junk but a real client hello from Google. A plausible
+            beginning survives checks that random bytes do not pass.</dd>
+
+          <dt>:optional</dt>
+          <dd>If the split did not apply for some reason, the technique is skipped quietly rather than
+            aborting the processing of the whole connection.</dd>
+
+          <dt>664 instead of 681</dt>
+          <dd>For the "other" profile the overlap is slightly smaller. The values were picked empirically in
+            the original Flowseal set and carried over as they are.</dd>
+        </dl>
+
+        <p><b>When to use it.</b> Right after ALT10, if that did not land. They are two variants of one idea
+          by the same author.</p>
+      </div>
+    </div>
+
+    <!-- 5 -->
+    <div class="anatomy" id="seqovl">
+      <header>
+        <h3>Combo, Flowseal (multisplit seqovl)</h3>
+        <span class="tagline">Splitting the request</span>
+      </header>
+      <div class="anatomy-body">
+<pre><code><span class="t-cmt"># Discord</span>
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">multisplit</span>:pos=<span class="t-num">2</span>:seqovl=<span class="t-num">681</span>:seqovl_pattern=tls_google:optional
+
+<span class="t-cmt"># YouTube: the same plus ip_id=zero</span>
+<span class="t-cmt"># other: a 568-byte overlap</span></code></pre>
+
+        <dl class="why">
+          <dt>no fakes</dt>
+          <dd>A pure overlapping split, without a single forged packet. That means no fooling is needed at
+            all, and the strategy depends neither on TCP timestamps nor on how the home router behaves. The
+            least demanding of them all.</dd>
+
+          <dt>pos=2</dt>
+          <dd>One cut point, after the second byte. A second marker is not needed here, because the overlap
+            does the main work rather than the cut itself.</dd>
+        </dl>
+
+        <p><b>When to use it.</b> When the fake-based variants do not work. That is often a sign that the
+          DPI inspects packets too thoroughly and simply does not believe fakes.</p>
+      </div>
+    </div>
+
+    <!-- 6 -->
+    <div class="anatomy" id="alt">
+      <header>
+        <h3>Combo, Flowseal ALT (fake + fakedsplit)</h3>
+        <span class="tagline">A fake and a false split</span>
+      </header>
+      <div class="anatomy-body">
+<pre><code><span class="t-cmt"># the same for Discord, YouTube and everything else</span>
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">fake</span>:blob=tls_google:tcp_ts=<span class="t-num">-1000</span>:repeats=<span class="t-num">6</span>
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">fakedsplit</span>:tcp_ts=<span class="t-num">-1000</span></code></pre>
+
+        <dl class="why">
+          <dt>fakedsplit</dt>
+          <dd>A split in which forged segments are inserted between the real ones. The key difference from
+            <code>multisplit</code>: fooling is applied <b>to the forged segments only</b>, so
+            <code>tcp_ts</code> is safe here. In <code>multisplit</code> it would hit the real segments too
+            and break the connection.</dd>
+
+          <dt>the same for everything</dt>
+          <dd>The only strategy where all three TLS profiles use the same technique. Simple and
+            predictable, which makes it a useful checkpoint while working through the list.</dd>
+        </dl>
+
+        <p><b>When to use it.</b> If neither fakes on their own nor a pure split helped. Sometimes it is
+          their combination that works.</p>
+      </div>
+    </div>
+
+    <!-- 7 -->
+    <div class="anatomy" id="wssize">
+      <header>
+        <h3>Combo, window (wssize)</h3>
+        <span class="tagline">Breaks up the server's reply</span>
+      </header>
+      <div class="anatomy-body">
+<pre><code><span class="t-cmt"># Discord and other TLS</span>
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">multisplit</span>:pos=<span class="t-num">2,midsld-2</span>:seqovl=<span class="t-num">1</span>:seqovl_pattern=tls_google:optional
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">wssize</span>:wsize=<span class="t-num">1</span>:scale=<span class="t-num">6</span>
+
+<span class="t-cmt"># YouTube: fake + multidisorder, as in the recommended one</span></code></pre>
+
+        <dl class="why">
+          <dt>wssize</dt>
+          <dd>The only strategy that works on the <b>server's reply</b> rather than on your request. A tiny
+            receive window is advertised, the server is forced to deliver its reply in small portions, and
+            the DPI cannot assemble a signature from it.</dd>
+
+          <dt>wsize=1:scale=6</dt>
+          <dd>The window size and the scaling factor. The combination gives a very small window on the first
+            packets, after which it recovers.</dd>
+
+          <dt>the cost</dt>
+          <dd>Breaking up the reply means more packets and noticeably <b>slower</b> loading. That is a
+            deliberate trade, which is why this strategy comes last among the combos.</dd>
+
+          <dt>midsld-2</dt>
+          <dd>A cut two bytes to the left of the middle of the domain. Offsets to markers are written like
+            this.</dd>
+        </dl>
+
+        <p><b>When to use it.</b> When it is specifically the login page that stubbornly will not open and
+          nothing else helped. Be ready for it to be slower.</p>
+      </div>
+    </div>
+
+    <!-- 8 -->
+    <div class="anatomy" id="golos">
+      <header>
+        <h3>Discord, voice (QUIC fake)</h3>
+        <span class="badge solo">targeted</span>
+        <span class="tagline">Discord voice only</span>
+      </header>
+      <div class="anatomy-body">
+<pre><code><span class="t-cmt"># a light split of the discord.media control connection</span>
+<span class="t-flag">--filter-tcp</span>=<span class="t-num">443-65535</span> <span class="t-flag">--filter-l7</span>=tls {HOSTLIST:discord}
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">multisplit</span>:pos=<span class="t-num">2,midsld-2</span>:seqovl=<span class="t-num">1</span>:seqovl_pattern=tls_google:optional
+<span class="t-flag">--new</span>
+<span class="t-cmt"># voice: a fake with a QUIC blob, no TTL limiting</span>
+<span class="t-flag">--filter-udp</span>=<span class="t-num">19294-19344,50000-65535</span> <span class="t-flag">--filter-l7</span>=discord,stun
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">fake</span>:blob=quic_google:repeats=<span class="t-num">6</span></code></pre>
+
+        <dl class="why">
+          <dt>this is not a combo</dt>
+          <dd>YouTube and other traffic are not touched at all. The strategy fixes one specific thing, and
+            only that.</dd>
+
+          <dt>no ip_autottl</dt>
+          <dd>The main difference from the voice profile inside a combo. Picking a TTL depends on the route
+            and gets in the way on some networks. There is none here; the fake is simply discarded by the
+            server as junk.</dd>
+
+          <dt>repeats=6</dt>
+          <dd>More repeats than in a combo, because there is no second mechanism and everything rests on the
+            DPI noticing the fake.</dd>
+        </dl>
+
+        <p><b>When to use it.</b> Exactly one case: text in Discord works, but the voice channel is stuck
+          connecting, the ping is 5000, or nobody can be heard.</p>
+      </div>
+    </div>
+
+    <!-- 9 -->
+    <div class="anatomy" id="circular">
+      <header>
+        <h3>Discord, adaptive (circular)</h3>
+        <span class="badge exp">experimental</span>
+        <span class="tagline">Finds the method on the fly</span>
+      </header>
+      <div class="anatomy-body">
+<pre><code><span class="t-flag">--filter-tcp</span>=<span class="t-num">443-65535</span> <span class="t-flag">--filter-l7</span>=tls {HOSTLIST:discord}
+<span class="t-flag">--in-range</span>=<span class="t-num">-s5556</span> <span class="t-flag">--out-range</span>=<span class="t-num">-d10</span> <span class="t-flag">--payload</span>=tls_client_hello
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">circular</span>:fails=<span class="t-num">2</span>:time=<span class="t-num">300</span>
+  <span class="t-cmt"># variant 1: hostfakesplit</span>
+  <span class="t-flag">--lua-desync</span>=<span class="t-verb">hostfakesplit</span>:host=www.google.com:tcp_ts=<span class="t-num">-1000</span>:tcp_md5:repeats=<span class="t-num">4</span>:strategy=<span class="t-num">1</span>
+  <span class="t-cmt"># variant 2: a double fake</span>
+  <span class="t-flag">--lua-desync</span>=<span class="t-verb">fake</span>:blob=tls_google:tcp_ts=<span class="t-num">-1000</span>:repeats=<span class="t-num">6</span>:strategy=<span class="t-num">2</span>
+  <span class="t-flag">--lua-desync</span>=<span class="t-verb">fake</span>:blob=tls_vk:tcp_ts=<span class="t-num">-1000</span>:repeats=<span class="t-num">6</span>:strategy=<span class="t-num">2</span>
+  <span class="t-cmt"># variant 3: fake plus overlap</span>
+  <span class="t-flag">--lua-desync</span>=<span class="t-verb">fake</span>:blob=tls_google:tcp_ts=<span class="t-num">-1000</span>:repeats=<span class="t-num">6</span>:strategy=<span class="t-num">3</span>
+  <span class="t-flag">--lua-desync</span>=<span class="t-verb">multisplit</span>:pos=<span class="t-num">1,midsld</span>:seqovl=<span class="t-num">681</span>:seqovl_pattern=tls_google:strategy=<span class="t-num">3</span>:optional</code></pre>
+
+        <dl class="why">
+          <dt>circular</dt>
+          <dd>Not a technique but a <b>manager</b>: it switches variants itself when its detector catches a
+            failure. A successful variant is left alone, and all of this happens on the fly, without
+            restarting the engine.</dd>
+
+          <dt>fails=2:time=300</dt>
+          <dd>Switch after two failures; the counting window is 300 time units.</dd>
+
+          <dt>strategy=1, 2, 3</dt>
+          <dd>Variant labels. Numbering starts at one and runs without gaps. A single variant may contain
+            several techniques, as variant 2 does.</dd>
+
+          <dt>three independently working variants</dt>
+          <dd>This is not a random set: 1 repeats the recommended strategy, 2 repeats ALT10, 3 repeats
+            ALT11. In other words it cycles through three approaches, each of which works on its own for
+            somebody.</dd>
+
+          <dt>--in-range is mandatory</dt>
+          <dd>Without a cache of incoming packets the detector cannot see a reset from the DPI, so there is
+            nothing to switch on. Omitting this flag means getting a rotation that never rotates.</dd>
+        </dl>
+
+        <div class="note warn">
+          <p><b>Give it a few seconds after starting.</b> The strategy works through variants in real time,
+            so right after you turn it on it may still be "searching". And remember: it only touches
+            Discord, YouTube is left without a bypass.</p>
+        </div>
+
+        <p><b>When to use it.</b> When Discord specifically behaves erratically: sometimes it connects,
+          sometimes it does not. Marked experimental because it depends on a manager that the engine loads
+          from a separate library.</p>
+      </div>
+    </div>
+
+    <h2 id="kakuyu-brat">Which one to take for which symptom</h2>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th>What is happening</th><th>What to try</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Have not tried anything, just need it to work</td>
+            <td><b>Combo (recommended)</b>, it is already enabled</td>
+          </tr>
+          <tr>
+            <td>Diagnostics is green, but Discord will not open</td>
+            <td><b>Domestic (VK)</b>, then <b>ALT10</b></td>
+          </tr>
+          <tr>
+            <td>Login works, but it will not connect to servers and attachments will not load</td>
+            <td><b>ALT10</b>, then <b>ALT11</b></td>
+          </tr>
+          <tr>
+            <td>Text works, voice is silent or the ping is 5000</td>
+            <td><b>Discord, voice (QUIC fake)</b>, then <b>ALT10</b></td>
+          </tr>
+          <tr>
+            <td>Fake packets do not help in any variant</td>
+            <td><b>Flowseal (multisplit seqovl)</b>: it has no fakes at all</td>
+          </tr>
+          <tr>
+            <td>The login page stubbornly will not open</td>
+            <td><b>Window (wssize)</b>, be ready for it to be slower</td>
+          </tr>
+          <tr>
+            <td>Discord works every other time, unstable</td>
+            <td><b>Adaptive (circular)</b></td>
+          </tr>
+          <tr>
+            <td>YouTube opens, video loads forever</td>
+            <td>Nothing to do with the strategy: turn QUIC off in Settings</td>
+          </tr>
+          <tr>
+            <td>Tried everything</td>
+            <td>"Select", then "Generate" on the Diagnostics tab</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note tip">
+      <p>You can write your own strategy by hand, or get one from generation and then refine it. All the
+        format rules, including the ones whose violation produces "green but not working", are collected in
+        the <a href="reference.html">Reference</a>.</p>
+    </div>
+
+    <div class="pager">
+      <a class="prev" href="interface.html">
+        <small>Back</small>
+        Interface
+      </a>
+      <a class="next" href="reference.html">
+        <small>Next</small>
+        Reference
+      </a>
+    </div>
+
+  </main>
+</div>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div>
+      <p>Zapret2UI: a shell for the <a href="https://github.com/bol-van/zapret2">bol-van/zapret2</a> engine.
+        Source code and releases on <a href="https://github.com/Asterlike/zapret2UI">GitHub</a>.</p>
+      <p class="legal">MIT licence. The <code>winws2</code> engine ships under its own licence.</p>
+    </div>
+    <nav>
+      <a href="how-it-works.html">How it works</a>
+      <a href="quickstart.html">Quick start</a>
+      <a href="interface.html">Interface</a>
+      <a href="strategies.html">Strategies explained</a>
+    </nav>
+    <nav>
+      <a href="reference.html">Reference</a>
+      <a href="troubleshooting.html">Troubleshooting</a>
+      <a href="support.html">Support</a>
+      <a href="credits.html">Credits</a>
+      <a href="https://t.me/Zapret2UI">Telegram channel</a>
+      <a href="https://github.com/Asterlike/zapret2UI/releases/latest">Releases</a>
+    </nav>
+  </div>
+</footer>
+
+<script src="search-index.js"></script>
+<script src="../assets/site.js"></script>
+</body>
+</html>

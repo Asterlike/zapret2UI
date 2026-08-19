@@ -16,6 +16,11 @@ public sealed class AppSettings
     /// <summary>Simple (one-click) vs Advanced (full tabs) interface. Simple by default.</summary>
     public bool SimpleMode { get; set; } = true;
 
+    /// <summary>UI language: "ru" (default) or "en". Applied once at startup — the switch on
+    /// Главная/Настройки is restart-to-apply (the XAML strings resolve at parse time). Only the
+    /// interface is translated; engine arguments and lists are unaffected.</summary>
+    public string Language { get; set; } = "ru";
+
     /// <summary>Background watchdog: silently re-pick a strategy if the bypass stops working.</summary>
     public bool AutoHeal { get; set; }
 

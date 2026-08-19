@@ -1,0 +1,534 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How it works — Zapret2UI documentation</title>
+<meta name="description" content="How DPI blocking works and why it can be bypassed: SNI, splitting, fake packets, fooling, why zapret2 is not zapret, and how this differs from a VPN.">
+<link rel="icon" href="../assets/logo.png">
+<link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+
+<header class="topbar">
+  <a class="brand" href="index.html">
+    <img src="../assets/logo.png" alt="" width="26" height="26">
+    <span>Zapret2UI</span>
+  </a>
+  <nav class="topnav">
+    <a href="how-it-works.html" aria-current="page">How it works</a>
+    <a href="quickstart.html">Quick start</a>
+    <a href="interface.html">Interface</a>
+    <a href="strategies.html">Strategies</a>
+    <a href="reference.html">Reference</a>
+    <a href="troubleshooting.html">Troubleshooting</a>
+  </nav>
+  <div class="topbar-tools">
+    <div class="lang-switch" role="group" aria-label="Page language">
+      <span class="lang-opt is-current" lang="en" aria-current="true">EN</span>
+      <a class="lang-opt" href="../how-it-works.html" hreflang="ru" lang="ru" title="Читать по-русски">RU</a>
+    </div>
+    <button class="search-btn" data-search-open type="button">
+      <span>Search the docs</span>
+      <kbd>Ctrl K</kbd>
+    </button>
+    <button class="icon-btn theme-btn" data-theme-toggle type="button" aria-label="Switch theme">Dark</button>
+    <a class="icon-btn" href="https://github.com/Asterlike/zapret2UI" title="GitHub repository" aria-label="GitHub repository">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+    </a>
+  </div>
+</header>
+
+<div class="shell">
+
+  <aside class="sidebar">
+    <details class="sidebar-inner" open>
+      <summary>Sections</summary>
+      <h5>Start here</h5>
+      <ul>
+        <li><a href="index.html">Documentation overview</a></li>
+        <li><a href="how-it-works.html" aria-current="page">How it works</a></li>
+        <li><a href="quickstart.html">Quick start</a></li>
+      </ul>
+      <h5>The program</h5>
+      <ul>
+        <li><a href="interface.html">Interface</a></li>
+        <li><a href="strategies.html">Strategies explained</a></li>
+      </ul>
+      <h5>Advanced</h5>
+      <ul>
+        <li><a href="reference.html">Reference</a></li>
+        <li><a href="troubleshooting.html">Troubleshooting</a></li>
+      </ul>
+      <h5>Project</h5>
+      <ul>
+        <li><a href="support.html">Support</a></li>
+        <li><a href="credits.html">Credits</a></li>
+      </ul>
+    </details>
+  </aside>
+
+  <nav class="toc">
+    <p>On this page</p>
+    <ul>
+      <li><a href="#blokirovka">How the blocking works</a></li>
+      <li><a href="#pochemu-obhoditsya">Why it can be bypassed</a></li>
+      <li><a href="#priyomy">Three families of techniques</a></li>
+      <li><a href="#fooling">How the fake dies on the way</a></li>
+      <li><a href="#net-universalnoy">Why there is no single strategy</a></li>
+      <li><a href="#ne-zapret1">This is zapret2, not zapret</a></li>
+      <li><a href="#ne-vpn">How this differs from a VPN</a></li>
+      <li><a href="#chego-ne-umeet">What the bypass cannot do</a></li>
+      <li><a href="#melochi">Three details that decide everything</a></li>
+    </ul>
+  </nav>
+
+  <main class="doc">
+
+    <div class="page-head">
+      <p class="kicker">Theory</p>
+      <h1>How it works</h1>
+      <p class="lede">What your provider sees in your traffic, why that is enough to block you, and how a few altered bytes take the block away.</p>
+    </div>
+
+    <p>You do not have to read this page to use the program. But once you understand what is going on, two
+      things stop being surprising: why there are nine strategies rather than one, and why sometimes
+      "diagnostics is all green but the site will not open".</p>
+
+    <h2 id="blokirovka">How the blocking works</h2>
+
+    <p>When a browser opens an <code>https://</code> connection, the first thing it sends is a TLS
+      ClientHello packet. Among other things it carries the <b>SNI</b> field (Server Name Indication): the
+      name of the site you are connecting to. It exists so that a server hosting thousands of domains knows
+      whose certificate to present.</p>
+
+    <p>The key detail: the connection is not encrypted yet, and <b>the site name travels in plain text</b>.
+      Anyone watching the channel can see it, including the provider's equipment. Operators call this DPI
+      (Deep Packet Inspection); in Russia it is more often TSPU, a "technical countermeasure device"
+      installed on the operator's network.</p>
+
+    <p>The rest is simple. The box reads the name, compares it against a list and, if it matches,
+      interferes. There are three ways to interfere, and the symptom usually tells you which one was
+      used:</p>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th>What the DPI does</th><th>What it looks like</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><b>Reset</b> (a forged TCP RST)</td>
+            <td>The connection drops instantly. The browser says the site closed the connection. The
+              classic Russian signature.</td>
+          </tr>
+          <tr>
+            <td><b>Silent drop</b></td>
+            <td>The packet carrying the site name is discarded without a word. There is no reply, and the
+              page hangs loading until it times out.</td>
+          </tr>
+          <tr>
+            <td><b>Substitution</b></td>
+            <td>Instead of the site you get a stub page or a redirect. Less common these days.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>There is a fourth mechanism built differently: not blocking but a <b>volume limit</b>. The connection
+      is established, the first few dozen kilobytes get through, and after roughly sixteen or twenty packets
+      in each direction the stream stalls. That is the "the site opens but video buffers and media will not
+      load" case. To check whether this is being applied to you, use the "DPI check" button on the
+      Diagnostics tab.</p>
+
+    <h2 id="pochemu-obhoditsya">Why it can be bypassed</h2>
+
+    <p>The bypass exists thanks to one asymmetry: <b>the DPI is not the recipient of your traffic</b>. It
+      sits to the side, sees a copy of the stream, and has to decide within milliseconds, for millions of
+      connections at once. The real server receives the whole stream and reassembles it by all the rules of
+      TCP, in no hurry at all.</p>
+
+    <p>From which the main point follows: <b>the picture of the stream can differ between the DPI and the
+      server</b>. If you can make the box see one thing while the server assembles another, the block does
+      not fire and the site still opens normally. Every bypass strategy does exactly this, and it is called
+      <b>desynchronisation</b> (desync).</p>
+
+    <div class="note">
+      <p>It is important to understand the boundary: the bypass does not break into the provider, does not
+        encrypt your traffic and does not hide your address. All it does is stop the automation from
+        recognising the site name in the first packet. The rest of the connection runs as usual,
+        directly.</p>
+    </div>
+
+    <h2 id="priyomy">Three families of techniques</h2>
+
+    <p>The engine has a couple of dozen specific techniques, but they all boil down to three ideas.</p>
+
+    <h3 id="razrezka">Split the packet</h3>
+
+    <p>The site name is cut by a TCP segment boundary. The browser sends not one ClientHello but several
+      pieces: for example, so that <code>you</code> goes in one segment and <code>tube.com</code> in the
+      next. The server reassembles them in the right order and sees the whole name, while the DPI, which
+      analyses packets individually and keeps no state for every connection, never sees the whole name.</p>
+
+    <p>Verbs: <code>multisplit</code> (just cut), <code>multidisorder</code> (cut and send the pieces in
+      reverse order, to make reassembly even harder). Where exactly to place the cut is set by
+      <a href="reference.html#markery">position markers</a> such as <code>midsld</code>, meaning "the
+      middle of the second-level domain".</p>
+
+    <h3 id="feyk">Forge a packet</h3>
+
+    <p>Before the real ClientHello a <b>fake</b> one is sent, with an innocent name inside: for example a
+      ready-made ClientHello from <code>www.google.com</code> or <code>vk.com</code>. The DPI sees that one
+      first, considers the connection allowed and loses interest. The real packet follows behind it without
+      inspection.</p>
+
+    <p>This is where the central difficulty of the whole bypass appears. The fake is only meant for the
+      provider's box. If it reaches the server, the server receives two ClientHellos in a row and tears the
+      handshake down. So the fake must <b>die somewhere in the middle</b>: after the DPI but before the
+      server. How that is achieved is covered <a href="#fooling">below</a>.</p>
+
+    <p>Verbs: <code>fake</code> (insert a fake only), <code>fakedsplit</code> and
+      <code>fakeddisorder</code> (fake plus splitting), <code>hostfakesplit</code> (a cut exactly on the
+      name marker with a false name of the same length substituted in).</p>
+
+    <h3 id="okno">Squeeze the window</h3>
+
+    <p>The third approach works not on your request but on the server's reply. The client advertises a very
+      small TCP window, and the server is forced to deliver its reply in small portions. The signature the
+      DPI looks for in the reply never assembles. This technique is slower than the others, but sometimes it
+      gets through where nothing else did.</p>
+
+    <p>Verbs: <code>wssize</code>, <code>wsize</code>.</p>
+
+    <h2 id="fooling">How the fake dies on the way</h2>
+
+    <p>The techniques that make an intermediate packet fail to reach the server are called <b>fooling</b>.
+      The idea is always the same: craft a packet so that the DPI reads and counts it, while the network or
+      the server itself throws it away.</p>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th>Technique</th><th>How it kills the fake</th><th>Caveats</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>ip_autottl</code></td>
+            <td>Lowers the TTL so the packet expires a few hops past the provider's DPI and never reaches
+              the server.</td>
+            <td>Depends on the route. When the network changes, the value that was picked may stop
+              fitting.</td>
+          </tr>
+          <tr>
+            <td><code>badsum</code></td>
+            <td>Corrupts the checksum. The server discards the packet as damaged.</td>
+            <td>Often useless at home: the home router behind NAT drops such a packet before it even
+              reaches the provider, so the DPI never sees it either.</td>
+          </tr>
+          <tr>
+            <td><code>tcp_md5</code></td>
+            <td>Adds a TCP MD5 signature option. An ordinary server does not accept such a packet.</td>
+            <td>Safe behind NAT. The working replacement for <code>badsum</code> on a home network.</td>
+          </tr>
+          <tr>
+            <td><code>tcp_seq</code></td>
+            <td>Shifts the sequence number outside the window. The server treats the packet as
+              out-of-order junk.</td>
+            <td>Reliable, but some DPIs also check sequence numbers and stop believing the fake.</td>
+          </tr>
+          <tr>
+            <td><code>tcp_ts</code></td>
+            <td>Gives the fake an older timestamp. The PAWS mechanism in the server's kernel discards the
+              "stale" packet.</td>
+            <td>Only works with TCP timestamps enabled and <b>only with a negative value</b>. See the
+              warning below.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note danger">
+      <p><b>The <code>tcp_ts</code> trap.</b> The value must be negative (<code>tcp_ts=-1000</code>). PAWS
+        discards the packet with the <i>smaller</i> timestamp, that is, the older one. Set a positive value
+        and everything inverts: the fake survives and PAWS discards the <b>real</b> packet instead. The
+        connection then breaks silently, with no error, and looks like "the bypass is on but nothing
+        works".</p>
+    </div>
+
+    <p>One more subtlety that makes ts techniques silently do nothing: by default Windows keeps TCP
+      timestamps in the <code>allowed</code> state, which does not guarantee they are present in outgoing
+      packets. Zapret2UI switches them to <code>enabled</code> for the duration of the session and restores
+      the previous value on stop, so there is nothing to configure by hand.</p>
+
+    <div class="note tip">
+      <p>Fooling is <b>not applied to every verb the same way</b>. With <code>fake</code> and the
+        <code>faked*</code> family it affects the fake packets only, so you can put anything there. With
+        <code>multisplit</code> and <code>multidisorder</code> it affects <b>all</b> segments, including the
+        real ones, so destructive fooling there breaks the connection. More in the
+        <a href="reference.html#glagoly">reference</a>.</p>
+    </div>
+
+    <h2 id="net-universalnoy">Why there is no single strategy for everyone</h2>
+
+    <p>Operators use different equipment: different vendors, different firmware versions, different
+      inspection depth settings. One DPI looks only at the first packet of a connection, another assembles
+      the first few. One believes any ClientHello, another checks sequence numbers. One cuts QUIC entirely,
+      another ignores it.</p>
+
+    <p>So a technique that punches straight through at one provider gives nothing at another. The only
+      honest way to find a working variant is to try. That is what two of the program's features do:</p>
+
+    <ul>
+      <li><b>Selection</b> works through the ready-made strategies, checks the target sites under each and
+        keeps the one with the fewest failures. Faster and more predictable, so start there.</li>
+      <li><b>Generation</b> assembles a strategy from scratch: it tests individual techniques, optimises
+        Discord and YouTube separately, then joins what it found into one command and checks it as a
+        whole. Slower, but the result is fitted to your network.</li>
+    </ul>
+
+    <p>What it finds is tied to a fingerprint of the current network (your router's address) and turns on by
+      itself when you return to that network. The data is stored locally; nothing goes to the internet.</p>
+
+    <h2 id="ne-zapret1">This is zapret2, not the ordinary zapret</h2>
+
+    <p>Confusion here is constant, so let us be thorough. There are <b>two different engines</b>, both made
+      by the same author, bol-van.</p>
+
+    <ul>
+      <li><b>zapret</b>, also called "the first" or "the ordinary" one. Its Windows engine is called
+        <code>winws.exe</code>. That is the project most ready-made builds, guides and YouTube videos grew
+        around.</li>
+      <li><b>zapret2</b>. The <code>winws2.exe</code> engine. The next generation, reworked from the inside.
+        That is what Zapret2UI drives, hence the digit in the program's name.</li>
+    </ul>
+
+    <p>This is not a fork or a competitor: the second continues the first. But <b>there is no compatibility
+      between them</b>: different argument names, a different strategy format, and each has its own
+      driver.</p>
+
+    <h3 id="chto-izmenilos">What changed in the second one</h3>
+
+    <p>The main change is not in the set of techniques but in <b>where their logic lives</b>. In the first
+      zapret every technique was baked into the executable: adding a new one, or peeking at what exactly it
+      does to a packet, was impossible without rebuilding. In the second, the logic is moved out into Lua
+      scripts that sit next to the engine in the <code>lua\</code> folder and are open to read.</p>
+
+    <p>Everything else follows from that.</p>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th></th><th>zapret (the first)</th><th>zapret2</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Engine</td>
+            <td><code>winws.exe</code></td>
+            <td><code>winws2.exe</code></td>
+          </tr>
+          <tr>
+            <td>Techniques are set with</td>
+            <td><code>--dpi-desync=</code></td>
+            <td><code>--lua-desync=</code></td>
+          </tr>
+          <tr>
+            <td>Where a technique's logic lives</td>
+            <td>Baked into the executable.</td>
+            <td>Lua scripts next to the engine. You can read them and add your own.</td>
+          </tr>
+          <tr>
+            <td>Fake packets</td>
+            <td>Separate flags for each type, such as <code>--dpi-desync-fake-tls</code>.</td>
+            <td>Named blobs: a file is declared once with <code>--blob=name:path</code> and used by name
+              afterwards.</td>
+          </tr>
+          <tr>
+            <td>Several techniques in a row</td>
+            <td>A limited set of pre-baked combinations.</td>
+            <td>As many <code>--lua-desync</code> entries per profile as you like, executed in order.</td>
+          </tr>
+          <tr>
+            <td>Control on the fly</td>
+            <td>None.</td>
+            <td>There are orchestrators (<code>circular</code> and others): they switch techniques
+              themselves when they catch a reset from the DPI, without restarting the engine.</td>
+          </tr>
+          <tr>
+            <td>Driver</td>
+            <td>Its own.</td>
+            <td>Its own, a different one. Which is why the two versions should not be run at the same
+              time.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 id="kak-otlichit">How to tell which engine a guide is for</h3>
+
+    <p>Two things in any config or command you find are enough.</p>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th>What you see in the text</th><th>What it means</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>winws.exe</code>, <code>--dpi-desync=</code>, <code>--dpi-desync-ttl</code></td>
+            <td>The first zapret. <b>Does not apply</b> here.</td>
+          </tr>
+          <tr>
+            <td><code>winws2.exe</code>, <code>--lua-desync=</code>, <code>--blob=</code></td>
+            <td>zapret2. Most likely applicable, but check the blob names.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note warn">
+      <p><b>A word about the name "Zapret 2 GUI".</b> There are popular builds with the digit 2 in their
+        name that run the <b>first</b> zapret inside, with hand-written Lua scripts bolted on. The digit
+        there is the version of the build, not the generation of the engine. Their strategies are fine as a
+        source of ideas, but you cannot carry lines over directly: some of those verbs and blob names
+        simply do not exist in stock zapret2.</p>
+    </div>
+
+    <div class="note danger">
+      <p><b>What this means in practice.</b> Configs found in guides for the first zapret will not run
+        here: the engine stops with an "invalid parameter" error. That is not a bug in the program but an
+        incompatibility of formats. If you want to bring someone else's strategy over, check every verb
+        against the <a href="reference.html#glagoly">list of supported ones</a> and replace any blob names
+        such as <code>tls5</code> with ones that exist here.</p>
+    </div>
+
+    <h2 id="ne-vpn">How this differs from a VPN</h2>
+
+    <p>The bypass and a VPN solve different problems and affect speed differently.</p>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th></th><th>DPI bypass</th><th>VPN</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Where the traffic goes</td>
+            <td>Straight to the site</td>
+            <td>Through somebody else's server</td>
+          </tr>
+          <tr>
+            <td>Speed</td>
+            <td>Unchanged: the route is the same</td>
+            <td>Limited by the channel and the server's distance</td>
+          </tr>
+          <tr>
+            <td>Hides your address</td>
+            <td>No</td>
+            <td>Yes</td>
+          </tr>
+          <tr>
+            <td>Adds extra encryption</td>
+            <td>No</td>
+            <td>Yes</td>
+          </tr>
+          <tr>
+            <td>Against blocking by site name</td>
+            <td>Works</td>
+            <td>Works</td>
+          </tr>
+          <tr>
+            <td>Against blocking by IP address</td>
+            <td>Powerless</td>
+            <td>Works</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2 id="chego-ne-umeet">What the bypass cannot do</h2>
+
+    <p>An honest list of limits. All of them follow from the fact that the bypass only touches how the site
+      name in the first packet is recognised.</p>
+
+    <ul>
+      <li><b>Blocking by IP address.</b> If the provider has closed the service's addresses themselves,
+        changing the name in the packet is pointless: the packet is going nowhere. Only a VPN helps here.
+        For Telegram, which is blocked exactly this way, the program has a
+        <a href="interface.html#telegram">built-in proxy</a>.</li>
+      <li><b>ECH.</b> When the browser encrypts the SNI field itself (Encrypted Client Hello), the provider
+        may cut such connections wholesale without inspecting them. Then the low-level check shows green
+        while the site will not open in the browser.</li>
+      <li><b>A volume limit.</b> A TLS bypass does not always lift a limit on the number of packets, because
+        that limit has nothing to do with the site name.</li>
+      <li><b>Throttling on the service's own side.</b> If the service itself is slow rather than the channel
+        to it, there is nothing to be done.</li>
+    </ul>
+
+    <h2 id="melochi">Three details that decide everything</h2>
+
+    <h3 id="quic">QUIC and HTTP/3</h3>
+
+    <p>Modern YouTube and Discord happily use QUIC over UDP instead of the familiar TCP. That is a separate
+      protocol and has to be bypassed separately, with its own profiles. If your provider is cutting or
+      throttling QUIC specifically, the quickest way out is to disable it in Settings. The browser silently
+      falls back to TCP, which the bypass handles better. Hence the classic recipe for "video loads
+      forever".</p>
+
+    <h3 id="golos">Discord voice</h3>
+
+    <p>Voice traffic does not run over port 443 but over UDP on high ports, up to 65535, using the STUN
+      protocol. A profile that only catches 443 never reaches voice at all. That is why every built-in
+      strategy has a separate voice profile covering the
+      <code>19294-19344, 50000-65535</code> range. Hence also the classic symptom "text works but the voice
+      channel is stuck connecting".</p>
+
+    <h3 id="oblast">Bypass scope</h3>
+
+    <p>By default the program only touches domains from the lists (Discord, YouTube plus your own targets),
+      not all traffic. That is deliberate: bypassing everything means interfering with connections from
+      games, banking apps and everything else, which may well break as a result. An "all sites" mode exists,
+      but turn it on deliberately.</p>
+
+    <div class="pager">
+      <a class="prev" href="index.html">
+        <small>Back</small>
+        Documentation overview
+      </a>
+      <a class="next" href="quickstart.html">
+        <small>Next</small>
+        Quick start
+      </a>
+    </div>
+
+  </main>
+</div>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div>
+      <p>Zapret2UI: a shell for the <a href="https://github.com/bol-van/zapret2">bol-van/zapret2</a> engine.
+        Source code and releases on <a href="https://github.com/Asterlike/zapret2UI">GitHub</a>.</p>
+      <p class="legal">MIT licence. The <code>winws2</code> engine ships under its own licence.</p>
+    </div>
+    <nav>
+      <a href="how-it-works.html">How it works</a>
+      <a href="quickstart.html">Quick start</a>
+      <a href="interface.html">Interface</a>
+      <a href="strategies.html">Strategies explained</a>
+    </nav>
+    <nav>
+      <a href="reference.html">Reference</a>
+      <a href="troubleshooting.html">Troubleshooting</a>
+      <a href="support.html">Support</a>
+      <a href="credits.html">Credits</a>
+      <a href="https://t.me/Zapret2UI">Telegram channel</a>
+      <a href="https://github.com/Asterlike/zapret2UI/releases/latest">Releases</a>
+    </nav>
+  </div>
+</footer>
+
+<script src="search-index.js"></script>
+<script src="../assets/site.js"></script>
+</body>
+</html>

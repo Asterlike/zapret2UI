@@ -5,6 +5,7 @@ using System.Windows.Data;
 using Zapret2UI.Models;
 using Zapret2UI.Mvvm;
 using Zapret2UI.Services;
+using Zapret2UI.Localization;
 
 namespace Zapret2UI.ViewModels;
 
@@ -56,8 +57,8 @@ public sealed partial class MainViewModel : ObservableObject
                                               _ => !IsUpdating);
         ClearLogCommand = new RelayCommand(_ => LogLines.Clear());
         ClearProxyLogCommand = new RelayCommand(_ => ProxyLogLines.Clear());
-        CopyLogCommand = new RelayCommand(_ => CopyLinesToClipboard(LogLines, "Журнал движка"));
-        CopyProxyLogCommand = new RelayCommand(_ => CopyLinesToClipboard(ProxyLogLines, "Журнал Telegram"));
+        CopyLogCommand = new RelayCommand(_ => CopyLinesToClipboard(LogLines, Loc.T("Журнал движка")));
+        CopyProxyLogCommand = new RelayCommand(_ => CopyLinesToClipboard(ProxyLogLines, Loc.T("Журнал Telegram")));
         // Generic "open a URL in the browser" — used by the in-app documentation/help links (README,
         // manual, Telegram channel). The link itself is passed as the CommandParameter from XAML.
         OpenLinkCommand = new RelayCommand(p => { if (p is string url && url.Length > 0) OpenUrl(url); });
@@ -79,6 +80,7 @@ public sealed partial class MainViewModel : ObservableObject
             _ => !IsUpdating && !IsAutoSelecting && (IsRunning || CanStart));
         SetSimpleModeCommand = new RelayCommand(_ => IsSimpleMode = true);
         SetAdvancedModeCommand = new RelayCommand(_ => IsSimpleMode = false);
+        SetLanguageCommand = new RelayCommand(p => SetLanguage(p as string));
         GoToSettingsCommand = new RelayCommand(_ => { IsSimpleMode = false; SelectedTabIndex = SettingsTabIndex; });
         // Single big button on the Home screen — routes to the right toggle per mode.
         HomeToggleCommand = new RelayCommand(
@@ -206,6 +208,7 @@ public sealed partial class MainViewModel : ObservableObject
     public RelayCommand SimpleToggleCommand { get; }
     public RelayCommand SetSimpleModeCommand { get; }
     public RelayCommand SetAdvancedModeCommand { get; }
+    public RelayCommand SetLanguageCommand { get; }
     public RelayCommand RunDiagnosticsCommand { get; }
     public RelayCommand StopDiagnosticsCommand { get; }
     public RelayCommand RunDpiCheckCommand { get; }
@@ -274,13 +277,13 @@ public sealed partial class MainViewModel : ObservableObject
                          ?? Presets.FirstOrDefault(p => p.Name == Settings.ActivePresetName)
                          ?? Presets.FirstOrDefault();
         if (recalledPreset is not null)
-            SimpleStatus = $"Стратегия для этой сети: «{recalledPreset.Name}»";
+            SimpleStatus = Loc.T("Стратегия для этой сети: «{0}»", Loc.T(recalledPreset.Name));
         if (Settings.ActiveHostlist is not null && _hostlists.Exists(Settings.ActiveHostlist))
             SelectedHostlist = Settings.ActiveHostlist;
         else
             SelectedHostlist = Hostlists.FirstOrDefault();
 
-        EngineVersion = _updater.InstalledVersion ?? "не установлен";
+        EngineVersion = _updater.InstalledVersion ?? Loc.T("не установлен");
 
         // A missing/incomplete engine must be resolved before anything can run → await (it downloads).
         // A routine "is there a newer engine?" check when the engine is already present runs in the
@@ -331,8 +334,8 @@ public sealed partial class MainViewModel : ObservableObject
     private void CopyLinesToClipboard(IEnumerable<string> lines, string what)
     {
         string text = string.Join(Environment.NewLine, lines);
-        if (text.Length == 0) { SimpleStatus = $"{what}: пусто, нечего копировать."; return; }
-        try { Clipboard.SetText(text); SimpleStatus = $"{what} скопирован в буфер обмена."; }
+        if (text.Length == 0) { SimpleStatus = Loc.T("{0}: пусто, нечего копировать.", what); return; }
+        try { Clipboard.SetText(text); SimpleStatus = Loc.T("{0} скопирован в буфер обмена.", what); }
         catch { /* clipboard busy — ignore */ }
     }
 

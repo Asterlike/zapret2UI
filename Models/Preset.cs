@@ -1,3 +1,5 @@
+using Zapret2UI.Localization;
+
 namespace Zapret2UI.Models;
 
 /// <summary>
@@ -38,22 +40,36 @@ public sealed class Preset
     /// on every generation run so their scores stay current. Marked ★ and grouped separately.</summary>
     public bool IsAutoLeaderboard { get; set; }
 
+    // Display text is localized here, in the COMPUTED getters only — never in Name/Description/Tagline
+    // themselves. Name is the identity key (persisted in settings.json, matched by Ordinal equality),
+    // so it must read the same in every language; these read-only projections translate it for the eye
+    // via Loc.T while the stored value stays Russian.
+
     /// <summary>Section title for grouping in the presets list.</summary>
-    public string GroupTitle => !IsBuiltIn
+    public string GroupTitle => Loc.T(!IsBuiltIn
         ? (IsAutoLeaderboard ? "★ Лучшие из последней генерации"
            : IsGenerated ? "✨ Сгенерировано автоподбором"
            : "Личные (созданные)")
-        : "Основные (Discord / YouTube)";
+        : "Основные (Discord / YouTube)");
 
     /// <summary>True when a friendly tagline is set (built-ins) — gates the accent subtitle/label.</summary>
     public bool HasTagline => !string.IsNullOrEmpty(Tagline);
 
     /// <summary>Strategies-list primary text: the friendly tagline when present, else the name.</summary>
-    public string PrimaryLabel => HasTagline ? Tagline : Name;
+    public string PrimaryLabel => Loc.T(HasTagline ? Tagline : Name);
 
     /// <summary>Strategies-list secondary text: the technical name when a tagline fronts the row,
     /// otherwise the description.</summary>
-    public string SecondaryLabel => HasTagline ? Name : Description;
+    public string SecondaryLabel => Loc.T(HasTagline ? Name : Description);
+
+    /// <summary>Name for display (identity <see cref="Name"/> stays Russian; this translates it).</summary>
+    public string NameDisplay => Loc.T(Name);
+
+    /// <summary>Description for display, translated.</summary>
+    public string DescriptionDisplay => Loc.T(Description);
+
+    /// <summary>Tagline for display, translated.</summary>
+    public string TaglineDisplay => Loc.T(Tagline);
 
     public Preset Clone() => new()
     {

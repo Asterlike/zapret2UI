@@ -1,3 +1,5 @@
+[EN](manual_zapret2UI.en.md "Read this in English") | **RU**
+
 # Zapret2UI — полный мануал
 
 Подробный справочник по **Zapret2UI** — графической оболочке для движка обхода блокировок

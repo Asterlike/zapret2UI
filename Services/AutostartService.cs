@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Zapret2UI.Localization;
 
 namespace Zapret2UI.Services;
 
@@ -61,7 +62,7 @@ public sealed class AutostartService
             if (!p.WaitForExit(10000))
             {
                 try { p.Kill(entireProcessTree: true); } catch { }
-                return (-1, "schtasks не ответил вовремя.");
+                return (-1, Loc.T("schtasks не ответил вовремя."));
             }
             string output = outTask.GetAwaiter().GetResult() + errTask.GetAwaiter().GetResult();
             return (p.ExitCode, output);

@@ -9,6 +9,47 @@
   var root = document.documentElement;
   var doc = document.querySelector('.doc');
 
+  // --------------------------------------------------------------- strings --
+  // Both language trees load this same file, so the handful of strings the script
+  // builds itself (the theme label, the copy button, the whole search modal) follow
+  // the page's own lang attribute: docs/en/*.html declare lang="en", the rest are
+  // Russian. Without this the English pages quietly get Russian controls.
+  var T = root.lang === 'en' ? {
+    themeToLight: 'Light',
+    themeToDark:  'Dark',
+    themeAria:    function (l) { return 'Switch to the ' + l.toLowerCase() + ' theme'; },
+    themeTitle:   function (l) { return l + ' theme'; },
+    anchorAria:   function (h) { return 'Link to the \u201C' + h + '\u201D section'; },
+    copy:         'Copy',
+    copied:       'Copied',
+    copyFailed:   'Failed',
+    close:        'Close',
+    zoom:         'Open the image full size',
+    search:       'Search the docs',
+    hintOpen:     'Enter to open',
+    hintMove:     'Arrows to move',
+    hintClose:    'Esc to close',
+    searchPrompt: 'Type a word \u2014 for example, \u201Cvoice\u201D, \u201CQUIC\u201D or \u201Chostfakesplit\u201D.',
+    searchEmpty:  'Nothing found.'
+  } : {
+    themeToLight: 'Светлая',
+    themeToDark:  'Тёмная',
+    themeAria:    function (l) { return 'Включить тему: ' + l.toLowerCase(); },
+    themeTitle:   function (l) { return l + ' тема'; },
+    anchorAria:   function (h) { return 'Ссылка на раздел \u00AB' + h + '\u00BB'; },
+    copy:         'Копировать',
+    copied:       'Скопировано',
+    copyFailed:   'Не вышло',
+    close:        'Закрыть',
+    zoom:         'Открыть изображение крупно',
+    search:       'Поиск по документации',
+    hintOpen:     'Enter открыть',
+    hintMove:     'Стрелки листать',
+    hintClose:    'Esc закрыть',
+    searchPrompt: 'Введите слово: например, \u00ABголос\u00BB, \u00ABQUIC\u00BB или \u00ABhostfakesplit\u00BB.',
+    searchEmpty:  'Ничего не нашлось.'
+  };
+
   // ---------------------------------------------------------------- theme --
   var STORE = 'z2ui-theme';
 
@@ -18,10 +59,10 @@
     return root.getAttribute('data-theme') || 'light';
   }
   function paintToggle(btn) {
-    var label = currentTheme() === 'dark' ? 'Светлая' : 'Тёмная';
+    var label = currentTheme() === 'dark' ? T.themeToLight : T.themeToDark;
     btn.textContent = label;
-    btn.setAttribute('aria-label', 'Включить тему: ' + label.toLowerCase());
-    btn.setAttribute('title', label + ' тема');
+    btn.setAttribute('aria-label', T.themeAria(label));
+    btn.setAttribute('title', T.themeTitle(label));
   }
 
   try {
@@ -48,10 +89,25 @@
       a.className = 'anchor';
       a.href = '#' + h.id;
       a.textContent = '#';
-      a.setAttribute('aria-label', 'Ссылка на раздел «' + h.textContent.trim() + '»');
+      a.setAttribute('aria-label', T.anchorAria(h.textContent.trim()));
       h.appendChild(a);
     });
   }
+
+  // -------------------------------------------------------- language switch --
+  // Only one half of the EN|RU pair is a link (the other is the page you are on).
+  // It points at the same page in the other language, and the section anchors are
+  // identical across both, so carry the reader's position over too: switching
+  // language while reading about the Journal should not dump you at the top of a
+  // 35 KB page. Kept in sync as the hash changes (scroll-spy updates it).
+  (function () {
+    var langLink = document.querySelector('.lang-switch a[href]');
+    if (!langLink) return;
+    var base = langLink.getAttribute('href').split('#')[0];
+    var sync = function () { langLink.setAttribute('href', base + location.hash); };
+    sync();
+    window.addEventListener('hashchange', sync);
+  })();
 
   // ------------------------------------------- contents folded into the nav --
   // The page ships a plain .toc block so it still works without JS. Here it is
@@ -124,16 +180,16 @@
       var btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'copy-btn';
-      btn.textContent = 'Копировать';
+      btn.textContent = T.copy;
       wrap.appendChild(btn);
 
       btn.addEventListener('click', function () {
         var text = pre.innerText;
         function ok() {
-          btn.textContent = 'Скопировано';
+          btn.textContent = T.copied;
           btn.classList.add('done');
           setTimeout(function () {
-            btn.textContent = 'Копировать';
+            btn.textContent = T.copy;
             btn.classList.remove('done');
           }, 1600);
         }
@@ -151,7 +207,7 @@
           ta.style.opacity = '0';
           document.body.appendChild(ta);
           ta.select();
-          try { document.execCommand('copy'); ok(); } catch (e) { btn.textContent = 'Не вышло'; }
+          try { document.execCommand('copy'); ok(); } catch (e) { btn.textContent = T.copyFailed; }
           document.body.removeChild(ta);
         }
       });
@@ -166,7 +222,7 @@
 
     var box = document.createElement('div');
     box.className = 'lightbox';
-    box.innerHTML = '<button type="button" class="lightbox-close" aria-label="Закрыть">✕</button><img alt="">';
+    box.innerHTML = '<button type="button" class="lightbox-close" aria-label="' + T.close + '">✕</button><img alt="">';
     document.body.appendChild(box);
     var big = box.querySelector('img');
 
@@ -184,7 +240,7 @@
       holder.className = 'zoomable';
       holder.setAttribute('role', 'button');
       holder.setAttribute('tabindex', '0');
-      holder.setAttribute('aria-label', 'Открыть изображение крупно');
+      holder.setAttribute('aria-label', T.zoom);
       img.parentNode.insertBefore(holder, img);
       holder.appendChild(img);
 
@@ -212,10 +268,10 @@
     modal.className = 'search-modal';
     modal.innerHTML =
       '<div class="search-backdrop"></div>' +
-      '<div class="search-panel" role="dialog" aria-modal="true" aria-label="Поиск по документации">' +
-        '<input type="search" placeholder="Поиск по документации" autocomplete="off" spellcheck="false">' +
+      '<div class="search-panel" role="dialog" aria-modal="true" aria-label="' + T.search + '">' +
+        '<input type="search" placeholder="' + T.search + '" autocomplete="off" spellcheck="false">' +
         '<ul class="search-results"></ul>' +
-        '<div class="search-hint"><span>Enter открыть</span><span>Стрелки листать</span><span>Esc закрыть</span></div>' +
+        '<div class="search-hint"><span>' + T.hintOpen + '</span><span>' + T.hintMove + '</span><span>' + T.hintClose + '</span></div>' +
       '</div>';
     document.body.appendChild(modal);
 
@@ -248,7 +304,7 @@
       results.innerHTML = '';
       sel = 0;
       if (!q) {
-        results.innerHTML = '<li class="search-empty">Введите слово: например, «голос», «QUIC» или «hostfakesplit».</li>';
+        results.innerHTML = '<li class="search-empty">' + esc(T.searchPrompt) + '</li>';
         hits = [];
         return;
       }
@@ -264,7 +320,7 @@
       hits = hits.slice(0, 14);
 
       if (!hits.length) {
-        results.innerHTML = '<li class="search-empty">Ничего не нашлось.</li>';
+        results.innerHTML = '<li class="search-empty">' + esc(T.searchEmpty) + '</li>';
         return;
       }
       hits.forEach(function (h, n) {

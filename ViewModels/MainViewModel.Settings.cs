@@ -2,6 +2,7 @@
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Data;
+using Zapret2UI.Localization;
 using Zapret2UI.Models;
 using Zapret2UI.Mvvm;
 using Zapret2UI.Services;
@@ -209,8 +210,8 @@ public sealed partial class MainViewModel
             if (IsRunning)
             {
                 AppendLog(value
-                    ? "Подробный режим включён (--debug=1), перезапуск движка…"
-                    : "Подробный режим выключен, перезапуск движка…");
+                    ? Loc.T("Подробный режим включён (--debug=1), перезапуск движка…")
+                    : Loc.T("Подробный режим выключен, перезапуск движка…"));
                 _ = ApplyStrategyAsync(); // relaunch so the new log level applies
             }
         }
@@ -245,11 +246,11 @@ public sealed partial class MainViewModel
     private async Task AutoHealAsync()
     {
         if (IsAutoRunning || IsUpdating) return;
-        Notify?.Invoke("Zapret UI", "Обход упал — переподбор…");
-        AppendLog("Авто-починка: обход не отвечает, переподбор.");
+        Notify?.Invoke("Zapret UI", Loc.T("Обход упал — переподбор…"));
+        AppendLog(Loc.T("Авто-починка: обход не отвечает, переподбор."));
         await RunAutoSelectAsync(showWindow: false);
         if (IsRunning)
-            Notify?.Invoke("Zapret UI", "Обход восстановлен.");
+            Notify?.Invoke("Zapret UI", Loc.T("Обход восстановлен."));
     }
 
     /// <summary>Remember which strategy is running on the CURRENT network (local fingerprint) so it can
@@ -294,6 +295,43 @@ public sealed partial class MainViewModel
 
     public bool IsAdvancedMode => !IsSimpleMode;
 
+    // ---- UI language (restart-to-apply) -----------------------------------
+    // The RU|EN switch on Главная and Настройки binds these two read-only flags (so the active side is
+    // filled) and calls SetLanguageCommand on click. Reflects the language THIS run was started in — it
+    // only changes after the restart below.
+
+    public bool LanguageIsRussian => !Loc.IsEnglish;
+    public bool LanguageIsEnglish => Loc.IsEnglish;
+
+    /// <summary>Switch the UI language. No-op if already active; otherwise confirm (it restarts the app,
+    /// stopping any running bypass/proxy), persist, and relaunch — the strings resolve at parse time.</summary>
+    private void SetLanguage(string? lang)
+    {
+        string norm = lang == Loc.English ? Loc.English : Loc.Russian;
+        if (Settings.Language == norm) return;
+
+        bool ok = ConfirmDialog.Show(
+            Loc.T("Сменить язык интерфейса?"),
+            Loc.T("Приложение перезапустится. Если обход или прокси запущены — они остановятся."),
+            confirmText: Loc.T("Перезапустить"),
+            danger: false);
+        if (!ok)
+        {
+            // The clicked RadioButton toggled itself before the dialog; re-assert the bound state so the
+            // active language stays highlighted after a cancel.
+            OnUi(() =>
+            {
+                OnPropertyChanged(nameof(LanguageIsRussian));
+                OnPropertyChanged(nameof(LanguageIsEnglish));
+            });
+            return;
+        }
+
+        Settings.Language = norm;
+        _settingsSvc.Save();
+        App.RelaunchSelf();
+    }
+
     // ---- top-tab navigation (redesign) ------------------------------------
     // Bound to the TabControl; lets the Home gear jump to Настройки and lets
     // Simple mode lock the view to Главная (the tab strip is hidden there).
@@ -319,9 +357,9 @@ public sealed partial class MainViewModel
         if (IsRunning) { _engine.Stop(); SimpleStatus = ""; return; }
 
         var preset = RecommendedPreset;
-        if (preset is null) { SimpleStatus = "Движок ещё не установлен — дождитесь загрузки."; return; }
+        if (preset is null) { SimpleStatus = Loc.T("Движок ещё не установлен — дождитесь загрузки."); return; }
         SelectedPreset = preset;
-        SimpleStatus = $"Стратегия: «{preset.Name}»";
+        SimpleStatus = Loc.T("Стратегия: «{0}»", Loc.T(preset.Name));
         Start();
     }
 
@@ -334,8 +372,20 @@ public sealed partial class MainViewModel
         private set { if (SetField(ref _isBuildingIpset, value)) RaiseCommandStates(); }
     }
 
-    private string _ipsetStatus = "Соберите список IP Discord, чтобы включить обход по IP (для жёстких блоков).";
+    private string _ipsetStatus = Loc.T("Соберите список IP Discord, чтобы включить обход по IP (для жёстких блоков).");
     public string IpsetStatus { get => _ipsetStatus; private set => SetField(ref _ipsetStatus, value); }
+
+    // Static help texts that contain the literal token {IPSET}; the brace can't be wrapped in the XAML
+    // {loc:Loc} markup extension, so they route through Loc.T here (which never reformats — the token
+    // survives verbatim).
+    public string IpsetHelpDiag => Loc.T(
+        "Если Discord режут по IP-адресам, обход по доменам не помогает. Соберите актуальные подсети "
+        + "Discord (резолв доменов) — список сохранится в ipset-discord.txt, его можно подключить в своём "
+        + "пресете через токен {IPSET}.");
+
+    public string IpsetHelpTelegram => Loc.T(
+        "• Обход по IP — если ресурс режут по адресам, а не доменам: соберите подсети Discord "
+        + "(резолв доменов), список подключается через токен {IPSET}.");
 
     private async Task BuildIpsetAsync()
     {
@@ -343,17 +393,17 @@ public sealed partial class MainViewModel
         IsBuildingIpset = true;
         try
         {
-            IpsetStatus = "Определяю IP-подсети Discord…";
+            IpsetStatus = Loc.T("Определяю IP-подсети Discord…");
             var domains = _hostlists.Exists("discord")
                 ? _hostlists.ReadDomains("discord")
                 : new List<string> { "discord.com", "gateway.discord.gg", "cdn.discordapp.com", "discord.media", "discordapp.net" };
             var res = await _ipset.BuildDiscordIpsetAsync(domains, CancellationToken.None);
-            IpsetStatus = $"Готово: {res.Subnets} подсетей. Подключите список через {{IPSET}} в своей стратегии.";
+            IpsetStatus = Loc.T("Готово: {0} подсетей. Подключите список через {{IPSET}} в своей стратегии.", res.Subnets);
             OnPropertyChanged(nameof(CommandPreview));
         }
         catch (Exception ex)
         {
-            IpsetStatus = "Не удалось собрать IP-список: " + ex.Message;
+            IpsetStatus = Loc.T("Не удалось собрать IP-список: ") + ex.Message;
         }
         finally
         {
@@ -380,15 +430,15 @@ public sealed partial class MainViewModel
         IsApplyingExclusions = true;
         try
         {
-            ExclusionsStatus = "Добавление исключений…";
+            ExclusionsStatus = Loc.T("Добавление исключений…");
             var res = await _exclusions.ApplyAsync();
             ExclusionsStatus = (res.AllOk
-                ? "Готово — всё добавлено:\n"
-                : "Готово частично (что-то не удалось — нужны права администратора / сторонний антивирус):\n") + res.Summary;
+                ? Loc.T("Готово — всё добавлено:\n")
+                : Loc.T("Готово частично (что-то не удалось — нужны права администратора / сторонний антивирус):\n")) + res.Summary;
         }
         catch (Exception ex)
         {
-            ExclusionsStatus = "Не удалось добавить исключения: " + ex.Message;
+            ExclusionsStatus = Loc.T("Не удалось добавить исключения: ") + ex.Message;
         }
         finally
         {
@@ -424,7 +474,7 @@ public sealed partial class MainViewModel
 
     /// <summary>Confirm-button caption, carrying the countdown while it runs.</summary>
     public string WelcomeButtonText =>
-        WelcomeCountdown > 0 ? $"Понятно, начать ({WelcomeCountdown})" : "Понятно, начать";
+        WelcomeCountdown > 0 ? Loc.T("Понятно, начать ({0})", WelcomeCountdown) : Loc.T("Понятно, начать");
 
     /// <summary>True until the first-run walkthrough has been dismissed once.</summary>
     public bool NeedsWelcome => !Settings.WelcomeShown;
@@ -467,7 +517,7 @@ public sealed partial class MainViewModel
     {
         if (score?.Strategy is null) return;
         var preset = SaveOrSelectAutoWinner(score.Strategy);
-        SetAutoStatus($"Сохранено как стратегия «{preset.Name}». Нажмите «Запустить».");
+        SetAutoStatus(Loc.T("Сохранено как стратегия «{0}». Нажмите «Запустить».", Loc.T(preset.Name)));
     }
 
     /// <summary>Save a candidate as a preset AND start it (or restart with it if already running) —
@@ -502,10 +552,10 @@ public sealed partial class MainViewModel
         OnUi(() =>
         {
             _appLatestUrl = latest.Value.Url;
-            AppUpdateText = $"Новая версия {ver} — скачать";
+            AppUpdateText = Loc.T("Новая версия {0} — скачать", ver);
             AppUpdateAvailable = true;
-            Notify?.Invoke("Доступно обновление",
-                $"Вышла новая версия Zapret2UI {ver}. Откройте страницу релиза, чтобы скачать.");
+            Notify?.Invoke(Loc.T("Доступно обновление"),
+                Loc.T("Вышла новая версия Zapret2UI {0}. Откройте страницу релиза, чтобы скачать.", ver));
         });
     }
 
@@ -517,7 +567,7 @@ public sealed partial class MainViewModel
 
     private void CopyToClipboard(string text)
     {
-        try { Clipboard.SetText(text); SimpleStatus = "Ссылка на прокси скопирована."; }
+        try { Clipboard.SetText(text); SimpleStatus = Loc.T("Ссылка на прокси скопирована."); }
         catch { /* clipboard busy — ignore */ }
     }
 

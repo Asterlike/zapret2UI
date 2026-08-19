@@ -5,6 +5,7 @@ using System.Windows.Data;
 using Zapret2UI.Models;
 using Zapret2UI.Mvvm;
 using Zapret2UI.Services;
+using Zapret2UI.Localization;
 
 namespace Zapret2UI.ViewModels;
 
@@ -39,9 +40,9 @@ public sealed partial class MainViewModel
 
     public string SimpleGoalHint => SelectedScope switch
     {
-        AutoScope.Discord => "Ищем стратегию под Discord.",
-        AutoScope.YouTube => "Ищем стратегию под YouTube.",
-        _ => "Ищем одну стратегию сразу под Discord и YouTube.",
+        AutoScope.Discord => Loc.T("Ищем стратегию под Discord."),
+        AutoScope.YouTube => Loc.T("Ищем стратегию под YouTube."),
+        _ => Loc.T("Ищем одну стратегию сразу под Discord и YouTube."),
     };
 
     // ---- auto-select (best strategy for the chosen scope) -----------------
@@ -58,12 +59,12 @@ public sealed partial class MainViewModel
     public bool IsAutoRunning => IsAutoSelecting || IsGenerating;
 
     public string AutoPopupTitle => IsAutoRunning
-        ? (IsGenerating ? "Генерация стратегии" : "Подбор стратегии")
-        : "Готово — выберите стратегию";
+        ? (IsGenerating ? Loc.T("Генерация стратегии") : Loc.T("Подбор стратегии"))
+        : Loc.T("Готово — выберите стратегию");
 
     public string AutoPopupSubtitle => IsAutoRunning
-        ? "Слева — проверка целей текущей стратегией. Справа — стратегии, прошедшие проверку."
-        : "Проверка завершена. Наведите на нужную и нажмите «Сохранить в пресеты» — окно не закроется само.";
+        ? Loc.T("Слева — проверка целей текущей стратегией. Справа — стратегии, прошедшие проверку.")
+        : Loc.T("Проверка завершена. Наведите на нужную и нажмите «Сохранить в пресеты» — окно не закроется само.");
 
     private void RaiseAutoRunState()
     {
@@ -106,7 +107,7 @@ public sealed partial class MainViewModel
         Verdicts.Clear();
         AddVerdict("Discord", rows.Where(r => IsDiscordHost(r.Host)).ToList());
         AddVerdict("YouTube", rows.Where(r => IsYouTubeHost(r.Host)).ToList());
-        AddVerdict("Ваши сайты", rows.Where(r => !IsDiscordHost(r.Host) && !IsYouTubeHost(r.Host)).ToList());
+        AddVerdict(Loc.T("Ваши сайты"), rows.Where(r => !IsDiscordHost(r.Host) && !IsYouTubeHost(r.Host)).ToList());
     }
 
     private void AddVerdict(string service, IReadOnlyList<AutoHostResult> rows)
@@ -117,12 +118,12 @@ public sealed partial class MainViewModel
         int baseOk = rows.Count(r => _baseline.TryGetValue(r.Host, out var b) && b);
 
         var status = ok == total ? DiagStatus.Ok : ok > 0 ? DiagStatus.Timeout : DiagStatus.Fail;
-        string label = ok == total ? "РАБОТАЕТ" : ok > 0 ? "ЧАСТИЧНО" : "НЕ РАБОТАЕТ";
+        string label = ok == total ? Loc.T("РАБОТАЕТ") : ok > 0 ? Loc.T("ЧАСТИЧНО") : Loc.T("НЕ РАБОТАЕТ");
 
         string note;
-        if (ok == 0) note = "ни одна цель не открывается";
-        else if (ok > baseOk) note = baseOk == 0 ? "разблокировано обходом" : "часть разблокирована обходом";
-        else if (baseOk == total && _baseline.Count > 0) note = "открывается и без обхода";
+        if (ok == 0) note = Loc.T("ни одна цель не открывается");
+        else if (ok > baseOk) note = baseOk == 0 ? Loc.T("разблокировано обходом") : Loc.T("часть разблокирована обходом");
+        else if (baseOk == total && _baseline.Count > 0) note = Loc.T("открывается и без обхода");
         else note = "";
 
         Verdicts.Add(new ServiceVerdict
@@ -130,11 +131,11 @@ public sealed partial class MainViewModel
             Service = service,
             StatusText = label,
             Status = status,
-            Detail = $"{ok}/{total} целей грузятся" + (note.Length > 0 ? " · " + note : ""),
+            Detail = Loc.T("{0}/{1} целей грузятся", ok, total) + (note.Length > 0 ? " · " + note : ""),
         });
     }
 
-    private string _autoStatusText = "Выберите цель и нажмите «Подобрать лучшую» — найдём стратегию с наименьшим числом ошибок.";
+    private string _autoStatusText = Loc.T("Выберите цель и нажмите «Подобрать лучшую» — найдём стратегию с наименьшим числом ошибок.");
     public string AutoStatusText { get => _autoStatusText; private set => SetField(ref _autoStatusText, value); }
 
     private void SetAutoStatus(string s) { AutoStatusText = s; SimpleStatus = s; }
@@ -260,11 +261,11 @@ public sealed partial class MainViewModel
     private async Task RunAutoSelectAsync(bool showWindow = true)
     {
         if (IsAutoSelecting) return;
-        if (!_updater.IsEngineInstalled) { SetAutoStatus("Движок ещё не установлен — дождитесь загрузки."); return; }
+        if (!_updater.IsEngineInstalled) { SetAutoStatus(Loc.T("Движок ещё не установлен — дождитесь загрузки.")); return; }
 
         if (IsRunning)
         {
-            AppendLog("Остановка движка для авто-подбора…");
+            AppendLog(Loc.T("Остановка движка для авто-подбора…"));
             _engine.Stop();
             await Task.Delay(700);
         }
@@ -296,25 +297,25 @@ public sealed partial class MainViewModel
         if (showWindow) AutoCheckStarted?.Invoke();
         try
         {
-            SetAutoStatus("Замер базовой доступности без обхода…");
+            SetAutoStatus(Loc.T("Замер базовой доступности без обхода…"));
             _baseline = await MeasureBaselineAsync(goalHosts, _autoCts.Token);
 
-            SetAutoStatus($"Подбор лучшей стратегии для «{ScopeTitle}»…");
+            SetAutoStatus(Loc.T("Подбор лучшей стратегии для «{0}»…", ScopeTitle));
             var result = await _autoSelect.RunAsync(candidates, goalHosts, _autoCts.Token);
             if (result is null)
             {
-                SetAutoStatus("Не удалось подобрать стратегию.");
+                SetAutoStatus(Loc.T("Не удалось подобрать стратегию."));
                 return;
             }
 
             var (strategy, score) = result.Value;
             BuildVerdicts(score.HostList);
             var preset = SaveOrSelectAutoWinner(strategy);
-            SetAutoStatus($"Готово: «{preset.Name}» — {score.Detail}. Запуск.");
+            SetAutoStatus(Loc.T("Готово: «{0}» — {1}. Запуск.", Loc.T(preset.Name), score.Detail));
             if (CanStart) Start();
         }
-        catch (OperationCanceledException) { SetAutoStatus("Подбор остановлен."); }
-        catch (Exception ex) { SetAutoStatus("Ошибка подбора: " + ex.Message); }
+        catch (OperationCanceledException) { SetAutoStatus(Loc.T("Подбор остановлен.")); }
+        catch (Exception ex) { SetAutoStatus(Loc.T("Ошибка подбора: ") + ex.Message); }
         finally
         {
             IsAutoSelecting = false;
@@ -341,11 +342,11 @@ public sealed partial class MainViewModel
     private async Task GenerateStrategyAsync()
     {
         if (IsGenerating || IsAutoSelecting) return;
-        if (!_updater.IsEngineInstalled) { SetAutoStatus("Движок ещё не установлен — дождитесь загрузки."); return; }
+        if (!_updater.IsEngineInstalled) { SetAutoStatus(Loc.T("Движок ещё не установлен — дождитесь загрузки.")); return; }
 
         if (IsRunning)
         {
-            AppendLog("Остановка движка для генерации стратегии…");
+            AppendLog(Loc.T("Остановка движка для генерации стратегии…"));
             _engine.Stop();
             await Task.Delay(700);
         }
@@ -374,12 +375,12 @@ public sealed partial class MainViewModel
         var genHosts = discord.Concat(youtube).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
         try
         {
-            SetAutoStatus("Замер базовой доступности без обхода…");
+            SetAutoStatus(Loc.T("Замер базовой доступности без обхода…"));
             _baseline = await MeasureBaselineAsync(genHosts, _genCts.Token);
 
-            SetAutoStatus("Генерация персональной стратегии под провайдера…");
+            SetAutoStatus(Loc.T("Генерация персональной стратегии под провайдера…"));
             var gen = await _generator.GenerateAsync(discord, youtube, Settings.GameFilter, _genCts.Token);
-            if (gen is null) { SetAutoStatus("Не удалось сгенерировать стратегию."); return; }
+            if (gen is null) { SetAutoStatus(Loc.T("Не удалось сгенерировать стратегию.")); return; }
 
             var (preset, finalRows) = gen;
             BuildVerdicts(finalRows);
@@ -387,11 +388,11 @@ public sealed partial class MainViewModel
             SaveTopLeaderboard();   // ★ auto-save the 3 best candidates of this run (with their scores)
             ReloadPresets();
             SelectedPreset = Presets.FirstOrDefault(p => p.Name == preset.Name) ?? Presets.LastOrDefault();
-            SetAutoStatus($"Готово: «{preset.Name}». Запуск.");
+            SetAutoStatus(Loc.T("Готово: «{0}». Запуск.", Loc.T(preset.Name)));
             if (CanStart) Start();
         }
-        catch (OperationCanceledException) { SetAutoStatus("Генерация остановлена."); }
-        catch (Exception ex) { SetAutoStatus("Ошибка генерации: " + ex.Message); }
+        catch (OperationCanceledException) { SetAutoStatus(Loc.T("Генерация остановлена.")); }
+        catch (Exception ex) { SetAutoStatus(Loc.T("Ошибка генерации: ") + ex.Message); }
         finally
         {
             IsGenerating = false;
@@ -420,9 +421,9 @@ public sealed partial class MainViewModel
             int score10 = (int)Math.Round(s.Ratio * 10);
             presets.Add(new Preset
             {
-                Name = $"★ Топ №{i + 1} · {score10}/10 · {s.Name}",
-                Description = $"Автосохранено при генерации {DateTime.Now:dd.MM HH:mm}: набрал {s.Ok}/{s.Total} " +
-                              $"проверок ({score10}/10). Тройка обновляется при каждой новой генерации.",
+                Name = Loc.T("★ Топ №{0} · {1}/10 · {2}", i + 1, score10, Loc.T(s.Name)),
+                Description = Loc.T("Автосохранено при генерации {0:dd.MM HH:mm}: набрал {1}/{2} ", DateTime.Now, s.Ok, s.Total) +
+                              Loc.T("проверок ({0}/10). Тройка обновляется при каждой новой генерации.", score10),
                 Args = new List<string>(s.Strategy!.Args),
                 IsBuiltIn = false,
             });

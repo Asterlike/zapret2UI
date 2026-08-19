@@ -3,6 +3,7 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 using Zapret2UI.Models;
+using Zapret2UI.Localization;
 
 namespace Zapret2UI.Services;
 
@@ -407,10 +408,10 @@ public sealed class EngineService : IDisposable
         lock (_lock)
         {
             if (State is EngineState.Running or EngineState.Starting)
-                throw new InvalidOperationException("Движок уже запущен.");
+                throw new InvalidOperationException(Loc.T("Движок уже запущен."));
 
             if (!File.Exists(AppPaths.WinwsExe))
-                throw new FileNotFoundException("winws2.exe не найден. Дождитесь загрузки движка.");
+                throw new FileNotFoundException(Loc.T("winws2.exe не найден. Дождитесь загрузки движка."));
 
             SetState(EngineState.Starting);
 
@@ -459,7 +460,7 @@ public sealed class EngineService : IDisposable
             _proc = proc;
             ActivePreset = preset;
             SetState(EngineState.Running);
-            Emit($"=== Запущен пресет «{preset.Name}» (PID {proc.Id}) ===");
+            Emit(Loc.T("=== Запущен пресет «{0}» (PID {1}) ===", Loc.T(preset.Name), proc.Id));
         }
     }
 
@@ -484,7 +485,7 @@ public sealed class EngineService : IDisposable
         }
         catch (Exception ex)
         {
-            Emit($"Ошибка остановки: {ex.Message}");
+            Emit(Loc.T("Ошибка остановки: {0}", ex.Message));
         }
         // OnProcessExited finalizes state and closes the log.
     }
@@ -501,7 +502,7 @@ public sealed class EngineService : IDisposable
         {
             int? code = null;
             try { code = _proc?.ExitCode; } catch { }
-            Emit($"=== Движок остановлен (код {code?.ToString() ?? "?"}) ===");
+            Emit(Loc.T("=== Движок остановлен (код {0}) ===", code?.ToString() ?? "?"));
 
             _proc?.Dispose();
             _proc = null;
@@ -593,7 +594,7 @@ public sealed class EngineService : IDisposable
             }
 
             if (_job != IntPtr.Zero && !AssignProcessToJobObject(_job, proc.Handle))
-                Emit("Предупреждение: не удалось привязать движок к job-объекту — " +
+                Emit(Loc.T("Предупреждение: не удалось привязать движок к job-объекту — ") +
                      "автозакрытие при падении приложения может не сработать.");
         }
         catch { /* best-effort; graceful Stop() still handles a clean exit */ }

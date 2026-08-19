@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Zapret2UI.Localization;
 
 namespace Zapret2UI.Services;
 
@@ -37,7 +38,7 @@ public sealed class TcpTimestampsService
             // Restore to the detected prior value, or Windows' default "allowed" if we couldn't parse it.
             _restoreTo = current ?? "allowed";
             if (SetState("enabled"))
-                log?.Invoke("TCP timestamps: включены на время сеанса (нужны, чтобы ts-fooling работал).");
+                log?.Invoke(Loc.T("TCP timestamps: включены на время сеанса (нужны, чтобы ts-fooling работал)."));
             else
                 _restoreTo = null;                          // set failed — don't try to "restore" later
         }
@@ -53,7 +54,7 @@ public sealed class TcpTimestampsService
         try
         {
             if (SetState(target))
-                log?.Invoke($"TCP timestamps: возвращены в исходное состояние ({target}).");
+                log?.Invoke(Loc.T("TCP timestamps: возвращены в исходное состояние ({0}).", target));
         }
         catch { /* best-effort */ }
     }

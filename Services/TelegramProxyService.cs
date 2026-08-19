@@ -2,6 +2,7 @@ using System.Buffers.Binary;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
+using Zapret2UI.Localization;
 
 namespace Zapret2UI.Services;
 
@@ -82,7 +83,7 @@ public sealed class TelegramProxyService : IDisposable
     private readonly DohResolver _doh = new();
     private TcpListener? _listener;
     private CancellationTokenSource? _cts;
-    private bool _loggedFirstSuccess; // log "соединение установлено" once per session, not per connection
+    private bool _loggedFirstSuccess; // log Loc.T("соединение установлено") once per session, not per connection
     private int _connSeq;             // per-connection number, so open/close lines can be paired by eye
 
     /// <summary>Apply persisted port/secret before starting. A blank/invalid secret keeps the
@@ -113,20 +114,20 @@ public sealed class TelegramProxyService : IDisposable
         }
         if (listener is null)
         {
-            StartError = $"Порт {desired} занят (проверил {desired}–{Math.Min(desired + 9, 65535)}). " +
+            StartError = Loc.T("Порт {0} занят (проверил {1}–{2}). ", desired, desired, Math.Min(desired + 9, 65535)) +
                          "Закройте программу, занявшую порт, или укажите другой в настройках.";
             LogLine?.Invoke($"[tg-proxy] {StartError}");
             StateChanged?.Invoke(); // let the card show the failure instead of silently staying off
             return false;
         }
         if (Port != desired)
-            LogLine?.Invoke($"[tg-proxy] порт {desired} занят — использую {Port}");
+            LogLine?.Invoke(Loc.T("[tg-proxy] порт {0} занят — использую {1}", desired, Port));
 
         _listener = listener;
         _cts = new CancellationTokenSource();
         _loggedFirstSuccess = false;
         IsRunning = true;
-        LogLine?.Invoke($"[tg-proxy] запущен на 127.0.0.1:{Port} (секрет dd{SecretHex})");
+        LogLine?.Invoke(Loc.T("[tg-proxy] запущен на 127.0.0.1:{0} (секрет dd{1})", Port, SecretHex));
         StateChanged?.Invoke();
         _ = AcceptLoopAsync(_listener, _cts.Token);
         return true;
@@ -139,7 +140,7 @@ public sealed class TelegramProxyService : IDisposable
         try { _cts?.Cancel(); } catch { /* ignore */ }
         try { _listener?.Stop(); } catch { /* ignore */ }
         _listener = null;
-        LogLine?.Invoke("[tg-proxy] остановлен");
+        LogLine?.Invoke(Loc.T("[tg-proxy] остановлен"));
         StateChanged?.Invoke();
     }
 
@@ -178,9 +179,9 @@ public sealed class TelegramProxyService : IDisposable
             // nothing in the journal. Say what happened and drop it.
             if (TgProxyProto.IsTestDc(dc))
             {
-                LogLine?.Invoke($"[tg-proxy] клиент просит тестовый дата-центр (DC{dc - TgProxyProto.TestDcOffset} "
-                              + "тестовой сети Telegram) — прокси работает только с обычным Telegram. "
-                              + "Отключите тестовый режим в клиенте.");
+                LogLine?.Invoke(Loc.T("[tg-proxy] клиент просит тестовый дата-центр (DC{0} ", dc - TgProxyProto.TestDcOffset)
+                              + Loc.T("тестовой сети Telegram) — прокси работает только с обычным Telegram. "
+                              + "Отключите тестовый режим в клиенте."));
                 return;
             }
 
@@ -205,7 +206,7 @@ public sealed class TelegramProxyService : IDisposable
             // Number every bridge and log both ends of its life, so the journal can be read as pairs
             // instead of a wall of identical "DC2" lines (see BridgeAsync's closing note).
             int id = Interlocked.Increment(ref _connSeq);
-            LogDetail($"[tg-proxy] #{id} DC{dcKey}: открыто через {up.Value.FrontId ?? "прямой IP"}");
+            LogDetail(Loc.T("[tg-proxy] #{0} DC{1}: открыто через {2}", id, dcKey, up.Value.FrontId ?? Loc.T("прямой IP")));
 
             var outcome = await BridgeAsync(stream, ws, ctx, splitter, dcKey, id, ct);
             if (up.Value.FrontId is { } frontId)
@@ -214,7 +215,7 @@ public sealed class TelegramProxyService : IDisposable
                 {
                     _balancer.MarkBad(dcKey, frontId);
                     _loggedFirstSuccess = false; // let the next working path re-announce success
-                    LogLine?.Invoke($"[tg-proxy] DC{dcKey}: {frontId} не доводит трафик до Telegram — исключаю на время");
+                    LogLine?.Invoke(Loc.T("[tg-proxy] DC{0}: {1} не доводит трафик до Telegram — исключаю на время", dcKey, frontId));
                 }
                 else if (outcome == BridgeOutcome.FlakyDeath)
                 {
@@ -222,14 +223,14 @@ public sealed class TelegramProxyService : IDisposable
                     // briefly so the client's retry lands on a different front instead of churning here.
                     _balancer.MarkBad(dcKey, frontId, 30_000);
                     _loggedFirstSuccess = false;
-                    LogLine?.Invoke($"[tg-proxy] DC{dcKey}: {frontId} рвёт соединение сразу — пробую другой фронт");
+                    LogLine?.Invoke(Loc.T("[tg-proxy] DC{0}: {1} рвёт соединение сразу — пробую другой фронт", dcKey, frontId));
                 }
             }
         }
         catch (OperationCanceledException) { /* shutting down */ }
         catch (EndOfStreamException) { /* client disconnected */ }
         catch (IOException) { /* connection reset */ }
-        catch (Exception ex) { LogLine?.Invoke($"[tg-proxy] ошибка соединения: {ex.Message}"); }
+        catch (Exception ex) { LogLine?.Invoke(Loc.T("[tg-proxy] ошибка соединения: {0}", ex.Message)); }
         finally
         {
             if (ws is not null) { try { await ws.CloseAsync(); } catch { /* ignore */ } }
@@ -281,7 +282,7 @@ public sealed class TelegramProxyService : IDisposable
             else
             {
                 string? osIp = await TryOsResolveAsync(domain, ct);
-                if (osIp is null) { fails.Add($"{domain}: DNS не резолвится"); continue; }
+                if (osIp is null) { fails.Add(Loc.T("{0}: DNS не резолвится", domain)); continue; }
                 host = osIp; via = $"DNS {host}";
             }
 
@@ -295,8 +296,8 @@ public sealed class TelegramProxyService : IDisposable
             fails.Add($"{domain} ({via}): {StageText(r)}");
         }
 
-        string summary = fails.Count == 0 ? "нет доступных адресов" : string.Join("; ", fails.Take(4));
-        LogLine?.Invoke($"[tg-proxy] DC{dc}: не удалось подключиться к Telegram — {summary}");
+        string summary = fails.Count == 0 ? Loc.T("нет доступных адресов") : string.Join("; ", fails.Take(4));
+        LogLine?.Invoke(Loc.T("[tg-proxy] DC{0}: не удалось подключиться к Telegram — {1}", dc, summary));
         return null;
     }
 
@@ -307,17 +308,17 @@ public sealed class TelegramProxyService : IDisposable
             _loggedFirstSuccess = true;
             // Only the WS channel is open here (101) — NOT proof Telegram's traffic flows. The bridge
             // logs "поток пошёл" on the first real answer, or the front is blacklisted as not-relaying.
-            LogLine?.Invoke($"[tg-proxy] канал до Telegram открыт (DC{dc} через {via}) — проверяю поток");
+            LogLine?.Invoke(Loc.T("[tg-proxy] канал до Telegram открыт (DC{0} через {1}) — проверяю поток", dc, via));
         }
         return (ws, frontId);
     }
 
     private static string StageText(WsResult r) => r.Stage switch
     {
-        WsStage.Tcp => "TCP не открылся (таймаут / блок IP)",
-        WsStage.Tls => "TLS оборван (DPI по SNI?)",
-        WsStage.Upgrade => $"WebSocket-ответ {r.Status}, не 101",
-        _ => "ошибка",
+        WsStage.Tcp => Loc.T("TCP не открылся (таймаут / блок IP)"),
+        WsStage.Tls => Loc.T("TLS оборван (DPI по SNI?)"),
+        WsStage.Upgrade => Loc.T("WebSocket-ответ {0}, не 101", r.Status),
+        _ => Loc.T("ошибка"),
     };
 
     private static async Task<string?> TryOsResolveAsync(string host, CancellationToken ct)
@@ -337,7 +338,7 @@ public sealed class TelegramProxyService : IDisposable
     /// returns a short verdict for the card. Needs no admin and is independent of the local listener.</summary>
     public async Task<string> SelfTestAsync(CancellationToken ct = default)
     {
-        LogLine?.Invoke("[tg-proxy] ── проверка соединения с Telegram ──");
+        LogLine?.Invoke(Loc.T("[tg-proxy] ── проверка соединения с Telegram ──"));
         var timeout = TimeSpan.FromSeconds(8);
         const int dc = 2;
         bool anyOk = false;
@@ -347,13 +348,13 @@ public sealed class TelegramProxyService : IDisposable
         string probe = $"kws{dc}.{_balancer.DomainsForDc(dc).First()}";
         string[] dohIps = await _doh.ResolveAsync(probe, ct);
         LogLine?.Invoke(dohIps.Length > 0
-            ? $"[tg-proxy] DoH (1.1.1.1 / 8.8.8.8): доступен ({probe} → {dohIps[0]})"
-            : "[tg-proxy] DoH (1.1.1.1 / 8.8.8.8): недоступен — сеть, похоже, режет и его");
+            ? Loc.T("[tg-proxy] DoH (1.1.1.1 / 8.8.8.8): доступен ({0} → {1})", probe, dohIps[0])
+            : Loc.T("[tg-proxy] DoH (1.1.1.1 / 8.8.8.8): недоступен — сеть, похоже, режет и его"));
         string? osIp = await TryOsResolveAsync(probe, ct);
         if (osIp is null && dohIps.Length > 0)
-            LogLine?.Invoke("[tg-proxy] системный DNS: фронт-домен не резолвится — вероятно отравление DNS у провайдера (DoH это обходит)");
+            LogLine?.Invoke(Loc.T("[tg-proxy] системный DNS: фронт-домен не резолвится — вероятно отравление DNS у провайдера (DoH это обходит)"));
         else if (osIp is not null)
-            LogLine?.Invoke($"[tg-proxy] системный DNS: работает ({probe} → {osIp})");
+            LogLine?.Invoke(Loc.T("[tg-proxy] системный DNS: работает ({0} → {1})", probe, osIp));
 
         // Direct DC IP (its SNI is the real telegram host — чаще всего режется по SNI). A WS 101 alone
         // isn't enough — the front must actually relay to a live DC, so probe real data flow.
@@ -362,15 +363,15 @@ public sealed class TelegramProxyService : IDisposable
             string d = TgProxyProto.WsDomains(dc, false)[0];
             var r = await TgWebSocket.ConnectAsync(ip, d, timeout, sni: d, ct: ct);
             if (!r.Ok)
-                LogLine?.Invoke($"[tg-proxy] прямой IP {ip} (SNI {d}): {StageText(r)}");
+                LogLine?.Invoke(Loc.T("[tg-proxy] прямой IP {0} (SNI {1}): {2}", ip, d, StageText(r)));
             else
             {
                 bool relays = await TgProxyProto.ProbeRelayAsync(r.Ws!, dc, ct);
                 r.Ws!.Dispose();
                 LogLine?.Invoke(relays
-                    ? $"[tg-proxy] прямой IP {ip}: OK (Telegram отвечает)"
-                    : $"[tg-proxy] прямой IP {ip}: WS есть, но Telegram молчит (путь не доводит до DC)");
-                if (relays) { anyOk = true; okVia = $"прямой IP {ip}"; }
+                    ? Loc.T("[tg-proxy] прямой IP {0}: OK (Telegram отвечает)", ip)
+                    : Loc.T("[tg-proxy] прямой IP {0}: WS есть, но Telegram молчит (путь не доводит до DC)", ip));
+                if (relays) { anyOk = true; okVia = Loc.T("прямой IP {0}", ip); }
             }
         }
 
@@ -384,19 +385,19 @@ public sealed class TelegramProxyService : IDisposable
             string[] ips = await _doh.ResolveAsync(domain, ct);
             string host = ips.Length > 0 ? ips[0] : (await TryOsResolveAsync(domain, ct) ?? domain);
             var r = await TgWebSocket.ConnectAsync(host, domain, timeout, sni: domain, ct: ct);
-            if (!r.Ok) { LogLine?.Invoke($"[tg-proxy] фронт {domain}: {StageText(r)}"); continue; }
+            if (!r.Ok) { LogLine?.Invoke(Loc.T("[tg-proxy] фронт {0}: {1}", domain, StageText(r))); continue; }
             bool relays = await TgProxyProto.ProbeRelayAsync(r.Ws!, dc, ct);
             r.Ws!.Dispose();
             LogLine?.Invoke(relays
-                ? $"[tg-proxy] фронт {domain}: OK (Telegram отвечает)"
-                : $"[tg-proxy] фронт {domain}: WS есть, но Telegram молчит (мёртвый фронт)");
+                ? Loc.T("[tg-proxy] фронт {0}: OK (Telegram отвечает)", domain)
+                : Loc.T("[tg-proxy] фронт {0}: WS есть, но Telegram молчит (мёртвый фронт)", domain));
             if (relays) { if (!anyOk) { anyOk = true; okVia = domain; } break; }
         }
 
         string verdict = anyOk
-            ? $"РАБОТАЕТ: найден путь до Telegram ({okVia}). Если Telegram всё равно не грузит — переподключите прокси в приложении Telegram."
-            : "НЕ РАБОТАЕТ: до Telegram не достучаться на этой сети. Подробности — в журнале (DNS → поможет DoH; TLS/IP → провайдер режет Cloudflare).";
-        LogLine?.Invoke("[tg-proxy] итог: " + verdict);
+            ? Loc.T("РАБОТАЕТ: найден путь до Telegram ({0}). Если Telegram всё равно не грузит — переподключите прокси в приложении Telegram.", okVia)
+            : Loc.T("НЕ РАБОТАЕТ: до Telegram не достучаться на этой сети. Подробности — в журнале (DNS → поможет DoH; TLS/IP → провайдер режет Cloudflare).");
+        LogLine?.Invoke(Loc.T("[tg-proxy] итог: ") + verdict);
         return verdict;
     }
 
@@ -409,8 +410,8 @@ public sealed class TelegramProxyService : IDisposable
     /// the piece the front self-test skips, and it's testable non-elevated. Returns a short verdict.</summary>
     public async Task<string> BridgeSelfTestAsync(CancellationToken ct = default)
     {
-        if (!IsRunning) return "тест моста: прокси не запущен";
-        LogLine?.Invoke("[tg-proxy] ── тест моста (loopback-клиент через реальный мост) ──");
+        if (!IsRunning) return Loc.T("тест моста: прокси не запущен");
+        LogLine?.Invoke(Loc.T("[tg-proxy] ── тест моста (loopback-клиент через реальный мост) ──"));
         using var cli = new TcpClient { NoDelay = true };
         try
         {
@@ -460,18 +461,18 @@ public sealed class TelegramProxyService : IDisposable
 
             string verdict;
             if (plain.Count < 28)
-                verdict = $"МОСТ: resPQ не дошёл ({plain.Count}б) — мост не донёс ответ Telegram до клиента";
+                verdict = Loc.T("МОСТ: resPQ не дошёл ({0}б) — мост не донёс ответ Telegram до клиента", plain.Count);
             else
             {
                 uint ctor = BinaryPrimitives.ReadUInt32LittleEndian(plain.ToArray().AsSpan(24, 4));
                 verdict = ctor == 0x05162463
-                    ? "МОСТ OK: resPQ прошёл через мост неповреждённым — re-encryption и splitter исправны"
-                    : $"МОСТ ПОВРЕЖДЁН: ждал resPQ 0x05162463, пришло 0x{ctor:x8} — баг в мосте (не сеть!)";
+                    ? Loc.T("МОСТ OK: resPQ прошёл через мост неповреждённым — re-encryption и splitter исправны")
+                    : Loc.T("МОСТ ПОВРЕЖДЁН: ждал resPQ 0x05162463, пришло 0x{0:x8} — баг в мосте (не сеть!)", ctor);
             }
             LogLine?.Invoke("[tg-proxy] " + verdict);
             return verdict;
         }
-        catch (Exception ex) { return "тест моста: ошибка " + ex.Message; }
+        catch (Exception ex) { return Loc.T("тест моста: ошибка ") + ex.Message; }
     }
 
     /// <returns>How the bridge ended: <see cref="BridgeOutcome.DeadFront"/> (relayed nothing),
@@ -506,7 +507,7 @@ public sealed class TelegramProxyService : IDisposable
                     if (r == 0)
                     {
                         Volatile.Write(ref clientClosed, 1); // client hung up gracefully — not an upstream kill
-                        EndedBy("Telegram Desktop закрыл соединение");
+                        EndedBy(Loc.T("Telegram Desktop закрыл соединение"));
                         var tail = splitter.Flush();
                         if (tail.Count > 0) await ws.SendAsync(tail[0], ct);
                         break;
@@ -521,7 +522,7 @@ public sealed class TelegramProxyService : IDisposable
                 }
             }
             catch (OperationCanceledException) { /* the peer loop ended first — it owns the cause */ }
-            catch { EndedBy("обрыв на стороне Telegram Desktop"); }
+            catch { EndedBy(Loc.T("обрыв на стороне Telegram Desktop")); }
             finally { linked.Cancel(); }
         }
 
@@ -532,9 +533,9 @@ public sealed class TelegramProxyService : IDisposable
                 while (true)
                 {
                     byte[]? data = await ws.RecvAsync(ct);
-                    if (data is null) { EndedBy("Telegram закрыл канал"); break; }
+                    if (data is null) { EndedBy(Loc.T("Telegram закрыл канал")); break; }
                     if (Interlocked.Exchange(ref tgResponded, 1) == 0)
-                        LogDetail($"[tg-proxy] #{id} DC{dc}: трафик пошёл");
+                        LogDetail(Loc.T("[tg-proxy] #{0} DC{1}: трафик пошёл", id, dc));
                     Volatile.Write(ref lastActivity, Environment.TickCount64);
                     byte[] plain = ctx.TgDec.Update(data);
                     byte[] enc = ctx.CltEnc.Update(plain);
@@ -543,7 +544,7 @@ public sealed class TelegramProxyService : IDisposable
                 }
             }
             catch (OperationCanceledException) { /* the peer loop ended first — it owns the cause */ }
-            catch { EndedBy("обрыв канала до Telegram"); }
+            catch { EndedBy(Loc.T("обрыв канала до Telegram")); }
             finally { linked.Cancel(); }
         }
 
@@ -558,7 +559,7 @@ public sealed class TelegramProxyService : IDisposable
             {
                 while (Environment.TickCount64 - Volatile.Read(ref lastActivity) <= IdleTimeoutMs)
                     await Task.Delay(IdlePollMs, ct);
-                EndedBy($"молчало {IdleTimeoutMs / 60_000} мин");
+                EndedBy(Loc.T("молчало {0} мин", IdleTimeoutMs / 60_000));
             }
             catch { /* cancelled */ }
             finally { linked.Cancel(); }
@@ -579,7 +580,7 @@ public sealed class TelegramProxyService : IDisposable
                     if (spoke != 0 && Environment.TickCount64 - spoke > FirstResponseMs)
                     {
                         deadFront = true;
-                        EndedBy("фронт не довёл трафик до Telegram");
+                        EndedBy(Loc.T("фронт не довёл трафик до Telegram"));
                         linked.Cancel(); // ONLY a genuinely dead front tears the bridge down
                         return;
                     }
@@ -601,8 +602,8 @@ public sealed class TelegramProxyService : IDisposable
         // claimed a 45-second life, when in fact the two lines belong to different connections.
         if (relayed)
         {
-            string cause = stopping ? "остановка прокси" : endCause ?? "разрыв";
-            LogDetail($"[tg-proxy] #{id} DC{dc}: закрыто через {lifeMs / 1000.0:0.0} с — {cause}");
+            string cause = stopping ? Loc.T("остановка прокси") : endCause ?? Loc.T("разрыв");
+            LogDetail(Loc.T("[tg-proxy] #{0} DC{1}: закрыто через {2:0.0} с — {3}", id, dc, lifeMs / 1000.0, cause));
         }
 
         // Stopping the proxy kills every bridge at once; without this guard those look exactly like an

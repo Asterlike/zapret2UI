@@ -1,5 +1,7 @@
 <div align="center">
 
+[EN](README.en.md "Read this in English") | **RU**
+
 <img src="Assets/app-256.png" width="96" alt="Zapret2UI"/>
 
 # Zapret2UI
@@ -59,6 +61,10 @@
 
 На сайте есть поиск (`Ctrl K`), тёмная тема и скриншоты, которые открываются крупно.
 Тот же материал одним файлом для чтения офлайн — [manual_zapret2UI.md](manual_zapret2UI.md).
+
+English version: **[README.en.md](README.en.md)** · [documentation](https://asterlike.github.io/zapret2UI/en/) ·
+[manual](manual_zapret2UI.en.md). Интерфейс доступен на русском и английском — переключатель **RU | EN**
+на «Главной» и в «Настройках» (переключение перезапускает программу).
 
 ---
 

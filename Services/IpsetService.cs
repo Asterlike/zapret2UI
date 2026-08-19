@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.IO;
 using System.Text;
+using Zapret2UI.Localization;
 
 namespace Zapret2UI.Services;
 
@@ -18,17 +19,17 @@ public sealed class IpsetService
     public async Task<IpsetResult> BuildDiscordIpsetAsync(IEnumerable<string> domains, CancellationToken ct)
     {
         if (!File.Exists(AppPaths.MdigExe) || !File.Exists(AppPaths.Ip2NetExe))
-            throw new FileNotFoundException("mdig.exe / ip2net.exe не найдены — дождитесь загрузки движка.");
+            throw new FileNotFoundException(Loc.T("mdig.exe / ip2net.exe не найдены — дождитесь загрузки движка."));
 
         var list = domains.Select(d => d.Trim())
                           .Where(d => d.Length > 0 && !d.StartsWith('#'))
                           .Distinct(StringComparer.OrdinalIgnoreCase)
                           .ToList();
-        if (list.Count == 0) throw new InvalidOperationException("Список доменов Discord пуст.");
+        if (list.Count == 0) throw new InvalidOperationException(Loc.T("Список доменов Discord пуст."));
 
         string ips = await ResolveAsync(list, ct);
         if (string.IsNullOrWhiteSpace(ips))
-            throw new InvalidOperationException("Не удалось разрезолвить ни одного домена (DNS-блокировка?).");
+            throw new InvalidOperationException(Loc.T("Не удалось разрезолвить ни одного домена (DNS-блокировка?)."));
 
         string subnets = await AggregateAsync(ips, ct);
         var lines = subnets.Replace("\r\n", "\n").Split('\n')
@@ -78,7 +79,7 @@ public sealed class IpsetService
             // writing an empty/partial ipset. Partial output (some domains resolved) is still returned.
             if (p.ExitCode != 0 && string.IsNullOrWhiteSpace(outp))
                 throw new InvalidOperationException(
-                    $"{Path.GetFileName(exe)} завершился с кодом {p.ExitCode}" +
+                    Loc.T("{0} завершился с кодом {1}", Path.GetFileName(exe), p.ExitCode) +
                     (err.Trim().Length > 0 ? $": {err.Trim()}" : "."));
             return outp;
         }

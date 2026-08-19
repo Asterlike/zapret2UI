@@ -1,5 +1,6 @@
 using Zapret2UI.Mvvm;
 using Zapret2UI.Services;
+using Zapret2UI.Localization;
 
 namespace Zapret2UI.ViewModels;
 
@@ -59,9 +60,9 @@ public sealed class AutoCandidateRow : ObservableObject
 
     public string StatusText => State switch
     {
-        AutoCandidateState.Running => "проверяю…",
-        AutoCandidateState.Done => Score?.Detail ?? "готово",
-        _ => "в очереди",
+        AutoCandidateState.Running => Loc.T("проверяю…"),
+        AutoCandidateState.Done => Score?.Detail ?? Loc.T("готово"),
+        _ => Loc.T("в очереди"),
     };
 
     public bool HasHosts => Score?.HostList.Count > 0;

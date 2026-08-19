@@ -13,7 +13,7 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <Platforms>x64</Platforms>
     <PlatformTarget>x64</PlatformTarget>
-    <Version>1.0.0</Version>
+    <Version>1.1.0</Version>
     <Product>Zapret2UI</Product>
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
     <!-- Self-contained single-file publish so the user needs nothing installed -->
@@ -56,6 +56,16 @@
     <!-- Color-emoji rendering for WPF (WPF can't draw color emoji natively).
          Provides emoji:TextBlock / emoji:RichTextBox with the bundled Twemoji font. -->
     <PackageReference Include="Emoji.Wpf" Version="0.3.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- RU→EN UI string table, loaded at runtime by Localization/Loc.cs when the language is English.
+         Embedded (not a loose file) so it travels inside the single-file exe. WithCulture=false +
+         LogicalName are REQUIRED: the ".en." in the name makes MSBuild treat it as an English SATELLITE
+         resource (routed to an en\Zapret2UI.resources.dll), where GetManifestResourceStream on the main
+         assembly can't see it. These pin it into the main assembly under a fixed name. -->
+    <EmbeddedResource Include="Localization\strings.en.json" WithCulture="false"
+                      LogicalName="Zapret2UI.Localization.strings.en.json" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,5 +1,6 @@
 using System.IO;
 using Zapret2UI.Models;
+using Zapret2UI.Localization;
 
 namespace Zapret2UI.Services;
 
@@ -11,7 +12,7 @@ public sealed record AutoScore(
     string Name, int Ok, int Fail, int Total,
     ComboStrategy? Strategy = null, IReadOnlyList<AutoHostResult>? Hosts = null)
 {
-    public string Detail => Fail == 0 ? $"всё прошло ({Ok}/{Total})" : $"{Ok}/{Total} прошло, ошибок: {Fail}";
+    public string Detail => Fail == 0 ? Loc.T("всё прошло ({0}/{1})", Ok, Total) : Loc.T("{0}/{1} прошло, ошибок: {2}", Ok, Total, Fail);
     public string Glyph => Fail == 0 ? "✓" : (Ok > 0 ? "≈" : "✗");
     public double Ratio => Total > 0 ? (double)Ok / Total : 0;
     public IReadOnlyList<AutoHostResult> HostList => Hosts ?? Array.Empty<AutoHostResult>();
@@ -44,7 +45,7 @@ public sealed class AutoSelectService : IDisposable
         IReadOnlyList<ComboStrategy> candidates, IReadOnlyList<string> goalHosts, CancellationToken ct)
     {
         if (!File.Exists(AppPaths.WinwsExe))
-            throw new FileNotFoundException("Движок не установлен.");
+            throw new FileNotFoundException(Loc.T("Движок не установлен."));
 
         ComboStrategy? best = null;
         AutoScore? bestScore = null;
@@ -54,7 +55,7 @@ public sealed class AutoSelectService : IDisposable
             ct.ThrowIfCancellationRequested();
             var cand = candidates[i];
             CandidateStarted?.Invoke(cand.Name);
-            Status?.Invoke($"[{i + 1}/{candidates.Count}] Пробую: {cand.Name}…");
+            Status?.Invoke(Loc.T("[{0}/{1}] Пробую: {2}…", i + 1, candidates.Count, Loc.T(cand.Name)));
 
             AutoScore score;
             try
@@ -64,7 +65,7 @@ public sealed class AutoSelectService : IDisposable
             catch (OperationCanceledException) { throw; }
             catch (Exception ex)
             {
-                score = new AutoScore(cand.Name + " — ошибка: " + ex.Message,
+                score = new AutoScore(Loc.T(cand.Name) + Loc.T(" — ошибка: ") + ex.Message,
                     0, goalHosts.Count * 3, goalHosts.Count * 3, cand);
             }
             ScoreReady?.Invoke(score);
@@ -160,8 +161,8 @@ public sealed class AutoSelectService : IDisposable
         var tls = ExtractTlsBundle(s.Args);
         return new Preset
         {
-            Name = $"Автоподбор: {scope.Title()} [{s.Name}]",
-            Description = $"Стратегия «{s.Name}», подобранная авто-тестером как лучшая для «{scope.Title()}».",
+            Name = Loc.T("Автоподбор: {0} [{1}]", scope.Title(), Loc.T(s.Name)),
+            Description = Loc.T("Стратегия «{0}», подобранная авто-тестером как лучшая для «{1}».", Loc.T(s.Name), scope.Title()),
             Args = tls.Count > 0
                 ? PresetService.BuildComboArgs(tls.ToArray(), tls.ToArray(), tls.ToArray())
                 : new List<string>(s.Args),

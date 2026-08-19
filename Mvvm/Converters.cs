@@ -4,6 +4,7 @@ using System.Windows.Data;
 using System.Windows.Media;
 using Zapret2UI.Models;
 using Zapret2UI.Services;
+using Zapret2UI.Localization;
 
 namespace Zapret2UI.Mvvm;
 
@@ -57,10 +58,10 @@ public sealed class StateToTextConverter : IValueConverter
 {
     public object Convert(object? v, Type t, object? p, CultureInfo c) => v switch
     {
-        EngineState.Running => "Работает",
-        EngineState.Starting => "Запуск…",
-        EngineState.Stopping => "Остановка…",
-        _ => "Остановлен",
+        EngineState.Running => Loc.T("Работает"),
+        EngineState.Starting => Loc.T("Запуск…"),
+        EngineState.Stopping => Loc.T("Остановка…"),
+        _ => Loc.T("Остановлен"),
     };
     public object ConvertBack(object? v, Type t, object? p, CultureInfo c) => Binding.DoNothing;
 }
@@ -71,9 +72,9 @@ public sealed class DiagStatusToTextConverter : IValueConverter
     public object Convert(object? v, Type t, object? p, CultureInfo c) => v switch
     {
         DiagStatus.Ok => "OK",
-        DiagStatus.Fail => "ОШИБКА",
-        DiagStatus.Timeout => "таймаут",
-        DiagStatus.NotSupported => "н/д",
+        DiagStatus.Fail => Loc.T("ОШИБКА"),
+        DiagStatus.Timeout => Loc.T("таймаут"),
+        DiagStatus.NotSupported => Loc.T("н/д"),
         DiagStatus.Running => "…",
         DiagStatus.Skip => "—",
         _ => "·",

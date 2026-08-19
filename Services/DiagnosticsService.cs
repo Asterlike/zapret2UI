@@ -1,5 +1,6 @@
 using System.Security.Authentication;
 using Zapret2UI.Models;
+using Zapret2UI.Localization;
 
 namespace Zapret2UI.Services;
 
@@ -23,12 +24,12 @@ public sealed class DiagnosticsService
         // Targets mirror Flowseal's blockcheck (его utils targets) — результаты ложатся 1:1 на то,
         // что сообщество считает «рабочим»: проще понять, что реально пробивается, а что нет.
         // ---- Discord ----
-        new() { Group = "Discord",    Name = "Main (вход/API)",   Host = "discord.com" },
+        new() { Group = "Discord",    Name = Loc.T("Main (вход/API)"),   Host = "discord.com" },
         new() { Group = "Discord",    Name = "Gateway (WS)",      Host = "gateway.discord.gg" },
         new() { Group = "Discord",    Name = "CDN",               Host = "cdn.discordapp.com" },
         new() { Group = "Discord",    Name = "Updates",           Host = "updates.discord.com" },
         // The Cloudflare bot-challenge the LOGIN page loads — if its HTTP cell fails, login won't pass.
-        new() { Group = "Discord",    Name = "Вход (CF-челлендж)", Host = "challenges.cloudflare.com" },
+        new() { Group = "Discord",    Name = Loc.T("Вход (CF-челлендж)"), Host = "challenges.cloudflare.com" },
 
         // ---- YouTube ----
         new() { Group = "YouTube",    Name = "Web",               Host = "www.youtube.com" },
@@ -55,7 +56,7 @@ public sealed class DiagnosticsService
     public async Task RunAsync(IReadOnlyList<DiagRow> rows, CancellationToken ct)
     {
         foreach (var r in rows) r.Reset();
-        Status?.Invoke("Диагностика запущена…");
+        Status?.Invoke(Loc.T("Диагностика запущена…"));
 
         int done = 0, total = rows.Count;
         using var gate = new SemaphoreSlim(6);
@@ -66,7 +67,7 @@ public sealed class DiagnosticsService
             {
                 await ProbeRowAsync(row, ct);
                 int n = Interlocked.Increment(ref done);
-                Status?.Invoke($"Проверено {n}/{total}…");
+                Status?.Invoke(Loc.T("Проверено {0}/{1}…", n, total));
             }
             finally { gate.Release(); }
         });
@@ -88,7 +89,7 @@ public sealed class DiagnosticsService
         }
 
         ct.ThrowIfCancellationRequested();
-        Status?.Invoke("Диагностика завершена.");
+        Status?.Invoke(Loc.T("Диагностика завершена."));
     }
 
     private static async Task ProbeRowAsync(DiagRow row, CancellationToken ct)
@@ -96,7 +97,7 @@ public sealed class DiagnosticsService
         // Ping for everyone.
         row.Ping = DiagStatus.Running;
         var (pOk, pMs) = await NetProbe.PingAsync(row.Host, ct);
-        row.PingText = pOk ? $"{pMs} мс" : "таймаут";
+        row.PingText = pOk ? Loc.T("{0} мс", pMs) : Loc.T("таймаут");
         row.Ping = pOk ? DiagStatus.Ok : DiagStatus.Timeout;
 
         if (row.PingOnly) return;

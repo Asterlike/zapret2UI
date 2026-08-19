@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Input;
 using Zapret2UI.Services;
+using Zapret2UI.Localization;
 
 namespace Zapret2UI;
 
@@ -19,21 +20,21 @@ public partial class ConflictDialog : Window
 
         if (items.Count == 0)
         {
-            HeadText.Text = "Всё в порядке";
-            SubText.Text = "Проверка не нашла в системе ничего, что мешало бы обходу.";
+            HeadText.Text = Loc.T("Всё в порядке");
+            SubText.Text = Loc.T("Проверка не нашла в системе ничего, что мешало бы обходу.");
             items = new[]
             {
-                new EnvFinding(EnvSeverity.Ok, "Помех не найдено",
-                    "Конфликтующих программ и VPN-туннелей не видно, движок на месте. Если обход всё " +
+                new EnvFinding(EnvSeverity.Ok, Loc.T("Помех не найдено"),
+                    Loc.T("Конфликтующих программ и VPN-туннелей не видно, движок на месте. Если обход всё " +
                     "равно не работает — причина в стратегии, а не в окружении: попробуйте «Подобрать " +
-                    "стратегию» на главной странице.",
+                    "стратегию» на главной странице."),
                     ""),
             };
         }
         else
         {
-            HeadText.Text = "Проверка окружения";
-            SubText.Text = "Вот что может помешать обходу. У каждого пункта — что это значит и что с этим делать.";
+            HeadText.Text = Loc.T("Проверка окружения");
+            SubText.Text = Loc.T("Вот что может помешать обходу. У каждого пункта — что это значит и что с этим делать.");
         }
 
         List.ItemsSource = items;

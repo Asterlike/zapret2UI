@@ -5,6 +5,7 @@ using System.Windows.Data;
 using Zapret2UI.Models;
 using Zapret2UI.Mvvm;
 using Zapret2UI.Services;
+using Zapret2UI.Localization;
 
 namespace Zapret2UI.ViewModels;
 
@@ -22,7 +23,7 @@ public sealed partial class MainViewModel
         private set { if (SetField(ref _isDiagnosing, value)) RaiseCommandStates(); }
     }
 
-    private string _diagStatusText = "Запустите диагностику, чтобы увидеть, что открывается, а что режется.";
+    private string _diagStatusText = Loc.T("Запустите диагностику, чтобы увидеть, что открывается, а что режется.");
     public string DiagStatusText { get => _diagStatusText; private set => SetField(ref _diagStatusText, value); }
 
     private string _diagSummary = "";
@@ -30,8 +31,8 @@ public sealed partial class MainViewModel
 
     /// <summary>Reminds the user that the matrix reflects whatever is on the wire right now.</summary>
     public string DiagEngineNote => IsRunning
-        ? $"Тест идёт с активным обходом: «{SelectedPreset?.Name}». Сравните с выключенным."
-        : "Обход выключен — это базовая проверка. Включите обход и перезапустите, чтобы увидеть разницу.";
+        ? Loc.T("Тест идёт с активным обходом: «{0}». Сравните с выключенным.", Loc.T(SelectedPreset?.Name ?? ""))
+        : Loc.T("Обход выключен — это базовая проверка. Включите обход и перезапустите, чтобы увидеть разницу.");
 
     private async Task RunDiagnosticsAsync()
     {
@@ -44,8 +45,8 @@ public sealed partial class MainViewModel
             await _diag.RunAsync(DiagRows.ToList(), _diagCts.Token);
             ComputeDiagSummary();
         }
-        catch (OperationCanceledException) { DiagStatusText = "Диагностика остановлена."; }
-        catch (Exception ex) { DiagStatusText = "Ошибка диагностики: " + ex.Message; }
+        catch (OperationCanceledException) { DiagStatusText = Loc.T("Диагностика остановлена."); }
+        catch (Exception ex) { DiagStatusText = Loc.T("Ошибка диагностики: ") + ex.Message; }
         finally
         {
             IsDiagnosing = false;
@@ -67,7 +68,7 @@ public sealed partial class MainViewModel
                 else if (s == DiagStatus.Timeout) to++;
             }
         }
-        DiagSummary = $"OK: {ok}   ·   Ошибки: {bad}   ·   Таймауты: {to}";
+        DiagSummary = Loc.T("OK: {0}   ·   Ошибки: {1}   ·   Таймауты: {2}", ok, bad, to);
     }
 
     // ---- DPI check (does the provider actively block by SNI?) -------------
@@ -88,7 +89,7 @@ public sealed partial class MainViewModel
     }
 
     private string _dpiVerdictText =
-        "«Проверка DPI» определяет, режет ли провайдер по имени сайта (обрыв/заморозка) и душит ли соединение по объёму/пакетам (TCP 16-20) — а не просто «сайт недоступен».";
+        Loc.T("«Проверка DPI» определяет, режет ли провайдер по имени сайта (обрыв/заморозка) и душит ли соединение по объёму/пакетам (TCP 16-20) — а не просто «сайт недоступен».");
     public string DpiVerdictText { get => _dpiVerdictText; private set => SetField(ref _dpiVerdictText, value); }
 
     private string _dpiVerdictDetail = "";
@@ -102,7 +103,7 @@ public sealed partial class MainViewModel
         if (IsDpiChecking) return;
         IsDpiChecking = true;
         DpiVerdictStatus = DiagStatus.Running;
-        DpiVerdictText = "Проверяем DPI: имя сайта и лимит по объёму/пакетам (TCP 16-20)…";
+        DpiVerdictText = Loc.T("Проверяем DPI: имя сайта и лимит по объёму/пакетам (TCP 16-20)…");
         DpiVerdictDetail = "";
         _dpiCts = new CancellationTokenSource();
         try
@@ -138,17 +139,17 @@ public sealed partial class MainViewModel
             {
                 DpiVerdictStatus = DiagStatus.Ok;
                 DpiVerdictText = IsRunning
-                    ? "Признаков DPI-блокировки нет — ни по имени сайта, ни по объёму/пакетам. Либо провайдер не режет, либо обход уже её снимает."
-                    : "Признаков DPI-блокировки нет — ни по имени сайта, ни по объёму/пакетам (TCP 16-20).";
+                    ? Loc.T("Признаков DPI-блокировки нет — ни по имени сайта, ни по объёму/пакетам. Либо провайдер не режет, либо обход уже её снимает.")
+                    : Loc.T("Признаков DPI-блокировки нет — ни по имени сайта, ни по объёму/пакетам (TCP 16-20).");
             }
             else
             {
                 DpiVerdictStatus = DiagStatus.Timeout;
-                DpiVerdictText = "Нет соединения с хостами — похоже на проблему сети или блокировку по IP, а не DPI по имени.";
+                DpiVerdictText = Loc.T("Нет соединения с хостами — похоже на проблему сети или блокировку по IP, а не DPI по имени.");
             }
         }
-        catch (OperationCanceledException) { DpiVerdictText = "Проверка DPI остановлена."; DpiVerdictStatus = DiagStatus.Pending; }
-        catch (Exception ex) { DpiVerdictText = "Ошибка проверки DPI: " + ex.Message; DpiVerdictStatus = DiagStatus.Pending; }
+        catch (OperationCanceledException) { DpiVerdictText = Loc.T("Проверка DPI остановлена."); DpiVerdictStatus = DiagStatus.Pending; }
+        catch (Exception ex) { DpiVerdictText = Loc.T("Ошибка проверки DPI: ") + ex.Message; DpiVerdictStatus = DiagStatus.Pending; }
         finally
         {
             IsDpiChecking = false;
@@ -166,39 +167,39 @@ public sealed partial class MainViewModel
 
     private static string DpiText(DpiVerdict v) => v switch
     {
-        DpiVerdict.Clean => "чисто",
-        DpiVerdict.Reset => "обрыв DPI (RST)",
-        DpiVerdict.Freeze => "заморозка DPI",
-        _ => "нет соединения",
+        DpiVerdict.Clean => Loc.T("чисто"),
+        DpiVerdict.Reset => Loc.T("обрыв DPI (RST)"),
+        DpiVerdict.Freeze => Loc.T("заморозка DPI"),
+        _ => Loc.T("нет соединения"),
     };
 
     private static string VolumeLine(VolumeVerdict v) => v switch
     {
-        VolumeVerdict.Throttled => "✗  объём/пакеты (TCP 16-20) — душат после первых десятков КБ",
-        VolumeVerdict.Ok        => "✓  объём/пакеты (TCP 16-20) — лимита не видно",
-        _                       => "•  объём/пакеты (TCP 16-20) — проверить не удалось",
+        VolumeVerdict.Throttled => Loc.T("✗  объём/пакеты (TCP 16-20) — душат после первых десятков КБ"),
+        VolumeVerdict.Ok        => Loc.T("✓  объём/пакеты (TCP 16-20) — лимита не видно"),
+        _                       => Loc.T("•  объём/пакеты (TCP 16-20) — проверить не удалось"),
     };
 
     /// <summary>Combined verdict from the two independent axes: name-based DPI (RST/freeze on the
     /// SNI) and volume/packet limiting (TCP 16-20). At least one axis is a hit when this is called.</summary>
     private string BuildDpiVerdict(int reset, int freeze, bool volHit)
     {
-        string sniHow = reset > 0 && freeze > 0 ? "обрыв (RST) и заморозка"
-                      : reset > 0 ? "обрыв соединения (RST-инъекция)"
-                      : freeze > 0 ? "заморозка (пакеты дропаются)"
+        string sniHow = reset > 0 && freeze > 0 ? Loc.T("обрыв (RST) и заморозка")
+                      : reset > 0 ? Loc.T("обрыв соединения (RST-инъекция)")
+                      : freeze > 0 ? Loc.T("заморозка (пакеты дропаются)")
                       : "";
         bool sniHit = sniHow.Length > 0;
 
         if (sniHit && volHit)
             return IsRunning
-                ? $"Провайдер режет и по имени сайта ({sniHow}), и по объёму/пакетам (TCP 16-20). Обход включён, но не снимает — смените стратегию."
-                : $"Провайдер режет и по имени сайта ({sniHow}), и по объёму/пакетам (TCP 16-20) — отсюда «работает, но тормозит и отваливается». Включите обход; учтите, что лимит по объёму TLS-обход снимает не всегда.";
+                ? Loc.T("Провайдер режет и по имени сайта ({0}), и по объёму/пакетам (TCP 16-20). Обход включён, но не снимает — смените стратегию.", sniHow)
+                : Loc.T("Провайдер режет и по имени сайта ({0}), и по объёму/пакетам (TCP 16-20) — отсюда «работает, но тормозит и отваливается». Включите обход; учтите, что лимит по объёму TLS-обход снимает не всегда.", sniHow);
         if (sniHit)
             return IsRunning
-                ? $"Провайдер режет по DPI: {sniHow}. Обход включён, но эти хосты всё равно режутся — смените стратегию."
-                : $"Провайдер режет по DPI: {sniHow}. Это снимается обходом — включите его.";
+                ? Loc.T("Провайдер режет по DPI: {0}. Обход включён, но эти хосты всё равно режутся — смените стратегию.", sniHow)
+                : Loc.T("Провайдер режет по DPI: {0}. Это снимается обходом — включите его.", sniHow);
         // volume-limit only (SNI clean)
-        return "По имени сайта провайдер не режет, но душит соединение по объёму/пакетам (TCP 16-20) — это про «открывается, но тормозит, буферит и отваливается на больших объёмах». Обход по TLS/SNI такое лечит не всегда; помогает смена стратегии или сети.";
+        return Loc.T("По имени сайта провайдер не режет, но душит соединение по объёму/пакетам (TCP 16-20) — это про «открывается, но тормозит, буферит и отваливается на больших объёмах». Обход по TLS/SNI такое лечит не всегда; помогает смена стратегии или сети.");
     }
 
     // ---- custom targets (Диагностика tab) ---------------------------------
@@ -244,7 +245,7 @@ public sealed partial class MainViewModel
         DiagRows.Clear();
         foreach (var r in DiagnosticsService.BuildRows()) DiagRows.Add(r);
         foreach (var d in _targets.AllDomains().Take(30))
-            DiagRows.Add(new DiagRow { Group = "Свои цели", Name = d, Host = d });
+            DiagRows.Add(new DiagRow { Group = Loc.T("Свои цели"), Name = d, Host = d });
     }
 
     private void OpenTargetPopup(CustomTarget? existing)
@@ -255,7 +256,7 @@ public sealed partial class MainViewModel
             TargetIsNew = true;
             TargetRootInput = "";
             TargetDomainsText = "";
-            TargetStatus = "Введите домен (например yandex.ru) и нажмите «Найти домены».";
+            TargetStatus = Loc.T("Введите домен (например yandex.ru) и нажмите «Найти домены».");
         }
         else
         {
@@ -263,7 +264,7 @@ public sealed partial class MainViewModel
             TargetIsNew = false;
             TargetRootInput = existing.Name;
             TargetDomainsText = string.Join('\n', _targets.ReadDomains(existing.Name));
-            TargetStatus = $"{existing.DomainCount} домен(ов). Можно отредактировать список или найти ещё.";
+            TargetStatus = Loc.T("{0} домен(ов). Можно отредактировать список или найти ещё.", existing.DomainCount);
         }
         ShowTargetPopup = true;
     }
@@ -271,9 +272,9 @@ public sealed partial class MainViewModel
     private async Task ExpandTargetAsync()
     {
         string root = TargetService.Normalize(TargetRootInput);
-        if (root.Length == 0) { TargetStatus = "Сначала укажите корневой домен."; return; }
+        if (root.Length == 0) { TargetStatus = Loc.T("Сначала укажите корневой домен."); return; }
         IsExpandingTarget = true;
-        TargetStatus = $"Ищу домены для «{root}»…";
+        TargetStatus = Loc.T("Ищу домены для «{0}»…", root);
         try
         {
             // Progress<T> marshals back to this (UI) thread, so live status updates are safe to bind.
@@ -283,16 +284,16 @@ public sealed partial class MainViewModel
             var merged = have.Concat(found).Distinct(StringComparer.OrdinalIgnoreCase)
                 .OrderBy(d => d.Length).ThenBy(d => d, StringComparer.OrdinalIgnoreCase).ToList();
             TargetDomainsText = string.Join('\n', merged);
-            TargetStatus = $"Найдено: {found.Count}. Всего в списке: {merged.Count}. Проверьте и сохраните.";
+            TargetStatus = Loc.T("Найдено: {0}. Всего в списке: {1}. Проверьте и сохраните.", found.Count, merged.Count);
         }
-        catch (Exception ex) { TargetStatus = "Не удалось получить домены: " + ex.Message; }
+        catch (Exception ex) { TargetStatus = Loc.T("Не удалось получить домены: ") + ex.Message; }
         finally { IsExpandingTarget = false; }
     }
 
     private void SaveTarget()
     {
         string root = TargetService.Normalize(TargetRootInput);
-        if (root.Length == 0) { TargetStatus = "Укажите корневой домен."; return; }
+        if (root.Length == 0) { TargetStatus = Loc.T("Укажите корневой домен."); return; }
         var domains = TargetDomainsText.Split('\n').Select(s => s.Trim()).Where(s => s.Length > 0).ToList();
         if (domains.Count == 0) domains.Add(root);
 
@@ -307,8 +308,8 @@ public sealed partial class MainViewModel
         ReloadTargets();
         RebuildDiagRows();
         ShowTargetPopup = false;
-        Notify?.Invoke("Цель сохранена",
-            $"«{root}»: {domains.Count} домен(ов). Учитывается в диагностике, подборе и обходе.");
+        Notify?.Invoke(Loc.T("Цель сохранена"),
+            Loc.T("«{0}»: {1} домен(ов). Учитывается в диагностике, подборе и обходе.", root, domains.Count));
         if (IsRunning) _ = ApplyStrategyAsync(); // relaunch so the bypass covers the new domains
     }
 
@@ -365,16 +366,16 @@ public sealed partial class MainViewModel
         bool vanished = _updater.EngineBinaryVanished;
         if (vanished)
         {
-            AppendLog("Файл движка winws2.exe исчез, хотя он был установлен — почти наверняка его удалил "
-                    + "антивирус (ложное срабатывание). Скачиваю заново, но без исключений он удалит его "
-                    + "снова: Настройки → «Добавить в исключения».");
-            Notify?.Invoke("Антивирус удалил движок",
-                           "Скачиваю заново. Чтобы это не повторялось — Настройки → «Добавить в исключения».");
+            AppendLog(Loc.T("Файл движка winws2.exe исчез, хотя он был установлен — почти наверняка его удалил ")
+                    + Loc.T("антивирус (ложное срабатывание). Скачиваю заново, но без исключений он удалит его "
+                    + "снова: Настройки → «Добавить в исключения»."));
+            Notify?.Invoke(Loc.T("Антивирус удалил движок"),
+                           Loc.T("Скачиваю заново. Чтобы это не повторялось — Настройки → «Добавить в исключения»."));
         }
 
         try
         {
-            UpdateStatus = "Проверка обновлений…";
+            UpdateStatus = Loc.T("Проверка обновлений…");
             ReleaseInfo latest;
             try
             {
@@ -384,8 +385,8 @@ public sealed partial class MainViewModel
             {
                 string detail = DescribeError(ex);
                 UpdateStatus = _updater.IsEngineInstalled
-                    ? $"Не удалось проверить обновления ({detail}). Работаем на установленной версии."
-                    : $"Нет связи с GitHub: {detail}";
+                    ? Loc.T("Не удалось проверить обновления ({0}). Работаем на установленной версии.", detail)
+                    : Loc.T("Нет связи с GitHub: {0}", detail);
                 return;
             }
 
@@ -394,7 +395,7 @@ public sealed partial class MainViewModel
                 bool wasRunning = IsRunning;
                 if (wasRunning)
                 {
-                    AppendLog("Остановка движка для обновления…");
+                    AppendLog(Loc.T("Остановка движка для обновления…"));
                     _engine.Stop();
                     // Wait for winws2 to FULLY exit before overwriting engine files (a File.Copy over a
                     // running winws2.exe throws) and before CanStart lets us relaunch — poll instead of a
@@ -418,18 +419,18 @@ public sealed partial class MainViewModel
                 catch (Exception ex)
                 {
                     string detail = DescribeError(ex);
-                    UpdateStatus = $"Не удалось установить движок: {detail}";
-                    AppendLog("Ошибка загрузки движка: " + detail);
+                    UpdateStatus = Loc.T("Не удалось установить движок: {0}", detail);
+                    AppendLog(Loc.T("Ошибка загрузки движка: ") + detail);
                     if (LooksLikeTlsFailure(ex))
-                        AppendLog("TLS-соединение оборвалось. Zip движка отдаётся с githubusercontent.com "
-                                + "(не с github.com — поэтому страница релиза открывается, а загрузка нет). "
+                        AppendLog(Loc.T("TLS-соединение оборвалось. Zip движка отдаётся с githubusercontent.com ")
+                                + Loc.T("(не с github.com — поэтому страница релиза открывается, а загрузка нет). "
                                 + "Частые причины: DPI-блокировка этого хоста провайдером или антивирус с "
                                 + "проверкой HTTPS. Движка ещё нет, поэтому обход не поможет — скачайте его "
-                                + "вручную или через VPN (см. инструкцию).");
+                                + "вручную или через VPN (см. инструкцию)."));
                     return;
                 }
                 EngineVersion = _updater.InstalledVersion ?? "—";
-                UpdateStatus = $"Движок обновлён: {latest.Tag}";
+                UpdateStatus = Loc.T("Движок обновлён: {0}", latest.Tag);
                 OnPropertyChanged(nameof(CanStart));
                 RaiseCommandStates();
 
@@ -437,7 +438,7 @@ public sealed partial class MainViewModel
             }
             else
             {
-                UpdateStatus = $"Актуальная версия: {latest.Tag}";
+                UpdateStatus = Loc.T("Актуальная версия: {0}", latest.Tag);
             }
         }
         finally
@@ -460,8 +461,8 @@ public sealed partial class MainViewModel
     private void DeleteHostlist()
     {
         if (SelectedHostlist is null) return;
-        if (!ConfirmDialog.Show("Удалить список?",
-                $"Список доменов «{SelectedHostlist}» будет удалён без возможности восстановления."))
+        if (!ConfirmDialog.Show(Loc.T("Удалить список?"),
+                Loc.T("Список доменов «{0}» будет удалён без возможности восстановления.", SelectedHostlist)))
             return;
         _hostlists.Delete(SelectedHostlist);
         ReloadHostlists();
@@ -472,7 +473,7 @@ public sealed partial class MainViewModel
     {
         if (SelectedHostlist is null) return;
         _hostlists.Write(SelectedHostlist, HostlistContent);
-        AppendLog($"Список «{SelectedHostlist}» сохранён.");
+        AppendLog(Loc.T("Список «{0}» сохранён.", SelectedHostlist));
     }
 
     private void AddDomain()
@@ -487,7 +488,7 @@ public sealed partial class MainViewModel
     {
         if (SelectedPreset is null) return;
         var copy = SelectedPreset.Clone();
-        copy.Name = SelectedPreset.Name + " (моя копия)";
+        copy.Name = Loc.T(SelectedPreset.Name) + Loc.T(" (моя копия)");
         _presets.AddUser(copy);
         ReloadPresets();
         SelectedPreset = Presets.FirstOrDefault(p => p.Name == copy.Name);
@@ -496,8 +497,8 @@ public sealed partial class MainViewModel
     private void DeletePreset()
     {
         if (SelectedPreset is not { IsBuiltIn: false } p) return;
-        if (!ConfirmDialog.Show("Удалить пресет?",
-                $"Пресет «{p.Name}» будет удалён без возможности восстановления."))
+        if (!ConfirmDialog.Show(Loc.T("Удалить пресет?"),
+                Loc.T("Пресет «{0}» будет удалён без возможности восстановления.", Loc.T(p.Name))))
             return;
         _presets.DeleteUser(p);
         ReloadPresets();
@@ -509,7 +510,7 @@ public sealed partial class MainViewModel
         if (SelectedPreset is not { IsBuiltIn: false } p) return;
         _presets.UpdateUser(p);
         OnPropertyChanged(nameof(CommandPreview));
-        AppendLog($"Пресет «{p.Name}» сохранён.");
+        AppendLog(Loc.T("Пресет «{0}» сохранён.", Loc.T(p.Name)));
     }
 
     public void StopEngine() => _engine.Stop();

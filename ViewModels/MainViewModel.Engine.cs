@@ -5,6 +5,7 @@ using System.Windows.Data;
 using Zapret2UI.Models;
 using Zapret2UI.Mvvm;
 using Zapret2UI.Services;
+using Zapret2UI.Localization;
 
 namespace Zapret2UI.ViewModels;
 
@@ -54,7 +55,7 @@ public sealed partial class MainViewModel
     {
         if (SelectedPreset is null)
         {
-            AppendLog("Не выбран пресет.");
+            AppendLog(Loc.T("Не выбран пресет."));
             return;
         }
         try
@@ -64,8 +65,8 @@ public sealed partial class MainViewModel
         }
         catch (Exception ex)
         {
-            AppendLog($"Ошибка запуска: {ex.Message}");
-            MessageBox.Show(ex.Message, "Не удалось запустить", MessageBoxButton.OK, MessageBoxImage.Warning);
+            AppendLog(Loc.T("Ошибка запуска: {0}", ex.Message));
+            MessageBox.Show(ex.Message, Loc.T("Не удалось запустить"), MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
 
@@ -79,7 +80,7 @@ public sealed partial class MainViewModel
         if (SelectedPreset is null) return;
         if (!IsRunning) { if (CanStart) Start(); return; }
 
-        AppendLog($"Смена стратегии → «{SelectedPreset.Name}». Перезапуск движка…");
+        AppendLog(Loc.T("Смена стратегии → «{0}». Перезапуск движка…", Loc.T(SelectedPreset.Name)));
         _engine.Stop();
         // Wait for the process to release WinDivert before relaunching.
         for (int i = 0; i < 60 && State != EngineState.Stopped; i++)

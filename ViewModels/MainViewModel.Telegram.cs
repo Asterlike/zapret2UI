@@ -5,6 +5,7 @@ using System.Windows.Data;
 using Zapret2UI.Models;
 using Zapret2UI.Mvvm;
 using Zapret2UI.Services;
+using Zapret2UI.Localization;
 
 namespace Zapret2UI.ViewModels;
 
@@ -38,11 +39,11 @@ public sealed partial class MainViewModel
     /// <summary>The MTProto secret (dd-prefixed) shown next to the endpoint.</summary>
     public string TelegramProxySecret => "dd" + _tgProxy.SecretHex;
 
-    private string _telegramProxyStatus = "Выключено. Нажмите «Включить», затем «Открыть в Telegram».";
+    private string _telegramProxyStatus = Loc.T("Выключено. Нажмите «Включить», затем «Открыть в Telegram».");
     public string TelegramProxyStatus { get => _telegramProxyStatus; private set => SetField(ref _telegramProxyStatus, value); }
 
     /// <summary>Label for the Telegram card's toggle button.</summary>
-    public string TelegramProxyButtonText => _tgProxy.IsRunning ? "Выключить прокси" : "Включить прокси";
+    public string TelegramProxyButtonText => _tgProxy.IsRunning ? Loc.T("Выключить прокси") : Loc.T("Включить прокси");
 
     /// <summary>Start/stop the built-in Telegram proxy from the Telegram card.</summary>
     private void ToggleTelegramProxy()
@@ -87,9 +88,9 @@ public sealed partial class MainViewModel
     private void RefreshTelegramProxyStatus()
     {
         TelegramProxyStatus = _tgProxy.IsRunning
-            ? $"Запущен на {TelegramProxyEndpoint}. В Telegram: Настройки → Данные и память → Прокси, " +
+            ? Loc.T("Запущен на {0}. В Telegram: Настройки → Данные и память → Прокси, ", TelegramProxyEndpoint) +
               "или нажмите «Открыть в Telegram»."
-            : _tgProxy.StartError ?? "Выключено. Нажмите «Включить», затем «Открыть в Telegram».";
+            : _tgProxy.StartError ?? Loc.T("Выключено. Нажмите «Включить», затем «Открыть в Telegram».");
         OnPropertyChanged(nameof(IsTelegramProxyRunning));
         OnPropertyChanged(nameof(IsTelegramProxyEnabled)); // keep the Home toggle (both modes) in sync with real state
         OnPropertyChanged(nameof(TelegramProxyButtonText));
@@ -106,7 +107,7 @@ public sealed partial class MainViewModel
             _settingsSvc.Save();
         }
         RefreshTelegramProxyStatus();
-        SimpleStatus = _tgProxy.IsRunning ? "Прокси Telegram запущен." : "Прокси Telegram остановлен.";
+        SimpleStatus = _tgProxy.IsRunning ? Loc.T("Прокси Telegram запущен.") : Loc.T("Прокси Telegram остановлен.");
     }
 
     private bool _isCheckingTgProxy;
@@ -124,21 +125,21 @@ public sealed partial class MainViewModel
     }
 
     /// <summary>Label for the Telegram self-test button.</summary>
-    public string CheckTelegramProxyButtonText => _isCheckingTgProxy ? "Проверяю…" : "Проверить соединение";
+    public string CheckTelegramProxyButtonText => _isCheckingTgProxy ? Loc.T("Проверяю…") : Loc.T("Проверить соединение");
 
     /// <summary>Run the built-in proxy's upstream self-test and show the verdict on the card; the
     /// step-by-step details go to the journal. Independent of the winws2 engine and needs no admin.</summary>
     private async Task CheckTelegramProxyAsync()
     {
         IsCheckingTelegramProxy = true;
-        TelegramProxyStatus = "Проверяю соединение с Telegram…";
+        TelegramProxyStatus = Loc.T("Проверяю соединение с Telegram…");
         try
         {
             TelegramProxyStatus = await _tgProxy.SelfTestAsync();
         }
         catch (Exception ex)
         {
-            TelegramProxyStatus = "Проверка не удалась: " + ex.Message;
+            TelegramProxyStatus = Loc.T("Проверка не удалась: ") + ex.Message;
         }
         finally
         {

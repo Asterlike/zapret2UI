@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Zapret2UI documentation</title>
+<meta name="description" content="Zapret2UI documentation: how DPI bypass works, how to use the program, and how to build a strategy for your own provider.">
+<link rel="icon" href="../assets/logo.png">
+<link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+
+<header class="topbar">
+  <a class="brand" href="index.html">
+    <img src="../assets/logo.png" alt="" width="26" height="26">
+    <span>Zapret2UI</span>
+  </a>
+  <nav class="topnav">
+    <a href="how-it-works.html">How it works</a>
+    <a href="quickstart.html">Quick start</a>
+    <a href="interface.html">Interface</a>
+    <a href="strategies.html">Strategies</a>
+    <a href="reference.html">Reference</a>
+    <a href="troubleshooting.html">Troubleshooting</a>
+  </nav>
+  <div class="topbar-tools">
+    <div class="lang-switch" role="group" aria-label="Page language">
+      <span class="lang-opt is-current" lang="en" aria-current="true">EN</span>
+      <a class="lang-opt" href="../index.html" hreflang="ru" lang="ru" title="Читать по-русски">RU</a>
+    </div>
+    <button class="search-btn" data-search-open type="button">
+      <span>Search the docs</span>
+      <kbd>Ctrl K</kbd>
+    </button>
+    <button class="icon-btn theme-btn" data-theme-toggle type="button" aria-label="Switch theme">Dark</button>
+    <a class="icon-btn" href="https://github.com/Asterlike/zapret2UI" title="GitHub repository" aria-label="GitHub repository">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+    </a>
+  </div>
+</header>
+
+<div class="shell">
+
+  <aside class="sidebar">
+    <details class="sidebar-inner" open>
+      <summary>Sections</summary>
+      <h5>Start here</h5>
+      <ul>
+        <li><a href="index.html" aria-current="page">Documentation overview</a></li>
+        <li><a href="how-it-works.html">How it works</a></li>
+        <li><a href="quickstart.html">Quick start</a></li>
+      </ul>
+      <h5>The program</h5>
+      <ul>
+        <li><a href="interface.html">Interface</a></li>
+        <li><a href="strategies.html">Strategies explained</a></li>
+      </ul>
+      <h5>Advanced</h5>
+      <ul>
+        <li><a href="reference.html">Reference</a></li>
+        <li><a href="troubleshooting.html">Troubleshooting</a></li>
+      </ul>
+      <h5>Project</h5>
+      <ul>
+        <li><a href="support.html">Support</a></li>
+        <li><a href="credits.html">Credits</a></li>
+      </ul>
+    </details>
+  </aside>
+
+  <nav class="toc">
+    <p>On this page</p>
+    <ul>
+      <li><a href="#chto-eto">What this is</a></li>
+      <li><a href="#razdely">Documentation sections</a></li>
+      <li><a href="#gde-vzyat">Where to get the program</a></li>
+      <li><a href="#istochniki">Other sources</a></li>
+    </ul>
+  </nav>
+
+  <main class="doc">
+
+    <div class="page-head">
+      <h1>Zapret2UI documentation</h1>
+      <p class="lede">How bypassing blocks works, how to use the program, and how to build a strategy for your own provider.</p>
+    </div>
+
+    <h2 id="chto-eto">What this is</h2>
+
+    <p>Zapret2UI is a Windows application that drives the <code>winws2</code> engine from the
+      <a href="https://github.com/bol-van/zapret2">bol-van/zapret2</a> project. The engine alters the first
+      packets of your connections so that the provider's equipment cannot tell which site you are
+      connecting to, while the server itself receives everything correctly. That is what reopens Discord
+      and YouTube when they are blocked by site name.</p>
+
+    <p>The engine itself is configured with long argument strings, and finding a working combination by
+      hand is hard. The program takes that over: nine ready-made strategies, automatic selection,
+      generation of a personal strategy for your network, diagnostics and a built-in Telegram proxy.</p>
+
+    <div class="note warn">
+      <p><b>This is zapret2, not the ordinary zapret.</b> There are two engines, both by the same author:
+        the first (<code>winws</code>), which most guides and builds grew around, and the second
+        (<code>winws2</code>), which this program drives. Their strategy formats differ, and configs for
+        the first one <b>will not run</b> here. The differences, and how to tell one from the other:
+        <a href="how-it-works.html#ne-zapret1">How it works</a>.</p>
+    </div>
+
+    <div class="note tip">
+      <p><b>First time here?</b> You do not need to read all of this. Open the
+        <a href="quickstart.html">Quick start</a>: the first two steps are usually enough. Come back if
+        something does not work or you get curious about how it is put together.</p>
+    </div>
+
+    <figure>
+      <img src="home-simple.png" alt="The Zapret2UI main screen in simple mode: the bypass toggle, the Telegram card, target selection and the selection buttons" loading="lazy">
+      <figcaption>Simple mode: one toggle and a choice of what you need opened. Everything else lives in
+        advanced mode, across seven tabs.</figcaption>
+    </figure>
+
+    <h2 id="razdely">Documentation sections</h2>
+
+    <p>Eight pages, from "just give me Discord back" to writing your own strategies.</p>
+
+    <div class="index-grid">
+
+      <a class="index-card" href="how-it-works.html">
+        <h3>How it works</h3>
+        <p>Theory without formulas: why blocking can be bypassed at all, and what exactly the engine does to your packets.</p>
+        <ul>
+          <li>SNI and DPI</li><li>splitting</li><li>fake packets</li><li>fooling</li>
+          <li>zapret2 versus zapret</li><li>why it is not a VPN</li>
+        </ul>
+      </a>
+
+      <a class="index-card" href="quickstart.html">
+        <h3>Quick start</h3>
+        <p>Download it, run it as administrator, press the button. And what to do if it does not work the first time.</p>
+        <ul>
+          <li>requirements</li><li>installation</li><li>five steps</li><li>selection and generation</li>
+          <li>autostart</li>
+        </ul>
+      </a>
+
+      <a class="index-card" href="interface.html">
+        <h3>Interface</h3>
+        <p>Every screen with a screenshot: what each button does, what the colours mean, where to look when something fails.</p>
+        <ul>
+          <li>seven tabs</li><li>diagnostics</li><li>host lists</li><li>Telegram proxy</li>
+          <li>every setting</li><li>files on disk</li>
+        </ul>
+      </a>
+
+      <a class="index-card" href="strategies.html">
+        <h3>Strategies explained</h3>
+        <p>All nine built-in strategies line by line: what every argument does and why the strategy is assembled that way.</p>
+        <ul>
+          <li>the shared skeleton</li><li>each one explained</li><li>how they differ</li>
+          <li>which to pick for which symptom</li>
+        </ul>
+      </a>
+
+      <a class="index-card" href="reference.html">
+        <h3>Reference</h3>
+        <p>The <code>winws2</code> argument format: everything you need to write your own strategy without hitting exit code 87.</p>
+        <ul>
+          <li>command structure</li><li>desync verbs</li><li>fooling</li><li>position markers</li>
+          <li>tokens</li><li>blobs</li><li>orchestrators</li>
+        </ul>
+      </a>
+
+      <a class="index-card" href="troubleshooting.html">
+        <h3>Troubleshooting</h3>
+        <p>What to try in order, the engine's exit codes, and the case where "diagnostics is all green but the site still will not open".</p>
+        <ul>
+          <li>what to do in order</li><li>common situations</li><li>error codes</li>
+          <li>frequent questions</li>
+        </ul>
+      </a>
+
+      <a class="index-card" href="support.html">
+        <h3>Support</h3>
+        <p>How to support the project with money, and how to help without it: feedback about providers is worth more than donations.</p>
+        <ul>
+          <li>donations</li><li>the author's VPN</li><li>feedback</li><li>issues and stars</li>
+        </ul>
+      </a>
+
+      <a class="index-card" href="credits.html">
+        <h3>Credits</h3>
+        <p>Everyone the program stands on, with what specifically came from where: the engine, the strategies, the proxy, the DPI check method.</p>
+        <ul>
+          <li>bol-van</li><li>Flowseal</li><li>hyperion-cs</li><li>RaccoonLaptop</li>
+          <li>fonts</li><li>licences</li>
+        </ul>
+      </a>
+
+    </div>
+
+    <h2 id="gde-vzyat">Where to get the program</h2>
+
+    <p>A single <code>Zapret2UI.exe</code> on the
+      <a href="https://github.com/Asterlike/zapret2UI/releases/latest">releases page</a>. No installation,
+      no .NET to install. The engine is downloaded on first launch and verified against its SHA-256
+      checksum.</p>
+
+    <p>You need Windows 10 or 11 and administrator rights: the engine loads a network driver into the
+      kernel. The built-in Telegram proxy does not need administrator rights. Details in the
+      <a href="quickstart.html">Quick start</a>.</p>
+
+    <h2 id="istochniki">Other sources</h2>
+
+    <ul class="linklist">
+      <li>
+        <b><a href="https://github.com/bol-van/zapret2/blob/master/docs/manual.en.md">The official engine manual</a></b>
+        <span>The complete <code>winws2</code> reference from the engine's author, in English. The primary
+          source for every verb and parameter.</span>
+      </li>
+      <li>
+        <b><a href="https://github.com/Asterlike/zapret2UI">The Zapret2UI repository</a></b>
+        <span>Source code, releases and the issue tracker. It also carries
+          <code>manual_zapret2UI.en.md</code>: the same material as here, as a single document for reading
+          offline.</span>
+      </li>
+      <li>
+        <b><a href="https://t.me/Zapret2UI">Telegram channel</a></b>
+        <span>Release news and discussion of what works for whom and with which provider. Mostly in
+          Russian.</span>
+      </li>
+      <li>
+        <b><a href="https://github.com/Flowseal/zapret-discord-youtube">Flowseal / zapret-discord-youtube</a></b>
+        <span>A collection of working strategies for the first zapret. Some of the built-in strategies here
+          are translations of those onto the second-generation engine.</span>
+      </li>
+    </ul>
+
+    <div class="pager">
+      <a class="next" href="how-it-works.html" style="margin-left:auto">
+        <small>Next</small>
+        How it works
+      </a>
+    </div>
+
+  </main>
+</div>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div>
+      <p>Zapret2UI: a shell for the <a href="https://github.com/bol-van/zapret2">bol-van/zapret2</a> engine.
+        Source code and releases on <a href="https://github.com/Asterlike/zapret2UI">GitHub</a>.</p>
+      <p class="legal">MIT licence. The <code>winws2</code> engine ships under its own licence.</p>
+    </div>
+    <nav>
+      <a href="how-it-works.html">How it works</a>
+      <a href="quickstart.html">Quick start</a>
+      <a href="interface.html">Interface</a>
+      <a href="strategies.html">Strategies explained</a>
+    </nav>
+    <nav>
+      <a href="reference.html">Reference</a>
+      <a href="troubleshooting.html">Troubleshooting</a>
+      <a href="support.html">Support</a>
+      <a href="credits.html">Credits</a>
+      <a href="https://t.me/Zapret2UI">Telegram channel</a>
+      <a href="https://github.com/Asterlike/zapret2UI/releases/latest">Releases</a>
+    </nav>
+  </div>
+</footer>
+
+<script src="search-index.js"></script>
+<script src="../assets/site.js"></script>
+</body>
+</html>

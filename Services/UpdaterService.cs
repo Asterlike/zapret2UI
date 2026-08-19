@@ -8,6 +8,7 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Zapret2UI.Models;
+using Zapret2UI.Localization;
 
 namespace Zapret2UI.Services;
 
@@ -81,7 +82,7 @@ public sealed class UpdaterService
         }
 
         if (candidates.Count == 0)
-            throw new IOException($"Не удалось определить адрес {host} (ни DoH, ни системный DNS не ответили).");
+            throw new IOException(Loc.T("Не удалось определить адрес {0} (ни DoH, ни системный DNS не ответили).", host));
 
         Exception? last = null;
         foreach (var addr in candidates)
@@ -100,7 +101,7 @@ public sealed class UpdaterService
                 socket.Dispose();
             }
         }
-        throw last ?? new IOException($"Не удалось подключиться к {host}.");
+        throw last ?? new IOException(Loc.T("Не удалось подключиться к {0}.", host));
     }
 
     /// <summary>Currently installed engine tag, or null if the engine is absent.</summary>
@@ -212,7 +213,7 @@ public sealed class UpdaterService
 
         var root = doc.RootElement;
         string tag = root.GetProperty("tag_name").GetString()
-            ?? throw new InvalidOperationException("В ответе GitHub нет tag_name.");
+            ?? throw new InvalidOperationException(Loc.T("В ответе GitHub нет tag_name."));
 
         string? zipUrl = null, shaUrl = null;
         long zipSize = 0;
@@ -237,7 +238,7 @@ public sealed class UpdaterService
         }
 
         if (zipUrl is null)
-            throw new InvalidOperationException($"В релизе {tag} не найден zip-ассет.");
+            throw new InvalidOperationException(Loc.T("В релизе {0} не найден zip-ассет.", tag));
 
         return new ReleaseInfo(tag, zipUrl, shaUrl, zipSize);
     }
@@ -252,9 +253,9 @@ public sealed class UpdaterService
         resp.EnsureSuccessStatusCode();
         string finalUrl = resp.RequestMessage?.RequestUri?.ToString() ?? "";
         int i = finalUrl.IndexOf("/tag/", StringComparison.Ordinal);
-        if (i < 0) throw new InvalidOperationException("Не удалось определить версию движка на github.com.");
+        if (i < 0) throw new InvalidOperationException(Loc.T("Не удалось определить версию движка на github.com."));
         string tag = finalUrl[(i + 5)..].Trim('/');
-        if (tag.Length == 0) throw new InvalidOperationException("Пустой тег релиза на github.com.");
+        if (tag.Length == 0) throw new InvalidOperationException(Loc.T("Пустой тег релиза на github.com."));
 
         // 2. The assets — the expanded_assets partial lists every download link.
         string html = await _http.GetStringAsync(
@@ -276,7 +277,7 @@ public sealed class UpdaterService
         }
 
         if (zipUrl is null)
-            throw new InvalidOperationException($"На странице релиза {tag} не найден zip-ассет.");
+            throw new InvalidOperationException(Loc.T("На странице релиза {0} не найден zip-ассет.", tag));
 
         return new ReleaseInfo(tag, zipUrl, shaUrl, 0);
     }
@@ -299,7 +300,7 @@ public sealed class UpdaterService
         try
         {
             // 1. Download the zip with progress.
-            progress?.Report(new UpdateProgress(UpdatePhase.Downloading, 0, "Загрузка движка…"));
+            progress?.Report(new UpdateProgress(UpdatePhase.Downloading, 0, Loc.T("Загрузка движка…")));
             await DownloadFileAsync(release.ZipUrl, zipPath, release.ZipSize, progress, ct)
                 .ConfigureAwait(false);
 
@@ -310,19 +311,19 @@ public sealed class UpdaterService
             //    blocked and we fall back to scraping the release page.
             if (release.Sha256Url is null)
                 throw new InvalidOperationException(
-                    $"В релизе {release.Tag} не найден sha256sum.txt — проверить целостность движка нечем, "
-                    + "установка отменена. Скачайте движок вручную со страницы релиза zapret2 "
-                    + "или повторите попытку позже.");
+                    Loc.T("В релизе {0} не найден sha256sum.txt — проверить целостность движка нечем, ", release.Tag)
+                    + Loc.T("установка отменена. Скачайте движок вручную со страницы релиза zapret2 "
+                    + "или повторите попытку позже."));
 
-            progress?.Report(new UpdateProgress(UpdatePhase.Verifying, 0, "Проверка контрольных сумм…"));
+            progress?.Report(new UpdateProgress(UpdatePhase.Verifying, 0, Loc.T("Проверка контрольных сумм…")));
             string shaText = await _http.GetStringAsync(release.Sha256Url, ct).ConfigureAwait(false);
             var hashes = ParseSha256Sum(shaText);
             if (hashes.Count == 0)
                 throw new InvalidOperationException(
-                    $"Манифест sha256 релиза {release.Tag} пуст или не разобран — установка отменена.");
+                    Loc.T("Манифест sha256 релиза {0} пуст или не разобран — установка отменена.", release.Tag));
 
             // 3. Extract only what we need into a staging folder.
-            progress?.Report(new UpdateProgress(UpdatePhase.Extracting, 0, "Распаковка…"));
+            progress?.Report(new UpdateProgress(UpdatePhase.Extracting, 0, Loc.T("Распаковка…")));
             Directory.CreateDirectory(stageDir);
             ExtractNeeded(zipPath, stageDir, ct);
 
@@ -330,11 +331,11 @@ public sealed class UpdaterService
             VerifyBinaries(stageDir, hashes);
 
             // 5. Move staged engine into place.
-            progress?.Report(new UpdateProgress(UpdatePhase.Extracting, 0.95, "Установка…"));
+            progress?.Report(new UpdateProgress(UpdatePhase.Extracting, 0.95, Loc.T("Установка…")));
             InstallStaged(stageDir);
             File.WriteAllText(AppPaths.EngineVersionFile, release.Tag);
 
-            progress?.Report(new UpdateProgress(UpdatePhase.Done, 1.0, $"Готово — {release.Tag}"));
+            progress?.Report(new UpdateProgress(UpdatePhase.Done, 1.0, Loc.T("Готово — {0}", release.Tag)));
         }
         finally
         {
@@ -370,7 +371,7 @@ public sealed class UpdaterService
                 double frac = Math.Clamp((double)read / total, 0, 1);
                 progress?.Report(new UpdateProgress(
                     UpdatePhase.Downloading, frac,
-                    $"Загрузка движка… {read / 1_048_576.0:F1}/{total / 1_048_576.0:F1} МБ"));
+                    Loc.T("Загрузка движка… {0:F1}/{1:F1} МБ", read / 1_048_576.0, total / 1_048_576.0)));
             }
         }
     }
@@ -414,7 +415,7 @@ public sealed class UpdaterService
             int slash = e.FullName.IndexOf('/');
             if (slash > 0) { top = e.FullName[..(slash + 1)]; break; }
         }
-        if (top is null) throw new InvalidOperationException("Неожиданная структура архива релиза.");
+        if (top is null) throw new InvalidOperationException(Loc.T("Неожиданная структура архива релиза."));
 
         string arch = AppPaths.ReleaseArchFolder;
         string binPrefix = $"{top}binaries/{arch}/";
@@ -445,7 +446,7 @@ public sealed class UpdaterService
             string fullStage = Path.GetFullPath(stageDir) + Path.DirectorySeparatorChar;
             string fullTarget = Path.GetFullPath(target);
             if (!fullTarget.StartsWith(fullStage, StringComparison.OrdinalIgnoreCase))
-                throw new InvalidOperationException($"Подозрительный путь в архиве: {entry.FullName}");
+                throw new InvalidOperationException(Loc.T("Подозрительный путь в архиве: {0}", entry.FullName));
 
             Directory.CreateDirectory(Path.GetDirectoryName(fullTarget)!);
             entry.ExtractToFile(fullTarget, overwrite: true);
@@ -456,7 +457,7 @@ public sealed class UpdaterService
 
         if (!gotWinws)
             throw new InvalidOperationException(
-                $"В архиве нет winws2.exe для {arch}. Возможно, релиз без Windows-бинарников.");
+                Loc.T("В архиве нет winws2.exe для {0}. Возможно, релиз без Windows-бинарников.", arch));
     }
 
     private static void VerifyBinaries(string stageDir, Dictionary<string, string> hashes)
@@ -475,7 +476,7 @@ public sealed class UpdaterService
             string actual = ComputeSha256(file);
             if (!string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException(
-                    $"Контрольная сумма не совпала для {name}. Загрузка повреждена или подменена.");
+                    Loc.T("Контрольная сумма не совпала для {0}. Загрузка повреждена или подменена.", name));
             verified++;
             if (name.Equals("winws2.exe", StringComparison.OrdinalIgnoreCase)) winwsVerified = true;
         }
@@ -487,7 +488,7 @@ public sealed class UpdaterService
         bool manifestHasWinws = hashes.Keys.Any(k => k.EndsWith("winws2.exe", StringComparison.OrdinalIgnoreCase));
         if (verified == 0 || (manifestHasWinws && !winwsVerified))
             throw new InvalidOperationException(
-                "Не удалось проверить целостность движка по манифесту sha256 — установка отменена.");
+                Loc.T("Не удалось проверить целостность движка по манифесту sha256 — установка отменена."));
     }
 
     private static void InstallStaged(string stageDir)

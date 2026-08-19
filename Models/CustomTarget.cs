@@ -1,4 +1,5 @@
 using Zapret2UI.Mvvm;
+using Zapret2UI.Localization;
 
 namespace Zapret2UI.Models;
 
@@ -19,5 +20,5 @@ public sealed class CustomTarget : ObservableObject
         set { if (SetField(ref _domainCount, value)) OnPropertyChanged(nameof(Subtitle)); }
     }
 
-    public string Subtitle => $"{DomainCount} домен(ов)";
+    public string Subtitle => Loc.T("{0} домен(ов)", DomainCount);
 }

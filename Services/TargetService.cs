@@ -9,6 +9,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Zapret2UI.Models;
+using Zapret2UI.Localization;
 
 namespace Zapret2UI.Services;
 
@@ -149,7 +150,7 @@ public sealed class TargetService
         if (root.Length == 0) return result.ToList();
         result.Add(root);
 
-        progress?.Report($"Ищу поддомены «{root}» (crt.sh) и проверяю зоны бренда…");
+        progress?.Report(Loc.T("Ищу поддомены «{0}» (crt.sh) и проверяю зоны бренда…", root));
         var crt = CrtShSubdomainsAsync(root, progress, ct);
         var tld = CrossTldVariantsAsync(root, progress, ct);
         foreach (var d in await crt.ConfigureAwait(false)) result.Add(d);
@@ -186,7 +187,7 @@ public sealed class TargetService
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch { /* crt.sh flaky/offline — cross-TLD probe still works */ }
-        if (found.Count > 0) progress?.Report($"crt.sh: поддоменов найдено — {found.Count}. Проверяю зоны бренда…");
+        if (found.Count > 0) progress?.Report(Loc.T("crt.sh: поддоменов найдено — {0}. Проверяю зоны бренда…", found.Count));
         return found;
     }
 
@@ -236,7 +237,7 @@ public sealed class TargetService
                 var hits = owned.OrderBy(x => x.Length).ThenBy(x => x, StringComparer.OrdinalIgnoreCase).Take(6).ToList();
                 string tail = hits.Count == 0 ? "" :
                     " · нашёл: " + string.Join(", ", hits) + (owned.Count > hits.Count ? "…" : "");
-                progress?.Report($"Проверяю зоны бренда: {n}/{total}{tail}");
+                progress?.Report(Loc.T("Проверяю зоны бренда: {0}/{1}{2}", n, total, tail));
             }
         });
         await Task.WhenAll(tasks).ConfigureAwait(false);

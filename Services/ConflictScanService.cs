@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Net.NetworkInformation;
+using Zapret2UI.Localization;
 
 namespace Zapret2UI.Services;
 
@@ -35,14 +36,14 @@ public static class ConflictScanService
     // Other DPI-bypass tools — the hard conflict (shared WinDivert driver). Process names, lowercase.
     private static readonly (string proc, string label)[] DpiTools =
     {
-        ("winws",        "zapret (winws) — другой обход блокировок"),
-        ("winws2",       "zapret2 (winws2) — другой обход блокировок"),
-        ("goodbyedpi",   "GoodbyeDPI — другой обход блокировок"),
-        ("ciadpi",       "ByeDPI (ciadpi) — другой обход блокировок"),
-        ("byedpi",       "ByeDPI — другой обход блокировок"),
-        ("spoofdpi",     "SpoofDPI — другой обход блокировок"),
-        ("dpitunnel",    "DPITunnel — другой обход блокировок"),
-        ("green_tunnel", "GreenTunnel — другой обход блокировок"),
+        ("winws",        Loc.T("zapret (winws) — другой обход блокировок")),
+        ("winws2",       Loc.T("zapret2 (winws2) — другой обход блокировок")),
+        ("goodbyedpi",   Loc.T("GoodbyeDPI — другой обход блокировок")),
+        ("ciadpi",       Loc.T("ByeDPI (ciadpi) — другой обход блокировок")),
+        ("byedpi",       Loc.T("ByeDPI — другой обход блокировок")),
+        ("spoofdpi",     Loc.T("SpoofDPI — другой обход блокировок")),
+        ("dpitunnel",    Loc.T("DPITunnel — другой обход блокировок")),
+        ("green_tunnel", Loc.T("GreenTunnel — другой обход блокировок")),
     };
 
     // Common VPN / proxy-tunnel clients — re-route traffic, so the engine's desync may never apply.
@@ -80,29 +81,29 @@ public static class ConflictScanService
     };
 
     // Explanations live here so every finding of the same kind reads identically.
-    private const string DpiToolDetail =
-        "Эта программа уже держит драйвер WinDivert. Два обхода не могут править одни и те же пакеты: " +
+    private static readonly string DpiToolDetail =
+        Loc.T("Эта программа уже держит драйвер WinDivert. Два обхода не могут править одни и те же пакеты: " +
         "движок либо не запустится совсем, либо будет срабатывать через раз — и стратегия, которая на " +
-        "самом деле рабочая, покажется нерабочей.";
-    private const string DpiToolAction =
-        "Закройте её полностью — не только окно, но и значок рядом с часами (правой кнопкой → выход). " +
+        "самом деле рабочая, покажется нерабочей.");
+    private static readonly string DpiToolAction =
+        Loc.T("Закройте её полностью — не только окно, но и значок рядом с часами (правой кнопкой → выход). " +
         "Если она прописана в автозапуске, отключите его, иначе она вернётся после перезагрузки. " +
-        "Затем включите обход здесь.";
+        "Затем включите обход здесь.");
 
-    private const string VpnDetail =
-        "VPN заворачивает весь трафик в свой туннель. Движок правит пакеты уже после этого, и до " +
+    private static readonly string VpnDetail =
+        Loc.T("VPN заворачивает весь трафик в свой туннель. Движок правит пакеты уже после этого, и до " +
         "провайдера они доходят запечатанными внутри туннеля — обходить становится нечего, поэтому обход " +
-        "выглядит сломанным, даже если стратегия верная.";
-    private const string VpnAction =
-        "Отключитесь от VPN, пока пользуетесь обходом. Обход решает ту же задачу, что и VPN, — вместе " +
-        "они не нужны. Если VPN обязателен для работы, включайте их по очереди, а не одновременно.";
+        "выглядит сломанным, даже если стратегия верная.");
+    private static readonly string VpnAction =
+        Loc.T("Отключитесь от VPN, пока пользуетесь обходом. Обход решает ту же задачу, что и VPN, — вместе " +
+        "они не нужны. Если VPN обязателен для работы, включайте их по очереди, а не одновременно.");
 
-    private const string AdapterDetail =
-        "Сетевой адаптер туннеля включён. Такое бывает и при закрытом VPN-клиенте: адаптер остаётся в " +
-        "системе и продолжает уводить часть трафика мимо движка.";
-    private const string AdapterAction =
-        "Выйдите из VPN-клиента полностью. Если адаптер остался от уже удалённой программы, отключите " +
-        "его: Параметры Windows → Сеть и Интернет → Дополнительные сетевые параметры → выбрать адаптер → «Отключить».";
+    private static readonly string AdapterDetail =
+        Loc.T("Сетевой адаптер туннеля включён. Такое бывает и при закрытом VPN-клиенте: адаптер остаётся в " +
+        "системе и продолжает уводить часть трафика мимо движка.");
+    private static readonly string AdapterAction =
+        Loc.T("Выйдите из VPN-клиента полностью. Если адаптер остался от уже удалённой программы, отключите " +
+        "его: Параметры Windows → Сеть и Интернет → Дополнительные сетевые параметры → выбрать адаптер → «Отключить».");
 
     /// <summary>
     /// Conflicts only (running software + tunnel adapters). This is the startup advisory: it runs
@@ -136,7 +137,7 @@ public static class ConflictScanService
         {
             foreach (var name in VpnAdapters())
                 findings.Add(new EnvFinding(
-                    EnvSeverity.Warning, "Активен VPN-адаптер: " + name, AdapterDetail, AdapterAction));
+                    EnvSeverity.Warning, Loc.T("Активен VPN-адаптер: ") + name, AdapterDetail, AdapterAction));
         }
         catch { /* ignore adapter enumeration failures */ }
 
@@ -154,21 +155,21 @@ public static class ConflictScanService
 
         if (!engineInstalled)
             findings.Add(new EnvFinding(EnvSeverity.Conflict,
-                "Движок не установлен",
-                "winws2 — это то, что собственно обходит блокировку; без него кнопка «Включить обход» " +
+                Loc.T("Движок не установлен"),
+                Loc.T("winws2 — это то, что собственно обходит блокировку; без него кнопка «Включить обход» " +
                 "работать не будет. Обычно он скачивается сам при первом запуске, так что если его до сих " +
-                "пор нет — загрузка не прошла.",
-                "Откройте «Настройки» → «Проверить обновления» и дождитесь окончания загрузки. Если она " +
+                "пор нет — загрузка не прошла."),
+                Loc.T("Откройте «Настройки» → «Проверить обновления» и дождитесь окончания загрузки. Если она " +
                 "падает с ошибкой сети, дело в блокировке githubusercontent.com у вашего провайдера: " +
                 "приложение уже пробует обойти её через DoH, но надёжнее всего включить VPN на время " +
-                "одной этой загрузки, а потом выключить."));
+                "одной этой загрузки, а потом выключить.")));
         else if (!engineComplete)
             findings.Add(new EnvFinding(EnvSeverity.Warning,
-                "Движок установлен не полностью",
-                "Сам winws2 на месте, но часть файлов отсутствует — обычно это набор фильтров WinDivert, " +
-                "который появился в более новых версиях. Стратегии, которые их используют, не запустятся.",
-                "«Настройки» → «Проверить обновления». Недостающие файлы докачаются поверх текущей версии, " +
-                "переустанавливать и удалять ничего не нужно."));
+                Loc.T("Движок установлен не полностью"),
+                Loc.T("Сам winws2 на месте, но часть файлов отсутствует — обычно это набор фильтров WinDivert, " +
+                "который появился в более новых версиях. Стратегии, которые их используют, не запустятся."),
+                Loc.T("«Настройки» → «Проверить обновления». Недостающие файлы докачаются поверх текущей версии, " +
+                "переустанавливать и удалять ничего не нужно.")));
 
         return findings;
     }

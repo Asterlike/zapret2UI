@@ -8,6 +8,7 @@ using Zapret2UI.Services;
 using Zapret2UI.ViewModels;
 using Forms = System.Windows.Forms;
 using Drawing = System.Drawing;
+using Zapret2UI.Localization;
 
 namespace Zapret2UI;
 
@@ -73,7 +74,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            MessageBox.Show(ex.Message, "Ошибка инициализации", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(ex.Message, Loc.T("Ошибка инициализации"), MessageBoxButton.OK, MessageBoxImage.Error);
         }
 
         // First run: open the walkthrough once, after init so it sits over a populated window. Skipped
@@ -206,17 +207,17 @@ public partial class MainWindow : Window
         _iconRunning = LoadIcon("app-on.ico");
 
         _trayMenu = new Forms.ContextMenuStrip();
-        _trayMenu.Items.Add("Открыть", null, (_, _) => ShowFromTray());
-        _trayToggle = new Forms.ToolStripMenuItem("Запустить обход", null, (_, _) => _vm.ToggleCommand.Execute(null));
+        _trayMenu.Items.Add(Loc.T("Открыть"), null, (_, _) => ShowFromTray());
+        _trayToggle = new Forms.ToolStripMenuItem(Loc.T("Запустить обход"), null, (_, _) => _vm.ToggleCommand.Execute(null));
         _trayMenu.Items.Add(_trayToggle);
         _trayMenu.Items.Add(new Forms.ToolStripSeparator());
-        _trayMenu.Items.Add("Выход", null, (_, _) => ExitApp());
+        _trayMenu.Items.Add(Loc.T("Выход"), null, (_, _) => ExitApp());
 
         _tray = new Forms.NotifyIcon
         {
             Icon = _iconIdle ?? Drawing.SystemIcons.Application,
             Visible = true,
-            Text = "Zapret2UI — остановлен",
+            Text = Loc.T("Zapret2UI — остановлен"),
             ContextMenuStrip = _trayMenu,
         };
         _tray.DoubleClick += (_, _) => ShowFromTray();
@@ -230,10 +231,10 @@ public partial class MainWindow : Window
         _tray.Icon = running ? (_iconRunning ?? _iconIdle) : _iconIdle;
         string status = state switch
         {
-            EngineState.Running => "работает",
-            EngineState.Starting => "запуск…",
-            EngineState.Stopping => "остановка…",
-            _ => "остановлен",
+            EngineState.Running => Loc.T("работает"),
+            EngineState.Starting => Loc.T("запуск…"),
+            EngineState.Stopping => Loc.T("остановка…"),
+            _ => Loc.T("остановлен"),
         };
         string? preset = _vm.SelectedPreset?.Name;
         string text = $"Zapret2UI — {status}";
@@ -241,13 +242,13 @@ public partial class MainWindow : Window
         // NotifyIcon tooltip is capped at 127 chars.
         _tray.Text = text.Length > 127 ? text[..127] : text;
         if (_trayToggle is not null)
-            _trayToggle.Text = running ? "Остановить обход" : "Запустить обход";
+            _trayToggle.Text = running ? Loc.T("Остановить обход") : Loc.T("Запустить обход");
 
         // Our own corner toast on settled transitions (replaces the Windows balloon tips).
         if (state == EngineState.Running && _lastState != EngineState.Running)
-            ShowToast("Zapret2UI", "Обход включён");
+            ShowToast("Zapret2UI", Loc.T("Обход включён"));
         else if (state == EngineState.Stopped && _lastState is EngineState.Running or EngineState.Stopping)
-            ShowToast("Zapret2UI", "Обход выключен");
+            ShowToast("Zapret2UI", Loc.T("Обход выключен"));
         _lastState = state;
     }
 

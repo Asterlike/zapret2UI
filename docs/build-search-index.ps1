@@ -1,12 +1,23 @@
-# Пересобирает assets/search-index.js из содержимого страниц сайта.
-# Запускать после любой правки текста в docs/*.html:
+# Пересобирает search-index.js из содержимого страниц сайта.
+# Запускать после любой правки текста, ОБА раза — у русской и английской версий
+# свои индексы, иначе поиск на одном языке будет находить страницы другого:
 #     powershell -ExecutionPolicy Bypass -File docs\build-search-index.ps1
+#     powershell -ExecutionPolicy Bypass -File docs\build-search-index.ps1 -Source docs\en -Out docs\en\search-index.js
 #
 # Индекс лежит в репозитории готовым файлом, потому что GitHub Pages раздаёт
 # статику как есть и собирать на сервере нечем. Скрипт нужен только автору.
 
+param(
+  # Папка со страницами. По умолчанию та, где лежит сам скрипт (русская версия).
+  [string]$Source,
+  # Куда писать индекс. По умолчанию assets\search-index.js рядом со страницами.
+  [string]$Out
+)
+
 $ErrorActionPreference = 'Stop'
 $dir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$src = if ($Source) { (Resolve-Path $Source).Path } else { $dir }
+$outFile = if ($Out) { $Out } else { Join-Path $dir 'assets\search-index.js' }
 $enc = New-Object System.Text.UTF8Encoding($false)
 
 function Clean([string]$h) {
@@ -18,7 +29,7 @@ function Clean([string]$h) {
 }
 
 $entries = New-Object System.Collections.ArrayList
-foreach ($f in (Get-ChildItem $dir -Filter *.html | Sort-Object Name)) {
+foreach ($f in (Get-ChildItem $src -Filter *.html | Sort-Object Name)) {
   $raw = [System.IO.File]::ReadAllText($f.FullName)
   $m = [regex]::Match($raw, '(?s)<main class="doc">(.*?)</main>')
   if (-not $m.Success) { continue }
@@ -46,7 +57,7 @@ foreach ($f in (Get-ChildItem $dir -Filter *.html | Sort-Object Name)) {
 $json = $entries | ConvertTo-Json -Compress -Depth 3
 $out = "/* Сгенерировано build-search-index.ps1 из страниц сайта. Не редактировать вручную. */`n" +
        "window.SEARCH_INDEX = $json;`n"
-[System.IO.File]::WriteAllText((Join-Path $dir 'assets\search-index.js'), $out, $enc)
+[System.IO.File]::WriteAllText($outFile, $out, $enc)
 
 Write-Host "Записей: $($entries.Count)"
-Write-Host "Файл: assets\search-index.js"
+Write-Host "Файл: $outFile"

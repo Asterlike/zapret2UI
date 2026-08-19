@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Zapret2UI.Localization;
 
 namespace Zapret2UI.Services;
 
@@ -59,7 +60,7 @@ public sealed class ExclusionService
         {
             "-NoProfile", "-NonInteractive", "-Command", DefenderAddAndVerify("ExclusionPath", path),
         });
-        return Note(log, code == 0, $"Defender · папка «{path}»", output);
+        return Note(log, code == 0, Loc.T("Defender · папка «{0}»", path), output);
     }
 
     private static async Task<bool> DefenderExcludeProcessAsync(string exe, List<string> log)
@@ -68,7 +69,7 @@ public sealed class ExclusionService
         {
             "-NoProfile", "-NonInteractive", "-Command", DefenderAddAndVerify("ExclusionProcess", exe),
         });
-        return Note(log, code == 0, $"Defender · процесс «{System.IO.Path.GetFileName(exe)}»", output);
+        return Note(log, code == 0, Loc.T("Defender · процесс «{0}»", System.IO.Path.GetFileName(exe)), output);
     }
 
     /// <summary>
@@ -102,7 +103,7 @@ public sealed class ExclusionService
             "advfirewall", "firewall", "add", "rule",
             $"name={name}", "dir=out", "action=allow", $"program={exe}", "enable=yes", "profile=any",
         });
-        return Note(log, cIn == 0 && cOut == 0, $"Брандмауэр · «{name}»", oIn + " " + oOut);
+        return Note(log, cIn == 0 && cOut == 0, Loc.T("Брандмауэр · «{0}»", name), oIn + " " + oOut);
     }
 
     /// <summary>Escape a single-quoted PowerShell string (double any embedded single quotes).</summary>
@@ -117,7 +118,7 @@ public sealed class ExclusionService
     private static string Short(string s)
     {
         string t = s.Replace('\r', ' ').Replace('\n', ' ').Trim();
-        if (t.Length == 0) return "нет вывода";
+        if (t.Length == 0) return Loc.T("нет вывода");
         return t.Length > 140 ? t[..140] + "…" : t;
     }
 
@@ -144,7 +145,7 @@ public sealed class ExclusionService
             catch (OperationCanceledException)
             {
                 try { p.Kill(entireProcessTree: true); } catch { /* ignore */ }
-                return (-1, "истекло время ожидания");
+                return (-1, Loc.T("истекло время ожидания"));
             }
             string output = (await outTask) + (await errTask);
             return (p.ExitCode, output);

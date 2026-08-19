@@ -1,0 +1,582 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reference — Zapret2UI documentation</title>
+<meta name="description" content="The winws2 argument format: command structure, sticky flags, filters, tokens, desync verbs, fooling, position markers, seqovl, blobs and orchestrators.">
+<link rel="icon" href="../assets/logo.png">
+<link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+
+<header class="topbar">
+  <a class="brand" href="index.html">
+    <img src="../assets/logo.png" alt="" width="26" height="26">
+    <span>Zapret2UI</span>
+  </a>
+  <nav class="topnav">
+    <a href="how-it-works.html">How it works</a>
+    <a href="quickstart.html">Quick start</a>
+    <a href="interface.html">Interface</a>
+    <a href="strategies.html">Strategies</a>
+    <a href="reference.html" aria-current="page">Reference</a>
+    <a href="troubleshooting.html">Troubleshooting</a>
+  </nav>
+  <div class="topbar-tools">
+    <div class="lang-switch" role="group" aria-label="Page language">
+      <span class="lang-opt is-current" lang="en" aria-current="true">EN</span>
+      <a class="lang-opt" href="../reference.html" hreflang="ru" lang="ru" title="Читать по-русски">RU</a>
+    </div>
+    <button class="search-btn" data-search-open type="button">
+      <span>Search the docs</span>
+      <kbd>Ctrl K</kbd>
+    </button>
+    <button class="icon-btn theme-btn" data-theme-toggle type="button" aria-label="Switch theme">Dark</button>
+    <a class="icon-btn" href="https://github.com/Asterlike/zapret2UI" title="GitHub repository" aria-label="GitHub repository">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+    </a>
+  </div>
+</header>
+
+<div class="shell">
+
+  <aside class="sidebar">
+    <details class="sidebar-inner" open>
+      <summary>Sections</summary>
+      <h5>Start here</h5>
+      <ul>
+        <li><a href="index.html">Documentation overview</a></li>
+        <li><a href="how-it-works.html">How it works</a></li>
+        <li><a href="quickstart.html">Quick start</a></li>
+      </ul>
+      <h5>The program</h5>
+      <ul>
+        <li><a href="interface.html">Interface</a></li>
+        <li><a href="strategies.html">Strategies explained</a></li>
+      </ul>
+      <h5>Advanced</h5>
+      <ul>
+        <li><a href="reference.html" aria-current="page">Reference</a></li>
+        <li><a href="troubleshooting.html">Troubleshooting</a></li>
+      </ul>
+      <h5>Project</h5>
+      <ul>
+        <li><a href="support.html">Support</a></li>
+        <li><a href="credits.html">Credits</a></li>
+      </ul>
+    </details>
+  </aside>
+
+  <nav class="toc">
+    <p>On this page</p>
+    <ul>
+      <li><a href="#struktura">Command structure</a></li>
+      <li><a href="#lipkie">Sticky flags</a></li>
+      <li><a href="#filtry">Profile filters</a></li>
+      <li><a href="#tokeny">Tokens</a></li>
+      <li><a href="#glagoly">Desync verbs</a></li>
+      <li><a href="#fooling">Fooling</a></li>
+      <li><a href="#markery">Position markers</a></li>
+      <li><a href="#seqovl">About seqovl</a></li>
+      <li><a href="#bloby">Blobs</a></li>
+      <li><a href="#orkestratory">Orchestrators</a></li>
+      <li><a href="#primer">A complete example</a></li>
+      <li><a href="#oshibki">Common mistakes</a></li>
+    </ul>
+  </nav>
+
+  <main class="doc">
+
+    <div class="page-head">
+      <p class="kicker">Advanced</p>
+      <h1>Reference</h1>
+      <p class="lede">The <code>winws2</code> argument format: everything you need to write your own strategy without running into "green but not working".</p>
+    </div>
+
+    <p>You can create your own strategy on the "Strategies" tab: duplicate a built-in one and edit the copy.
+      It is saved in <code>presets.json</code>. To inspect the resulting command line in full without
+      launching the engine, use the command preview in the interface.</p>
+
+    <div class="note">
+      <p>What follows are practical rules verified against the engine that ships with the program. The
+        exhaustive primary source for every capability is the
+        <a href="https://github.com/bol-van/zapret2/blob/master/docs/manual.en.md">official zapret2
+        manual</a>, in English.</p>
+    </div>
+
+    <h2 id="struktura">Command structure</h2>
+
+    <p>A command consists of a <b>global part</b> and one or more <b>profiles</b>. Every profile after the
+      first begins with <code>--new</code>.</p>
+
+<pre><code><span class="t-cmt"># global part: capture width, blobs, cache</span>
+<span class="t-flag">--wf-tcp-out</span>=<span class="t-num">80,443-65535</span>
+<span class="t-flag">--blob</span>=tls_google:@{FILES}\fake\tls_clienthello_www_google_com.bin
+
+<span class="t-cmt"># the first profile follows straight away, with no --new</span>
+<span class="t-flag">--filter-tcp</span>=<span class="t-num">443-65535</span> <span class="t-flag">--filter-l7</span>=tls {HOSTLIST:discord}
+<span class="t-flag">--payload</span>=tls_client_hello
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">fake</span>:blob=tls_google:tcp_ts=<span class="t-num">-1000</span>:repeats=<span class="t-num">6</span>
+
+<span class="t-flag">--new</span>
+<span class="t-cmt"># the second profile</span>
+<span class="t-flag">--filter-udp</span>=<span class="t-num">443-65535</span> <span class="t-flag">--filter-l7</span>=quic {HOSTLIST:discord}
+<span class="t-flag">--payload</span>=quic_initial
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">fake</span>:blob=quic_google:repeats=<span class="t-num">11</span></code></pre>
+
+    <ul>
+      <li>The <b>global part</b> comes before the first <code>--new</code> and holds <code>--wf-*</code>,
+        <code>--blob=</code>, <code>--ipcache-*</code>, <code>--lua-init=</code>. The first profile lives
+        there too.</li>
+      <li><b>Capture ports</b> are listed comma-separated in <b>one</b> flag. A second
+        <code>--wf-tcp-out</code> does not add ports, it overwrites the previous one.</li>
+      <li>A <b>profile</b> answers two questions: who it applies to (the filters) and what to do
+        (<code>--lua-desync</code>). A profile may carry several techniques; they run in order.</li>
+    </ul>
+
+    <h2 id="lipkie">Sticky flags</h2>
+
+    <p>Three flags apply <b>from where they are written until they are overridden</b>, not to the whole
+      profile. This is the most common reason for strategies that look right but behave otherwise.</p>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th>Flag</th><th>What it sets</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>--payload=</code></td><td>Which packet counts as the target: <code>tls_client_hello</code>, <code>quic_initial</code> and others.</td></tr>
+          <tr><td><code>--out-range=</code></td><td>The range of outgoing packets the technique applies to. For example <code>-d10</code>.</td></tr>
+          <tr><td><code>--in-range=</code></td><td>The same for incoming ones. Orchestrators need it to see resets from the DPI.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note danger">
+      <p><b>Put them before the <code>--lua-desync</code> they affect.</b> Placed after, the technique runs
+        with the previous values. There will be no error: the engine starts and the bypass simply does not
+        work.</p>
+    </div>
+
+    <p>The <code>--filter-*</code>, <code>--hostlist</code> and <code>--ipset</code> flags are not sticky;
+      their order within a profile does not matter.</p>
+
+    <h2 id="filtry">Profile filters</h2>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th>Flag</th><th>Meaning</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>--filter-tcp=</code></td><td>TCP ports, for example <code>443-65535</code>.</td></tr>
+          <tr><td><code>--filter-udp=</code></td><td>UDP ports, for example <code>19294-19344,50000-65535</code>.</td></tr>
+          <tr><td><code>--filter-l7=</code></td><td>Protocol: <code>tls</code>, <code>quic</code>, <code>http</code>, <code>discord</code>, <code>stun</code>. Several can be listed comma-separated.</td></tr>
+          <tr><td><code>--hostlist=</code></td><td>Apply only to domains from the file.</td></tr>
+          <tr><td><code>--hostlist-exclude=</code></td><td>Do not apply to domains from the file. This is how banks and government services are protected from catch-all profiles.</td></tr>
+          <tr><td><code>--ipset=</code></td><td>Apply to the subnets in the file. For when a service is cut off by address.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2 id="tokeny">Tokens</h2>
+
+    <p>Strategies are stored with tokens rather than absolute paths. The program expands them at launch,
+      substituting the current paths and settings.</p>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th>Token</th><th>Expands to</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>{FILES}</code></td><td>Path to the <code>engine\files</code> folder, where the blobs live.</td></tr>
+          <tr><td><code>{WF}</code></td><td>Path to the <code>engine\windivert.filter</code> folder.</td></tr>
+          <tr><td><code>{WF_TCP}</code></td><td><code>--wf-tcp-out=80,443-65535</code>: the TCP capture width.</td></tr>
+          <tr><td><code>{WF_UDP}</code></td><td><code>--wf-udp-out=</code> with 443, STUN and Discord voice. The game filter widens the range.</td></tr>
+          <tr><td><code>{HOSTLIST}</code></td><td><code>--hostlist=</code> with the active list, or nothing.</td></tr>
+          <tr><td><code>{HOSTLIST:name}</code></td><td><code>--hostlist=lists\name.txt</code>, or nothing if the file is missing.</td></tr>
+          <tr><td><code>{EXCLUDE:name}</code></td><td><code>--hostlist-exclude=lists\name.txt</code>.</td></tr>
+          <tr><td><code>{IPSET}</code></td><td><code>--ipset=</code> with the built list of Discord subnets, if there is one.</td></tr>
+          <tr><td><code>{IPSET:name}</code></td><td><code>--ipset=lists\ipset-name.txt</code>.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>An empty token is simply dropped from the command. For example, <code>{HOSTLIST}</code> with no
+      active list leaves nothing behind.</p>
+
+    <h2 id="glagoly">Desync verbs</h2>
+
+    <p>Written as <code>--lua-desync=<i>verb</i>:<i>parameter</i>=<i>value</i>:...</code>. The most
+      important column here is the last one: it decides which fooling you may use and which will break the
+      connection.</p>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th>Verb</th><th>What it does</th><th>Fooling applies to</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>fake</code></td>
+            <td>Inserts a fake packet from a blob.</td>
+            <td><b>fakes only</b>; the real packet goes out clean</td>
+          </tr>
+          <tr>
+            <td><code>multisplit</code></td>
+            <td>Cuts the real packet into segments.</td>
+            <td><b>every segment</b>, including the real ones</td>
+          </tr>
+          <tr>
+            <td><code>multidisorder</code></td>
+            <td>Cuts it and sends the pieces in reverse order.</td>
+            <td><b>every segment</b></td>
+          </tr>
+          <tr>
+            <td><code>multidisorder_legacy</code></td>
+            <td>The earlier variant of the same technique.</td>
+            <td><b>every segment</b></td>
+          </tr>
+          <tr>
+            <td><code>hostfakesplit</code></td>
+            <td>Cuts on the name marker and substitutes a false name of the same length. Adapts to the
+              packet size.</td>
+            <td>fakes only; fooling is mandatory</td>
+          </tr>
+          <tr>
+            <td><code>fakedsplit</code></td>
+            <td>Splitting with forged segments inserted.</td>
+            <td>the forged ones only</td>
+          </tr>
+          <tr>
+            <td><code>fakeddisorder</code></td>
+            <td>The same in reverse order.</td>
+            <td>the forged ones only</td>
+          </tr>
+          <tr>
+            <td><code>syndata</code></td>
+            <td>Puts data into the connection-setup packet.</td>
+            <td>nothing destructive: <code>tcp_seq</code>, <code>tcp_ack</code> and <code>badsum</code> will break the handshake</td>
+          </tr>
+          <tr>
+            <td><code>tcpseg</code></td>
+            <td>One segment with an overlap. <b>Does not remove the original</b>; add <code>--lua-desync=drop</code> after it.</td>
+            <td></td>
+          </tr>
+          <tr>
+            <td><code>wssize</code>, <code>wsize</code></td>
+            <td>Shrink the TCP window, forcing the server to break its reply into pieces.</td>
+            <td>not applied</td>
+          </tr>
+          <tr>
+            <td><code>drop</code>, <code>pass</code></td>
+            <td>Drop or let the packet through.</td>
+            <td>not applied</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note danger">
+      <p><b>The main rule.</b> Never put <code>tcp_ack</code>, <code>tcp_seq</code>, <code>badsum</code> or
+        a broken TTL into <code>multisplit</code> or <code>multidisorder</code>: they will be applied to the
+        real segments and break the connection. Only <code>pos</code>, <code>seqovl</code> and harmless
+        things like <code>ip_id</code> belong there. Destructive fooling lives in <code>fake</code> and the
+        <code>faked*</code> family.</p>
+    </div>
+
+    <p>Common parameters: <code>repeats=N</code> sets how many times the fake is repeated;
+      <code>:optional</code> asks the engine to skip the technique quietly if it did not apply, rather than
+      aborting the rest of the processing.</p>
+
+    <h2 id="fooling">Fooling</h2>
+
+    <p>Techniques that stop the fake from reaching the server. More on why this is needed:
+      <a href="how-it-works.html#fooling">How it works</a>.</p>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th>Parameter</th><th>Mechanism</th><th>Caveats</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>tcp_ts=-N</code></td>
+            <td>An older timestamp; the packet is discarded by PAWS.</td>
+            <td><b>Negative values only.</b> Requires TCP timestamps to be enabled.</td>
+          </tr>
+          <tr>
+            <td><code>tcp_md5</code></td>
+            <td>Adds an MD5 signature option; an ordinary server does not accept such a packet.</td>
+            <td>Safe behind a home NAT. A good replacement for <code>badsum</code>.</td>
+          </tr>
+          <tr>
+            <td><code>tcp_seq=-N</code></td>
+            <td>Shifts the sequence number outside the window.</td>
+            <td>Some DPIs also check sequence numbers and stop believing the fake.</td>
+          </tr>
+          <tr>
+            <td><code>badsum</code></td>
+            <td>Corrupts the checksum.</td>
+            <td>Often useless at home: a router behind NAT drops the packet before the DPI sees it.</td>
+          </tr>
+          <tr>
+            <td><code>ip_autottl</code>, <code>ip6_autottl</code></td>
+            <td>Picks a TTL so the packet expires between the DPI and the server.</td>
+            <td>Depends on the route; may stop fitting when the network changes.</td>
+          </tr>
+          <tr>
+            <td><code>ip_id=zero</code></td>
+            <td>Zeroes the identifier in the IP header.</td>
+            <td>An extra signal, harmless.</td>
+          </tr>
+          <tr>
+            <td><code>tls_mod=rnd,rndsni</code></td>
+            <td>Varies the contents of the fake client hello so it does not repeat.</td>
+            <td>Applied to the blob, not to the real packet.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note danger">
+      <p><b>The sign of <code>tcp_ts</code> is critical.</b> PAWS discards the packet with the smaller
+        timestamp. A negative value kills the fake; a positive one kills the <b>real</b> packet. In the
+        second case the connection breaks silently, and it looks like "the bypass is on but nothing
+        opens".</p>
+      <p>Beyond that, ts techniques are pointless without TCP timestamps enabled. Windows keeps them in the
+        <code>allowed</code> state, which does not guarantee a timestamp in outgoing packets, so Zapret2UI
+        switches them to <code>enabled</code> for the session and restores the previous value on stop.</p>
+    </div>
+
+    <h2 id="markery">Position markers</h2>
+
+    <p>These say where to cut the packet. Used in <code>pos=</code> and accept offsets:
+      <code>sld+1</code>, <code>midsld-2</code>. Several cut points are listed comma-separated.</p>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th>Marker</th><th>Where it points</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>method</code></td><td>The start of the request method.</td></tr>
+          <tr><td><code>host</code></td><td>The start of the site name.</td></tr>
+          <tr><td><code>endhost</code></td><td>The end of the site name.</td></tr>
+          <tr><td><code>sld</code></td><td>The start of the second-level domain.</td></tr>
+          <tr><td><code>midsld</code></td><td>The middle of the second-level domain. The most commonly used one.</td></tr>
+          <tr><td><code>endsld</code></td><td>The end of the second-level domain.</td></tr>
+          <tr><td><code>sniext</code></td><td>The start of the extension carrying the site name.</td></tr>
+          <tr><td><code>extlen</code></td><td>The extension length field.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note warn">
+      <p><b><code>pos=1</code> on its own does nothing.</b> The engine strips that position and the
+        technique becomes a no-op. It needs a second, real marker: <code>pos=1,midsld</code>.</p>
+    </div>
+
+    <h2 id="seqovl">About seqovl</h2>
+
+    <p>The <code>seqovl</code> parameter means <b>different things</b> for different verbs, and that is a
+      regular source of mistakes.</p>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th>Where</th><th>What it means</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>multisplit</code></td>
+            <td><b>A number of bytes</b>: how many bytes of content to prepend, overlapping the start of the
+              real packet. Values are often large, such as 681.</td>
+          </tr>
+          <tr>
+            <td><code>multidisorder</code></td>
+            <td><b>A position marker</b>, and it must be <b>smaller</b> than the first cut point.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>The <code>seqovl_pattern=</code> parameter says what to fill the overlap with. It makes sense to put
+      a real ClientHello there, for example <code>tls_google</code>: a plausible beginning survives checks
+      that random junk does not pass.</p>
+
+    <h2 id="bloby">Blobs</h2>
+
+    <p>A blob is a file containing a ready-made network packet used as a fake. First it is given a name in
+      the global part, then it is referred to by that name.</p>
+
+<pre><code><span class="t-flag">--blob</span>=tls_google:@{FILES}\fake\tls_clienthello_www_google_com.bin
+...
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">fake</span>:blob=tls_google:repeats=<span class="t-num">6</span></code></pre>
+
+    <p>The engine ships with client hellos from <code>www.google.com</code>, <code>vk.com</code>,
+      <code>sberbank.ru</code> and <code>gosuslugi.ru</code>, plus their QUIC variants. In strategies they
+      are available as <code>tls_google</code>, <code>tls_vk</code>, <code>tls_sber</code>,
+      <code>tls_gos</code>, <code>quic_google</code>, <code>quic_vk</code>.</p>
+
+    <div class="note warn">
+      <p><b>Names like <code>tls5</code>, <code>tls7</code>, <code>tls1</code> do not exist here.</b> They
+        appear in third-party builds that ship their own blobs. If you are bringing a strategy over from
+        one of those, replace any such <code>tlsN</code> with <code>tls_google</code>. An unknown blob name
+        causes a start-up error.</p>
+    </div>
+
+    <h2 id="orkestratory">Orchestrators</h2>
+
+    <p>A separate class: they do not modify packets, they drive other techniques. They live in the
+      <code>zapret-auto.lua</code> library, which the engine loads automatically.</p>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th>Orchestrator</th><th>What it does</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>circular</code></td><td>Cycles through variants, switching on failure.</td></tr>
+          <tr><td><code>repeater</code></td><td>Repeats a technique.</td></tr>
+          <tr><td><code>stopif</code></td><td>Breaks the chain on a condition.</td></tr>
+          <tr><td><code>condition</code></td><td>Applies a technique conditionally.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>The most useful of them is <code>circular</code>. The rules are:</p>
+
+    <ul>
+      <li>Declared as <code>--lua-desync=circular:fails=N:time=T</code>, with the variants following.</li>
+      <li>Each technique is tagged <code>strategy=K</code>. Numbering starts at one and runs
+        <b>without gaps</b>. A single variant may include several techniques.</li>
+      <li><b>Requires <code>--in-range=</code></b>: without a cache of incoming packets the detector cannot
+        see a reset from the DPI, so there is nothing to switch on.</li>
+      <li>Without a <code>final</code> mark, the variants keep cycling until a working one is found. Once
+        found, it is left alone, and the engine is not restarted.</li>
+    </ul>
+
+    <p>A complete working example is walked through in the
+      <a href="strategies.html#circular">adaptive strategy breakdown</a>.</p>
+
+    <h2 id="primer">A complete example</h2>
+
+    <p>A minimal working strategy for Discord: TLS with a fake and a split, QUIC with a fake, and voice.</p>
+
+<pre><code>{WF_TCP}
+{WF_UDP}
+<span class="t-flag">--ipcache-hostname</span>=<span class="t-num">1</span>
+<span class="t-flag">--blob</span>=tls_google:@{FILES}\fake\tls_clienthello_www_google_com.bin
+<span class="t-flag">--blob</span>=quic_google:@{FILES}\fake\quic_initial_www_google_com.bin
+<span class="t-flag">--wf-raw-part</span>=@{WF}\windivert_part.stun.txt
+<span class="t-flag">--wf-raw-part</span>=@{WF}\windivert_part.quic_initial_ietf.txt
+
+<span class="t-cmt"># 1. Discord over TLS</span>
+<span class="t-flag">--filter-tcp</span>=<span class="t-num">443-65535</span> <span class="t-flag">--filter-l7</span>=tls {HOSTLIST:discord}
+<span class="t-flag">--out-range</span>=<span class="t-num">-d10</span> <span class="t-flag">--payload</span>=tls_client_hello
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">fake</span>:blob=tls_google:tcp_md5:tcp_seq=<span class="t-num">-10000</span>:repeats=<span class="t-num">6</span>
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">multisplit</span>:pos=<span class="t-num">1,midsld</span>:seqovl=<span class="t-num">681</span>:seqovl_pattern=tls_google:optional
+
+<span class="t-flag">--new</span>
+<span class="t-cmt"># 2. Discord over QUIC: attachments and CDN</span>
+<span class="t-flag">--filter-udp</span>=<span class="t-num">443-65535</span> <span class="t-flag">--filter-l7</span>=quic {HOSTLIST:discord}
+<span class="t-flag">--payload</span>=quic_initial
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">fake</span>:blob=quic_google:repeats=<span class="t-num">11</span>
+
+<span class="t-flag">--new</span>
+<span class="t-cmt"># 3. Voice</span>
+<span class="t-flag">--filter-udp</span>=<span class="t-num">19294-19344,50000-65535</span> <span class="t-flag">--filter-l7</span>=discord,stun
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">fake</span>:blob=quic_google:repeats=<span class="t-num">6</span></code></pre>
+
+    <div class="note tip">
+      <p>The engine only starts with administrator rights, so the only real way to test a strategy is to run
+        it. The command preview in the interface shows the full line and helps catch typos in advance.</p>
+    </div>
+
+    <h2 id="oshibki">Common mistakes</h2>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th>Symptom</th><th>Cause</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>The engine exits with code 87</td>
+            <td>Invalid parameter: a typo in a verb name, an unknown blob name, or a missing library. The
+              journal will carry a line with the detail.</td>
+          </tr>
+          <tr>
+            <td>The bypass is on but nothing changed</td>
+            <td>A sticky flag placed after the technique. Or <code>pos=1</code> without a second marker. Or
+              <code>tcp_ts</code> without timestamps enabled.</td>
+          </tr>
+          <tr>
+            <td>The connection breaks completely</td>
+            <td>Destructive fooling ended up in <code>multisplit</code> or <code>multidisorder</code> and
+              was applied to the real segments. Or <code>tcp_ts</code> was given a positive value.</td>
+          </tr>
+          <tr>
+            <td>Login works but nothing else does</td>
+            <td>The capture is too narrow. Discord media travels on high ports; catching 443 alone is not
+              enough.</td>
+          </tr>
+          <tr>
+            <td>Voice does not work under any strategy</td>
+            <td>There is no profile for the voice UDP range, or <code>windivert_part.stun.txt</code> is not
+              attached.</td>
+          </tr>
+          <tr>
+            <td><code>tcpseg</code> has no effect</td>
+            <td>It does not remove the original packet. A following <code>drop</code> technique is
+              required.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="pager">
+      <a class="prev" href="strategies.html">
+        <small>Back</small>
+        Strategies explained
+      </a>
+      <a class="next" href="troubleshooting.html">
+        <small>Next</small>
+        Troubleshooting
+      </a>
+    </div>
+
+  </main>
+</div>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div>
+      <p>Zapret2UI: a shell for the <a href="https://github.com/bol-van/zapret2">bol-van/zapret2</a> engine.
+        Source code and releases on <a href="https://github.com/Asterlike/zapret2UI">GitHub</a>.</p>
+      <p class="legal">MIT licence. The <code>winws2</code> engine ships under its own licence.</p>
+    </div>
+    <nav>
+      <a href="how-it-works.html">How it works</a>
+      <a href="quickstart.html">Quick start</a>
+      <a href="interface.html">Interface</a>
+      <a href="strategies.html">Strategies explained</a>
+    </nav>
+    <nav>
+      <a href="reference.html">Reference</a>
+      <a href="troubleshooting.html">Troubleshooting</a>
+      <a href="support.html">Support</a>
+      <a href="credits.html">Credits</a>
+      <a href="https://t.me/Zapret2UI">Telegram channel</a>
+      <a href="https://github.com/Asterlike/zapret2UI/releases/latest">Releases</a>
+    </nav>
+  </div>
+</footer>
+
+<script src="search-index.js"></script>
+<script src="../assets/site.js"></script>
+</body>
+</html>

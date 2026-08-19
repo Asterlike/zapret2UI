@@ -249,9 +249,63 @@ pre code { background: none; padding: 0; color: inherit; font-size: 1em; white-s
 .icon-btn:hover { color: var(--fg); border-color: var(--border-firm); }
 .icon-btn:active { transform: scale(.94); }
 
+/* the header row is at capacity around 1280px, where the top nav is still shown: flex was
+   taking the difference out of the square controls and the GitHub mark came out visibly
+   squashed. The search field is the one that should give — it has a min-width of its own. */
+.icon-btn, .lang-switch { flex-shrink: 0; }
+
 /* the theme switch is a word, not a glyph: sun and moon characters fall back to
    whatever the system has and render inconsistently across Windows fonts */
 .icon-btn.theme-btn { width: auto; padding: 0 .72rem; font-size: .84rem; font-weight: 600; }
+
+/* language switch: both languages are shown side by side, the current one filled in.
+   A lone "EN" on a Russian page is ambiguous — is that what you are reading, or where
+   the click leads? The pair answers that without a word of explanation. Flags are
+   deliberately avoided: they stand for countries, not languages. */
+.lang-switch {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 34px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+}
+.lang-opt {
+  display: grid;
+  place-items: center;
+  min-width: 34px;
+  height: 28px;
+  padding: 0 .4rem;
+  border-radius: 8px;
+  font-family: var(--ui);
+  font-size: .76rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+  color: var(--fg-dim);
+  transition: color .18s var(--ease), background .18s var(--ease), transform .12s var(--ease);
+}
+.lang-opt.is-current { color: var(--fg); background: var(--accent-soft); }
+a.lang-opt:hover { color: var(--fg); background: var(--bg); text-decoration: none; }
+a.lang-opt:active { transform: scale(.92); }
+
+/* Phones: the topbar carries brand + language + search + theme + GitHub in one 34px row, and the
+   five of them do not fit unaided — at 375px they wanted 448px, which pushed the page into
+   horizontal scrolling. The space is taken back where it costs nothing: the wordmark drops to the
+   logo alone (the page title is right below anyway), the search label shrinks to a single word, and
+   the gaps tighten. The logo is pinned against shrinking — flex was collapsing it to zero width at
+   320px, where the row is tightest, and the mark simply disappeared. */
+@media (max-width: 599px) {
+  .topbar { gap: .75rem; }
+  .topbar-tools { gap: .4rem; }
+  .brand { flex-shrink: 0; }
+  .brand span { display: none; }
+  .search-btn > span { display: none; }
+  .search-btn::after { content: "Search"; }
+  html:lang(ru) .search-btn::after { content: "Поиск"; }
+  .lang-opt { min-width: 28px; padding: 0 .3rem; }
+}
 .icon-btn svg { width: 17px; height: 17px; fill: currentColor; display: block; }
 
 /* --- search -------------------------------------------------------------- */
