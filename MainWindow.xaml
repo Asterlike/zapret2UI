@@ -1468,6 +1468,38 @@
                                             Style="{StaticResource GhostButton}" HorizontalAlignment="Left"/>
                                 </StackPanel>
                             </Border>
+
+                            <Border Style="{StaticResource Card}" Margin="0,16,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="{loc:Loc 'Резервная копия'}" Style="{StaticResource H2}" Margin="0,0,0,8"/>
+                                    <TextBlock Text="{Binding BackupStatus}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,10"/>
+                                    <StackPanel Orientation="Horizontal">
+                                        <Button Content="{loc:Loc 'Сохранить в файл'}" Command="{Binding ExportBackupCommand}"
+                                                Style="{StaticResource GhostButton}" Margin="0,0,8,0"/>
+                                        <Button Content="{loc:Loc 'Восстановить из файла'}" Command="{Binding ImportBackupCommand}"
+                                                Style="{StaticResource GhostButton}"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Style="{StaticResource Card}" Margin="0,16,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="{loc:Loc 'Сброс настроек'}" Style="{StaticResource H2}" Margin="0,0,0,8"/>
+                                    <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,10"
+                                               Text="{loc:Loc 'Вернёт все настройки к значениям по умолчанию. Стратегии, хостлисты, язык и ссылка Telegram-прокси при этом сохраняются — удаляются только сами настройки.'}"/>
+                                    <Button Content="{loc:Loc 'Сбросить настройки'}" Command="{Binding ResetSettingsCommand}"
+                                            Style="{StaticResource GhostButton}" HorizontalAlignment="Left"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Style="{StaticResource Card}" Margin="0,16,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="{loc:Loc 'Файлы логов'}" Style="{StaticResource H2}" Margin="0,0,0,8"/>
+                                    <TextBlock Text="{Binding LogFilesStatus}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,10"/>
+                                    <Button Content="{loc:Loc 'Очистить логи'}" Command="{Binding ClearLogFilesCommand}"
+                                            Style="{StaticResource GhostButton}" HorizontalAlignment="Left"/>
+                                </StackPanel>
+                            </Border>
                                 </StackPanel>
                             </Grid>
                         </StackPanel>

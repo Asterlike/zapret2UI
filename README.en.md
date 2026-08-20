@@ -118,6 +118,8 @@ The official engine manual: [manual.en.md](https://github.com/bol-van/zapret2/bl
   via DPI specifically.
 - **Your own site lists** (host lists) and **your own targets**: any domain can be added.
 - **Autostart** at Windows logon, minimise to tray, quiet notifications in the corner.
+- **A backup of your settings and strategies** in a single file — for a reinstall or a move to another
+  computer — plus a **settings reset** that leaves your own strategies untouched.
 - **One file, no installation.** The engine is downloaded on first launch and verified against SHA-256.
 
 ---
@@ -167,7 +169,7 @@ and nothing else; advanced adds seven tabs.
 | **Диагностика** (Diagnostics) | The availability table by service, selection, generation and the DPI check |
 | **Журнал** (Journal) | Live output from the engine and the proxy. The first place to look if the bypass did not start |
 | **Telegram** | The built-in proxy: address, secret, port, autostart |
-| **Настройки** (Settings) | Scale, engine updates, autostart, notifications, auto-repair, bypass scope, game filter, QUIC |
+| **Настройки** (Settings) | Scale, engine updates, autostart, notifications, auto-repair, bypass scope, game filter, QUIC, backup, settings reset, log cleanup |
 
 More in the documentation: [Interface](https://asterlike.github.io/zapret2UI/en/interface.html) — every
 screen with a screenshot, the full settings table and a breakdown of host lists.
@@ -194,6 +196,13 @@ The mechanism is the same as in [Flowseal/tg-ws-proxy](https://github.com/Flowse
 MTProto over WebSocket-TLS, and through domains behind Cloudflare when the direct path is closed. The
 difference is that the original is a separate Python program, while here the protocol is **rewritten in
 C#** and built into the application: no second process and no Python runtime.
+
+A second difference: **chat and media travel through different nodes.** The original keeps one "sticky"
+domain per data centre and pushes everything through it. Telegram, however, downloads files over
+several connections at once, and together with the chat they all pile into the same Cloudflare node —
+which produces the familiar picture where messages arrive instantly but photos and videos never load.
+Here chat and media get **their own nodes and their own cooldown lists**, and parallel transfers are
+spread across several nodes, so they interfere neither with each other nor with the chat.
 
 More in the documentation: [Interface → Telegram](https://asterlike.github.io/zapret2UI/en/interface.html#telegram).
 

@@ -446,6 +446,129 @@ public sealed partial class MainViewModel
         }
     }
 
+    // ---- reset to defaults ------------------------------------------------
+
+    /// <summary>Return every setting on the Настройки screen to its default. Keeps the user's strategies,
+    /// host lists, interface language, view mode, current selection, the Telegram-proxy link and the
+    /// per-network memory (see <see cref="SettingsService.ResetToDefaults"/>). A running bypass/proxy is
+    /// stopped first, since the reset switches their toggles off; the engine/proxy state that a plain
+    /// settings write wouldn't touch is re-applied by hand here.</summary>
+    private void ResetSettings()
+    {
+        bool ok = ConfirmDialog.Show(
+            Loc.T("Сбросить настройки?"),
+            Loc.T("Настройки вернутся к значениям по умолчанию. Стратегии, хостлисты, язык и ссылка "
+                + "Telegram-прокси сохранятся. Если обход или прокси запущены — они остановятся."),
+            confirmText: Loc.T("Сбросить"),
+            danger: true);
+        if (!ok) return;
+
+        bool wasAutostart = Settings.Autostart;
+        if (IsRunning) _engine.Stop();
+        if (_tgProxy.IsRunning) _tgProxy.Stop();
+
+        _settingsSvc.ResetToDefaults();
+
+        // Re-apply the side effects a bare settings write never carries: the scheduled autostart task,
+        // the watchdog, the engine's live flags and the proxy's port binding.
+        if (wasAutostart) _autostart.Disable();
+        _monitor.Stop();
+        _engine.GameFilter = Settings.GameFilter;
+        _engine.BypassAllSites = Settings.BypassAllSites;
+        _engine.DisableQuic = Settings.DisableQuic;
+        _engine.CoverTgProxy = Settings.TgProxyCoverage;
+        _engine.DebugLog = Settings.DebugLog;
+        _tgProxy.Verbose = Settings.DebugLog;
+        _tgProxy.Configure(Settings.TgProxyPort, Settings.TgProxySecret);
+
+        // Every bound setting changed at once — one blanket notify refreshes them all (WPF re-reads every
+        // getter on an empty property name), then the proxy card and command states are brought in line.
+        OnPropertyChanged(string.Empty);
+        RefreshTelegramProxyStatus();
+        RaiseCommandStates();
+
+        AppendLog(Loc.T("Настройки сброшены к значениям по умолчанию."));
+        Notify?.Invoke("Zapret2UI", Loc.T("Настройки сброшены к значениям по умолчанию."));
+    }
+
+    // ---- backup / restore -------------------------------------------------
+
+    private string _backupStatus = Loc.T("Сохраните настройки и стратегии в файл — на случай переустановки или переноса на другой компьютер.");
+    public string BackupStatus { get => _backupStatus; private set => SetField(ref _backupStatus, value); }
+
+    /// <summary>Save the current configuration (settings, strategies, host lists) to a .z2bak file.</summary>
+    private void ExportBackup()
+    {
+        var dlg = new Microsoft.Win32.SaveFileDialog
+        {
+            FileName = _backup.DefaultFileName,
+            Filter = Loc.T("Резервная копия Zapret2UI") + " (*.z2bak)|*.z2bak",
+            DefaultExt = ".z2bak",
+            AddExtension = true,
+        };
+        if (dlg.ShowDialog() != true) return;
+        try
+        {
+            _backup.Export(dlg.FileName);
+            BackupStatus = Loc.T("Сохранено: {0}", System.IO.Path.GetFileName(dlg.FileName));
+            Notify?.Invoke("Zapret2UI", Loc.T("Резервная копия сохранена."));
+        }
+        catch (Exception ex)
+        {
+            BackupStatus = Loc.T("Не удалось сохранить копию: ") + ex.Message;
+        }
+    }
+
+    /// <summary>Restore a .z2bak: validate it, confirm, then overwrite the config and relaunch so the
+    /// restored files are what loads (see <see cref="BackupService.Restore"/> for why the restart matters).</summary>
+    private void ImportBackup()
+    {
+        var dlg = new Microsoft.Win32.OpenFileDialog
+        {
+            Filter = Loc.T("Резервная копия Zapret2UI") + " (*.z2bak)|*.z2bak|" + Loc.T("Все файлы") + " (*.*)|*.*",
+            CheckFileExists = true,
+        };
+        if (dlg.ShowDialog() != true) return;
+        if (!_backup.IsBackup(dlg.FileName))
+        {
+            BackupStatus = Loc.T("Это не резервная копия Zapret2UI.");
+            return;
+        }
+        bool ok = ConfirmDialog.Show(
+            Loc.T("Восстановить из копии?"),
+            Loc.T("Текущие настройки, стратегии и хостлисты будут заменены содержимым файла. Приложение "
+                + "перезапустится; запущенный обход или прокси остановятся."),
+            confirmText: Loc.T("Восстановить"),
+            danger: true);
+        if (!ok) return;
+        try
+        {
+            if (IsRunning) _engine.Stop();
+            if (_tgProxy.IsRunning) _tgProxy.Stop();
+            _backup.Restore(dlg.FileName);
+            App.RelaunchSelf();
+        }
+        catch (Exception ex)
+        {
+            BackupStatus = Loc.T("Не удалось восстановить: ") + ex.Message;
+        }
+    }
+
+    // ---- log files --------------------------------------------------------
+
+    private string _logFilesStatus = Loc.T("Журнал каждого запуска пишется в отдельный файл. Старые удаляются сами — остаются последние 20. Можно очистить вручную.");
+    public string LogFilesStatus { get => _logFilesStatus; private set => SetField(ref _logFilesStatus, value); }
+
+    /// <summary>Delete the accumulated engine-*.log files (the live session's own log, if any, is locked
+    /// and skipped). The in-memory Журнал is left as is — this only touches files on disk.</summary>
+    private void ClearLogFiles()
+    {
+        int n = LogMaintenance.ClearSessionLogs();
+        LogFilesStatus = n > 0
+            ? Loc.T("Удалено файлов логов: {0}.", n)
+            : Loc.T("Старых логов нет — чистить нечего.");
+    }
+
     private bool _showHowItWorks;
     /// <summary>Whether the "how it works / app tour" instruction modal is shown.</summary>
     public bool ShowHowItWorks { get => _showHowItWorks; set => SetField(ref _showHowItWorks, value); }

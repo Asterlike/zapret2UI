@@ -25,6 +25,7 @@ public sealed partial class MainViewModel : ObservableObject
     private readonly TargetService _targets = new();
     private readonly IpsetService _ipset = new();
     private readonly ExclusionService _exclusions = new();
+    private readonly BackupService _backup = new();
     private readonly MonitorService _monitor = new();
     private readonly TelegramProxyService _tgProxy = new();
     private CancellationTokenSource? _diagCts;
@@ -107,6 +108,10 @@ public sealed partial class MainViewModel : ObservableObject
             _ => !IsBuildingIpset && _updater.IsEngineInstalled);
         ApplyExclusionsCommand = new RelayCommand(async _ => await ApplyExclusionsAsync(),
             _ => !IsApplyingExclusions);
+        ResetSettingsCommand = new RelayCommand(_ => ResetSettings());
+        ExportBackupCommand = new RelayCommand(_ => ExportBackup());
+        ImportBackupCommand = new RelayCommand(_ => ImportBackup());
+        ClearLogFilesCommand = new RelayCommand(_ => ClearLogFiles());
         TogglePresetArgsCommand = new RelayCommand(_ => ShowPresetArgs = !ShowPresetArgs);
         OpenHowItWorksCommand = new RelayCommand(_ => ShowHowItWorks = true);
         CloseHowItWorksCommand = new RelayCommand(_ => ShowHowItWorks = false);
@@ -221,6 +226,10 @@ public sealed partial class MainViewModel : ObservableObject
     public RelayCommand ApplyScoreAndStartCommand { get; }
     public RelayCommand BuildDiscordIpsetCommand { get; }
     public RelayCommand ApplyExclusionsCommand { get; }
+    public RelayCommand ResetSettingsCommand { get; }
+    public RelayCommand ExportBackupCommand { get; }
+    public RelayCommand ImportBackupCommand { get; }
+    public RelayCommand ClearLogFilesCommand { get; }
     public RelayCommand TogglePresetArgsCommand { get; }
     public RelayCommand OpenHowItWorksCommand { get; }
     public RelayCommand CloseHowItWorksCommand { get; }
@@ -245,6 +254,9 @@ public sealed partial class MainViewModel : ObservableObject
 
     public async Task InitializeAsync()
     {
+        // Prune old session logs off the UI thread — the current session hasn't opened its own log yet
+        // (the engine does that on Start), so nothing here can be locked out.
+        _ = Task.Run(() => LogMaintenance.TrimOldLogs());
         ReloadPresets();
         _hostlists.SeedDefaults();
         ReloadHostlists();

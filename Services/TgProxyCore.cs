@@ -484,48 +484,67 @@ internal sealed class CfProxyBalancer
     public static IReadOnlyList<string> AllBaseDomains { get; } = Encoded.Select(Decode).ToArray();
 
     private readonly string[] _domains;
-    private readonly Dictionary<int, string> _dcToDomain = new();
-    private readonly ConcurrentDictionary<string, long> _bad = new(); // "dc|domain" → expiry (TickCount64)
-    private readonly Random _rng = new();
+    private readonly ConcurrentDictionary<string, string> _sticky = new(); // "dc|lane" → preferred front
+    private readonly ConcurrentDictionary<string, long> _bad = new();      // "dc|lane|domain" → expiry
+    private int _mediaTurn;                                                // round-robin cursor, media lane
 
-    public CfProxyBalancer()
-    {
-        _domains = Encoded.Select(Decode).ToArray();
-        foreach (int dc in new[] { 1, 2, 3, 4, 5, 203 })
-            _dcToDomain[dc] = _domains[_rng.Next(_domains.Length)];
-    }
+    public CfProxyBalancer() => _domains = Encoded.Select(Decode).ToArray();
 
     /// <summary>Pseudo-front under which the direct DC IP shares this cooldown store. It has no base
     /// domain of its own, but it fails the same way (and costs the same 8 s timeout) when blocked.</summary>
     public const string DirectKey = "direct";
 
-    /// <summary>Yield the per-DC sticky domain first, then the rest shuffled — skipping any front
-    /// recently seen not to relay (see <see cref="MarkBad"/>), so a client's retry rotates off it.</summary>
-    public IEnumerable<string> DomainsForDc(int dc)
-    {
-        _dcToDomain.TryGetValue(dc, out string? current);
-        if (current is not null && IsBad(dc, current)) current = null; // rotate off a dead sticky
-        if (current is not null) yield return current;
+    /// <summary>Traffic lane. Telegram opens its media connections (file upload/download) separately
+    /// from the chat/API one — and a client fetching a file opens SEVERAL at once. Every front resolves
+    /// to one Cloudflare worker, so without separate lanes the whole download plus the chat funnel
+    /// through a single worker: media crawls (or 429s) while chat looks perfect — the classic "всё
+    /// работает, но медиа не грузится" — and a cooldown earned by a download benches the chat's front
+    /// too. Verified by probe: the fronts have no media edge of their own (kws{dc}-1.{front} does not
+    /// resolve), so media and chat genuinely share one hostname and must be spread out here instead.</summary>
+    private static string Lane(bool isMedia) => isMedia ? "m" : "a";
 
-        var rest = _domains.Where(d => d != current).OrderBy(_ => _rng.Next()).ToList();
-        var fresh = rest.Where(d => !IsBad(dc, d)).ToList();
+    /// <summary>Fronts to try for this DC, best first. The chat lane keeps a per-DC sticky front so a
+    /// long-lived connection stays put; the media lane instead starts one front further along on every
+    /// call, so N parallel transfers spread over N workers. Fronts recently seen not to relay (see
+    /// <see cref="MarkBad"/>) are skipped — per lane, so the two never bench each other.</summary>
+    public IEnumerable<string> DomainsForDc(int dc, bool isMedia = false)
+    {
+        string lane = Lane(isMedia);
+        var fresh = _domains.Where(d => !IsBad(dc, lane, d)).ToList();
+
         // A blackout cools every front down at once. Yielding nothing there would turn a temporary
         // outage into "нет доступных адресов" with no attempt made at all — and nothing would ever
         // clear the cooldowns, since only a real attempt can. Cooldowns are a preference, not a ban.
-        foreach (string d in fresh.Count > 0 ? fresh : rest) yield return d;
+        if (fresh.Count == 0)
+        {
+            foreach (string d in _domains.OrderBy(_ => Random.Shared.Next())) yield return d;
+            yield break;
+        }
+
+        if (isMedia)
+        {
+            int start = (int)((uint)Interlocked.Increment(ref _mediaTurn) % (uint)fresh.Count);
+            for (int i = 0; i < fresh.Count; i++) yield return fresh[(start + i) % fresh.Count];
+            yield break;
+        }
+
+        string sticky = _sticky.GetOrAdd($"{dc}|{lane}", _ => _domains[Random.Shared.Next(_domains.Length)]);
+        if (fresh.Contains(sticky)) yield return sticky;
+        foreach (string d in fresh.Where(d => d != sticky).OrderBy(_ => Random.Shared.Next())) yield return d;
     }
 
-    /// <summary>Is this front (or <see cref="DirectKey"/>) still cooling down for this DC?</summary>
-    public bool IsCooling(int dc, string key) => IsBad(dc, key);
+    /// <summary>Is this front (or <see cref="DirectKey"/>) still cooling down for this DC? The direct IP
+    /// is lane-independent — a blocked Telegram edge is blocked for media and chat alike.</summary>
+    public bool IsCooling(int dc, string key, bool isMedia = false) => IsBad(dc, Lane(isMedia), key);
 
-    /// <summary>Cool a front down for this DC (skip it in <see cref="DomainsForDc"/> for
+    /// <summary>Cool a front down for this DC and lane (skip it in <see cref="DomainsForDc"/> for
     /// <paramref name="cooldownMs"/>, then it heals). Default ~2 min for a non-relaying front; callers
     /// pass shorter windows for softer reasons (e.g. a CF 429 or an instantly-dropped connection).</summary>
-    public void MarkBad(int dc, string baseDomain, int cooldownMs = 120_000) =>
-        _bad[$"{dc}|{baseDomain}"] = Environment.TickCount64 + cooldownMs;
+    public void MarkBad(int dc, string baseDomain, int cooldownMs = 120_000, bool isMedia = false) =>
+        _bad[$"{dc}|{Lane(isMedia)}|{baseDomain}"] = Environment.TickCount64 + cooldownMs;
 
-    private bool IsBad(int dc, string baseDomain) =>
-        _bad.TryGetValue($"{dc}|{baseDomain}", out long exp) && exp > Environment.TickCount64;
+    private bool IsBad(int dc, string lane, string baseDomain) =>
+        _bad.TryGetValue($"{dc}|{lane}|{baseDomain}", out long exp) && exp > Environment.TickCount64;
 
     private static string Decode(string s)
     {

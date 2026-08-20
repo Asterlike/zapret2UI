@@ -106,6 +106,34 @@ public sealed class SettingsService
         catch { /* non-fatal */ }
     }
 
+    /// <summary>Reset every preference to its default, then save. A handful of identity/data fields are
+    /// carried over rather than wiped: the interface <see cref="AppSettings.Language"/> and
+    /// <see cref="AppSettings.SimpleMode"/> view mode (resetting them would yank the live UI), the current
+    /// <see cref="AppSettings.ActivePresetName"/>/<see cref="AppSettings.ActiveHostlist"/> selection, the
+    /// persisted <see cref="AppSettings.TgProxySecret"/> (so an already-configured tg:// link keeps
+    /// working), the <see cref="AppSettings.NetworkStrategies"/> per-network memory and the
+    /// <see cref="AppSettings.WelcomeShown"/> flag. The user's saved strategies live in presets.json and
+    /// their host lists in lists\ — separate files this never touches.</summary>
+    public void ResetToDefaults()
+    {
+        Settings = BuildReset(Settings);
+        Save();
+    }
+
+    /// <summary>The reset result for a given current state: a fresh <see cref="AppSettings"/> with the
+    /// identity/data fields carried over from <paramref name="current"/> and everything else at its
+    /// default. Pure (no I/O) so the preserve-vs-reset split can be unit-tested.</summary>
+    internal static AppSettings BuildReset(AppSettings current) => new()
+    {
+        Language = current.Language,
+        SimpleMode = current.SimpleMode,
+        ActivePresetName = current.ActivePresetName,
+        ActiveHostlist = current.ActiveHostlist,
+        TgProxySecret = current.TgProxySecret,
+        NetworkStrategies = current.NetworkStrategies,
+        WelcomeShown = current.WelcomeShown,
+    };
+
     private void Load()
     {
         try

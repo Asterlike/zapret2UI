@@ -572,6 +572,17 @@ So the program has **a separate built-in proxy**.
   (`ee`) is unnecessary and has been left out. The working path is preserved: resolution through DoH and
   domains behind Cloudflare (fronting) with a pool of fronts and temporary benching of the bad ones. The
   code is MIT, with thanks to Flowseal.
+- **Chat and media are split across different nodes.** The original keeps one "sticky" domain per data
+  centre and sends everything through it. Telegram, however, opens its file connections **separately
+  from the chat and several at a time**, and every front domain is a single Cloudflare node: without the
+  split, the whole download plus the chat pile into one node. Hence the familiar complaint that
+  "messages arrive instantly but photos and videos never load" — and hence a side effect where a rate
+  limit earned by a download also benched the chat's front. Here each of the two lanes gets **its own
+  preferred node and its own cooldown list**, and parallel transfers rotate through different nodes.
+
+  Verified by probe: the fronts have **no media edge of their own** (`kws{dc}-1.<domain>` does not
+  resolve) — Telegram identifies media by the negative data-centre number in the relay init, not by the
+  hostname. Both lanes therefore use one and the same name, and can only be separated at node selection.
 
 ---
 
@@ -636,6 +647,35 @@ under a third-party antivirus, the add command can report success while the excl
 — and the engine keeps disappearing. If the entry was not confirmed, the report shows a **✗** with an
 explanation rather than a false tick. In that case add the `%LOCALAPPDATA%\Zapret2UI` folder to the
 exclusions by hand through Windows Security → Virus and threat protection → Exclusions.
+
+### 14.1. Backup
+
+The **"Save to file"** and **"Restore from file"** buttons at the bottom of Settings. A single `.z2bak`
+file holds your settings (`settings.json`), your strategies (`presets.json`) and the `lists\` folder.
+The engine is **not** included — it weighs over a hundred megabytes and downloads itself anyway.
+
+Useful in three cases: reinstalling Windows, moving a configured program to another computer, and as
+insurance before a reset. Restoring replaces the current settings, strategies and lists with the
+contents of the file, after which the program **restarts** — otherwise it would write the old values,
+still held in memory, back over the restore.
+
+### 14.2. Settings reset
+
+The **"Reset settings"** button returns everything in the table above to its defaults: it removes
+autostart (including the scheduled task), turns off auto-repair, the game filter, QUIC handling and the
+proxy coverage, and restores the scale and the port. A running bypass and proxy are stopped.
+
+**What is deliberately kept:** your strategies and host lists (they live in separate files and are not
+touched at all), the interface language and the Simple/Advanced mode (resetting them would yank you out
+of the current screen), the current strategy and list selection, the **Telegram-proxy secret** (so a
+link already configured in the client keeps working) and the per-network memory.
+
+### 14.3. Log files
+
+Every engine start writes its own `logs\engine-*.log`. These used to pile up without limit; now the
+**last 20** are kept when the program starts and the rest are deleted. The **"Clear logs"** button
+removes them all at once. The `startup.log` and `fatal.log` service files are left alone — they do not
+grow in number and are needed for diagnosing failures.
 
 ---
 

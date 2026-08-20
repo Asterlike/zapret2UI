@@ -213,7 +213,7 @@ public sealed class TelegramProxyService : IDisposable
             {
                 if (outcome == BridgeOutcome.DeadFront)
                 {
-                    _balancer.MarkBad(dcKey, frontId);
+                    _balancer.MarkBad(dcKey, frontId, isMedia: isMedia);
                     _loggedFirstSuccess = false; // let the next working path re-announce success
                     LogLine?.Invoke(Loc.T("[tg-proxy] DC{0}: {1} не доводит трафик до Telegram — исключаю на время", dcKey, frontId));
                 }
@@ -221,7 +221,7 @@ public sealed class TelegramProxyService : IDisposable
                 {
                     // Relayed but the upstream killed it almost instantly (mobile TSPU/CF) — rotate off it
                     // briefly so the client's retry lands on a different front instead of churning here.
-                    _balancer.MarkBad(dcKey, frontId, 30_000);
+                    _balancer.MarkBad(dcKey, frontId, 30_000, isMedia);
                     _loggedFirstSuccess = false;
                     LogLine?.Invoke(Loc.T("[tg-proxy] DC{0}: {1} рвёт соединение сразу — пробую другой фронт", dcKey, frontId));
                 }
@@ -271,9 +271,12 @@ public sealed class TelegramProxyService : IDisposable
 
         // 2) Cloudflare-fronted domains: resolve via DoH first (bypasses ISP DNS poisoning), OS DNS second.
         //    FrontId=baseDomain: if it upgrades but doesn't relay, the bridge watchdog blacklists it.
-        foreach (string baseDomain in _balancer.DomainsForDc(dc))
+        foreach (string baseDomain in _balancer.DomainsForDc(dc, isMedia))
         {
             if (attempts++ >= MaxUpstreamAttempts) break;
+            // One hostname for both lanes: the fronts expose no media edge of their own (probed —
+            // kws{dc}-1.{front} doesn't resolve), and Telegram routes media off the relay init's
+            // negative DC instead. Which WORKER carries it is what DomainsForDc spreads.
             string domain = $"kws{dc}.{baseDomain}";
 
             string host, via;
@@ -292,7 +295,7 @@ public sealed class TelegramProxyService : IDisposable
             // domains: cool this one down and rotate, exactly like the reference does. Any other failure
             // (TCP/TLS/upgrade) burned a full timeout, and the next connection would have picked the same
             // sticky front and burned it again — so bench it briefly too.
-            _balancer.MarkBad(dc, baseDomain, r.Status == 429 ? 45_000 : FrontFailCooldownMs);
+            _balancer.MarkBad(dc, baseDomain, r.Status == 429 ? 45_000 : FrontFailCooldownMs, isMedia);
             fails.Add($"{domain} ({via}): {StageText(r)}");
         }
 

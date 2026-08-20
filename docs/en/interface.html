@@ -79,6 +79,7 @@
       <li><a href="#zhurnal">Journal</a></li>
       <li><a href="#telegram">Telegram</a></li>
       <li><a href="#nastroyki">Settings</a></li>
+      <li><a href="#obsluzhivanie">Backup, reset and logs</a></li>
       <li><a href="#oblast">Bypass scope and QUIC</a></li>
       <li><a href="#fayly">Files on disk</a></li>
     </ul>
@@ -479,6 +480,22 @@ gateway.discord.gg</code></pre>
       through DoH and domains behind Cloudflare, with a pool of fronts and temporary benching of the ones
       that fail.</p>
 
+    <p>The substantive difference: <b>chat and media are split across different nodes</b>. The original
+      keeps one "sticky" domain per data centre and sends everything through it at once. Telegram, however,
+      opens its file connections separately from the chat and <b>several at a time</b>, and every front
+      domain is a single Cloudflare node. Without the split, the whole download plus the chat pile into one
+      node: the familiar picture where messages arrive instantly but photos and videos never open. The side
+      effect had the same root — a rate limit earned by a download also benched the chat's front. Here each
+      lane has its own preferred node and its own cooldown list, and parallel transfers rotate through
+      different nodes.</p>
+
+    <div class="note">
+      <p>Verified by probe: the fronts have <b>no media edge of their own</b> — a name like
+        <code>kws2-1.&lt;domain&gt;</code> does not resolve on any of them. Telegram identifies media by the
+        negative data-centre number in the relay init, not by the hostname. Both lanes therefore use one and
+        the same name, and can only be separated at node selection.</p>
+    </div>
+
     <h2 id="nastroyki">Settings</h2>
 
     <figure>
@@ -528,6 +545,34 @@ gateway.discord.gg</code></pre>
         <code>%LOCALAPPDATA%\Zapret2UI</code> folder by hand: Windows Security → Virus and threat
         protection → Exclusions.</p>
     </div>
+
+    <h3 id="obsluzhivanie">Backup, reset and logs</h3>
+
+    <p>Three cards at the very bottom of Settings — program maintenance.</p>
+
+    <p><b>Backup.</b> The "Save to file" and "Restore from file" buttons. A single <code>.z2bak</code> file
+      holds your settings, your strategies and the lists folder. The engine is <b>not</b> included: it
+      weighs over a hundred megabytes and downloads itself anyway. Useful when reinstalling Windows, moving
+      to another computer, and as insurance before a reset. Restoring replaces the current settings,
+      strategies and lists with the contents of the file, after which the program restarts — otherwise it
+      would write the old values, still held in memory, back over the restore.</p>
+
+    <p><b>Settings reset.</b> Returns everything in the table above to its defaults: removes autostart
+      along with the scheduled task, turns off auto-repair, the game filter, QUIC handling and the proxy
+      coverage, and restores the scale and the port. A running bypass and proxy are stopped.</p>
+
+    <div class="note">
+      <p>The reset <b>does not touch your strategies and host lists</b> — they live in separate files.
+        Deliberately kept as well: the interface language and the Simple/Advanced mode (resetting them
+        would yank you out of the current screen), the current strategy and list selection, the
+        <b>Telegram-proxy secret</b> (so a link already configured in the client keeps working) and the
+        per-network memory.</p>
+    </div>
+
+    <p><b>Log files.</b> Every engine start writes its own <code>logs\engine-*.log</code>. These used to
+      pile up without limit; now the last 20 are kept when the program starts and the rest are deleted. The
+      "Clear logs" button removes them all at once. The <code>startup.log</code> and <code>fatal.log</code>
+      service files are left alone — they do not grow in number and are needed for diagnosing failures.</p>
 
     <h2 id="oblast">Bypass scope, the game filter and QUIC</h2>
 
