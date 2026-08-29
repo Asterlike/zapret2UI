@@ -1,4 +1,4 @@
-<div align="center">
+﻿<div align="center">
 
 **EN** | [RU](README.md "Читать по-русски")
 
@@ -116,6 +116,15 @@ The official engine manual: [manual.en.md](https://github.com/bol-van/zapret2/bl
   notices and quietly re-selects a working variant.
 - **Diagnostics**: an availability table plus a separate check for whether the provider is interfering
   via DPI specifically.
+- **Built-in Cloudflare WARP** as a local SOCKS5 proxy: the other half of the job — the bypass pushes a
+  connection through a block, WARP substitutes the address you arrive from. The client is carried inside
+  the program, so **there is nothing to install** and **no administrator rights are needed**: no
+  adapter, no routes, nothing changed in the system, so a failure cannot leave you without internet. It
+  speaks MASQUE — the same protocol Cloudflare's own app uses.
+  *This will not lift geo-blocks:* free WARP exits through the nearest node, and from Russia the address
+  will be Russian. While the proxy is on, **the bypass scope widens to every site by itself** —
+  otherwise the connection to Cloudflare does not come up; your setting is kept and comes back when you
+  switch the proxy off.
 - **Your own site lists** (host lists) and **your own targets**: any domain can be added.
 - **Autostart** at Windows logon, minimise to tray, quiet notifications in the corner.
 - **A backup of your settings and strategies** in a single file — for a reinstall or a move to another
@@ -156,19 +165,20 @@ More in the documentation: [Quick start](https://asterlike.github.io/zapret2UI/e
 
 ## Screen by screen
 
-At the top centre is the **Простой / Расширенный** (Simple / Advanced) switch. Simple leaves one button
-and nothing else; advanced adds seven tabs.
+At the top centre is the **Простой / Расширенный** (Simple / Advanced) switch. Simple leaves the toggle,
+the Telegram and WARP cards and the target selector; advanced adds eight tabs.
 
 <img src="docs/en/home-advanced.png" width="820" alt="Advanced mode"/>
 
 | Tab | What is there |
 |---|---|
-| **Главная** (Home) | The bypass toggle, the state, the target (Discord / YouTube / both), the Telegram card, the selection and generation buttons |
+| **Главная** (Home) | The bypass toggle, the state, the target (Discord / YouTube / both), the Telegram and WARP cards, the selection and generation buttons |
 | **Стратегии** (Strategies) | The list of ready-made bypass methods and your saved ones. Select a row → "Применить" (Apply) |
 | **Хостлисты** (Host lists) | Domain lists the bypass applies to. Built-in ones refresh themselves; yours are left alone |
 | **Диагностика** (Diagnostics) | The availability table by service, selection, generation and the DPI check |
 | **Журнал** (Journal) | Live output from the engine and the proxy. The first place to look if the bypass did not start |
 | **Telegram** | The built-in proxy: address, secret, port, autostart |
+| **WARP** | The Cloudflare proxy for changing your address: create a device, turn it on, where to point it |
 | **Настройки** (Settings) | Scale, engine updates, autostart, notifications, auto-repair, bypass scope, game filter, QUIC, backup, settings reset, log cleanup |
 
 More in the documentation: [Interface](https://asterlike.github.io/zapret2UI/en/interface.html) — every
@@ -197,12 +207,21 @@ MTProto over WebSocket-TLS, and through domains behind Cloudflare when the direc
 difference is that the original is a separate Python program, while here the protocol is **rewritten in
 C#** and built into the application: no second process and no Python runtime.
 
-A second difference: **chat and media travel through different nodes.** The original keeps one "sticky"
-domain per data centre and pushes everything through it. Telegram, however, downloads files over
-several connections at once, and together with the chat they all pile into the same Cloudflare node —
-which produces the familiar picture where messages arrive instantly but photos and videos never load.
-Here chat and media get **their own nodes and their own cooldown lists**, and parallel transfers are
-spread across several nodes, so they interfere neither with each other nor with the chat.
+A second difference: **chat and media travel by different routes.** Telegram downloads files separately
+from the chat and over several connections at once. The original sends both the same way, piling them
+into one node — which produces the familiar picture where messages arrive instantly but photos and
+videos never load.
+
+Here the route depends on what is travelling. Chat goes **straight to Telegram**: faster, with no
+intermediary, and messages are small. Media prefers the **Cloudflare-fronted domains** — they carry bulk
+at full speed, and parallel transfers spread across several nodes. Each route backs the other up, so one
+being unavailable never leaves you cut off. The difference between them is that the direct road leads to
+Telegram's own addresses, which are more often **rate-limited** than closed outright: the connection
+opens as if nothing were wrong, yet bulk over it barely crawls.
+
+A third: **large messages are reassembled.** The channel may cut a single message into several pieces,
+and only large ones get cut — that is, files. A lost continuation breaks the stream cipher beyond
+recovery, which from the outside looks like "media loads sometimes and sometimes not".
 
 More in the documentation: [Interface → Telegram](https://asterlike.github.io/zapret2UI/en/interface.html#telegram).
 
@@ -292,7 +311,8 @@ path → Enter).
 **How to remove the program completely:**
 
 1. Close it — right-click the tray icon → "Выход" (Exit).
-2. If you enabled autostart, remove it: Settings → turn "Запускать с Windows" off (or by hand:
+2. If you enabled autostart, remove it: Settings → turn "Запускать Zapret2UI при входе в Windows"
+   off (or by hand:
    `schtasks /delete /tn "Zapret2UI Autostart" /f`).
 3. Delete `Zapret2UI.exe` itself.
 4. Delete the `%LOCALAPPDATA%\Zapret2UI\` folder — after that nothing is left of the program.

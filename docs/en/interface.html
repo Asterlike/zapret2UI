@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Interface — Zapret2UI documentation</title>
-<meta name="description" content="Every Zapret2UI screen with a screenshot: the seven tabs, diagnostics and the DPI check, host lists, the journal, the Telegram proxy, every setting, and the files on disk.">
+<meta name="description" content="Every Zapret2UI screen with a screenshot: the eight tabs, diagnostics and the DPI check, host lists, the journal, the Telegram proxy, every setting, and the files on disk.">
 <link rel="icon" href="../assets/logo.png">
 <link rel="stylesheet" href="../assets/site.css">
 </head>
@@ -20,6 +20,7 @@
     <a href="quickstart.html">Quick start</a>
     <a href="interface.html" aria-current="page">Interface</a>
     <a href="strategies.html">Strategies</a>
+    <a href="warp.html">WARP</a>
     <a href="reference.html">Reference</a>
     <a href="troubleshooting.html">Troubleshooting</a>
   </nav>
@@ -54,6 +55,7 @@
       <ul>
         <li><a href="interface.html" aria-current="page">Interface</a></li>
         <li><a href="strategies.html">Strategies explained</a></li>
+        <li><a href="warp.html">WARP and changing your address</a></li>
       </ul>
       <h5>Advanced</h5>
       <ul>
@@ -78,6 +80,7 @@
       <li><a href="#proverka-dpi">The DPI check</a></li>
       <li><a href="#zhurnal">Journal</a></li>
       <li><a href="#telegram">Telegram</a></li>
+      <li><a href="#warp-vkladka">WARP</a></li>
       <li><a href="#nastroyki">Settings</a></li>
       <li><a href="#obsluzhivanie">Backup, reset and logs</a></li>
       <li><a href="#oblast">Bypass scope and QUIC</a></li>
@@ -90,17 +93,17 @@
     <div class="page-head">
       <p class="kicker">The program</p>
       <h1>Interface</h1>
-      <p class="lede">The seven tabs of advanced mode: what each button does, what the colours mean, and where to look when something has gone wrong.</p>
+      <p class="lede">The eight tabs of advanced mode: what each button does, what the colours mean, and where to look when something has gone wrong.</p>
     </div>
 
     <p>At the top centre of the window is the <b>Simple / Advanced</b> switch. Simple mode leaves one
-      toggle button, the Telegram card and the target selector. Advanced adds tabs: <b>Home, Strategies,
-      Host lists, Diagnostics, Journal, Telegram, Settings</b>.</p>
+      toggle button, the Telegram and WARP cards, and the target selector. Advanced adds tabs: <b>Home,
+      Strategies, Host lists, Diagnostics, Journal, Telegram, WARP, Settings</b>.</p>
 
     <h2 id="glavnaya">Home</h2>
 
     <figure>
-      <img src="home-advanced.png" alt="The Home tab in advanced mode: the bypass toggle, the state, the target selector, the Telegram card, the selection and generation buttons" loading="lazy">
+      <img src="home-advanced.png" alt="The Home tab in advanced mode: the bypass toggle, the state, the target selector, the Telegram and WARP cards, the selection and generation buttons" loading="lazy">
       <figcaption>Home in advanced mode. Everything from simple mode plus a status line and details of the
         selected strategy.</figcaption>
     </figure>
@@ -190,6 +193,12 @@ gateway.discord.gg</code></pre>
             <td><code>tgproxy-fronts.txt</code></td>
             <td>The domains behind Cloudflare that the built-in Telegram proxy travels through. Needed when
               the "Cover the Telegram proxy" setting is on.</td>
+          </tr>
+          <tr>
+            <td><code>warp-api.txt</code></td>
+            <td>Cloudflare WARP's service domain. Registering a device on the WARP tab goes through it,
+              and that name is cut by SNI, so the engine covers it <b>always</b> — whatever the bypass
+              scope. Without this, "Create device" would only work in "every site" mode.</td>
           </tr>
           <tr>
             <td>Your own files</td>
@@ -480,14 +489,30 @@ gateway.discord.gg</code></pre>
       through DoH and domains behind Cloudflare, with a pool of fronts and temporary benching of the ones
       that fail.</p>
 
-    <p>The substantive difference: <b>chat and media are split across different nodes</b>. The original
-      keeps one "sticky" domain per data centre and sends everything through it at once. Telegram, however,
-      opens its file connections separately from the chat and <b>several at a time</b>, and every front
-      domain is a single Cloudflare node. Without the split, the whole download plus the chat pile into one
-      node: the familiar picture where messages arrive instantly but photos and videos never open. The side
-      effect had the same root — a rate limit earned by a download also benched the chat's front. Here each
-      lane has its own preferred node and its own cooldown list, and parallel transfers rotate through
-      different nodes.</p>
+    <p>The substantive difference: <b>chat and media travel by different routes</b>. Telegram opens its
+      file connections separately from the chat and <b>several at a time</b>. The original sends both the
+      same way, piling them into one node: the familiar picture where messages arrive instantly but photos
+      and videos never open.</p>
+
+    <p>Here the route is chosen by lane. Chat takes <b>Telegram's direct node</b>: it opens fast, with no
+      intermediary, and messages are small. Media prefers the <b>Cloudflare-fronted domains</b>, whose
+      addresses carry bulk at full speed, and parallel transfers spread across different nodes — each lane
+      holding its own preferred node and its own cooldown list. Each route backs the other up, and a share
+      of the attempts is reserved for exactly that.</p>
+
+    <p>It works this way because the direct road leads to <b>Telegram's own addresses</b> — the ones more
+      often rate-limited than blocked outright. A rate limit does not hinder a handshake, so the connection
+      opens as if nothing were wrong: the chat flies while a download on that very same route barely
+      crawls.</p>
+
+    <p>A second difference: <b>large messages are reassembled</b>. The channel may split a single message
+      across several frames, and only large ones get split — that is, files, not chat. A lost continuation
+      desynchronises the cipher stream permanently: from that point the client reads garbage and drops the
+      connection, which looks like "media loads sometimes and sometimes not".</p>
+
+    <p>A third: <b>the journal shows volume and speed</b>. With the verbose journal on, every connection
+      closes with a line carrying its lane, its route, the bytes in each direction and the average rate. A
+      connection that opened, relayed a couple of kilobytes and died no longer looks healthy.</p>
 
     <div class="note">
       <p>Verified by probe: the fronts have <b>no media edge of their own</b> — a name like
@@ -495,6 +520,33 @@ gateway.discord.gg</code></pre>
         negative data-centre number in the relay init, not by the hostname. Both lanes therefore use one and
         the same name, and can only be separated at node selection.</p>
     </div>
+
+    <h2 id="warp-vkladka">WARP</h2>
+
+    <figure>
+      <img src="warp.png" alt="The WARP tab: the proxy switch, the proxy address and the exit address, device buttons and the &quot;What this is for&quot; column" loading="lazy">
+      <figcaption>Cloudflare WARP as a local proxy. The client is carried inside the program — there is nothing to install.</figcaption>
+    </figure>
+
+    <p>The bypass and WARP solve different problems. The bypass pushes a connection through a block — the
+      case where a site does not open at all. WARP substitutes the address you arrive from — the case
+      where a site opens but refuses you or your whole network.</p>
+
+    <ul>
+      <li><b>Nothing to install</b> and no administrator rights needed: the client is carried inside the
+        program and runs as an ordinary child process.</li>
+      <li><b>It is a proxy, not a tunnel.</b> No adapter, no routes, nothing changed in the system — so a
+        failure cannot leave you without internet. Only what you point at it goes through it.</li>
+      <li><b>The keys are made on your computer.</b> Only the public key leaves; no email, password or
+        account is involved.</li>
+      <li><b>Success is not taken on trust.</b> The program asks Cloudflare, through the proxy itself,
+        where it sees you, and only then reports that it works.</li>
+      <li><b>This will not lift geo-blocks.</b> Free WARP exits through the nearest node: from Russia the
+        address will be Russian and published as WARP.</li>
+    </ul>
+
+    <p>What it gives you, what it does not, where to point the proxy address and what happens inside are
+      covered on the separate <a href="warp.html">«WARP and changing your address»</a> page.</p>
 
     <h2 id="nastroyki">Settings</h2>
 
@@ -510,6 +562,7 @@ gateway.discord.gg</code></pre>
         </thead>
         <tbody>
           <tr><td>Simple mode</td><td><code>SimpleMode</code></td><td><code>true</code></td><td>One button instead of tabs.</td></tr>
+          <tr><td>Interface language</td><td><code>Language</code></td><td><code>ru</code></td><td>Russian or English. The <b>RU | EN</b> toggle on Home and in Settings. Applied once the program restarts.</td></tr>
           <tr><td>Active strategy</td><td><code>ActivePresetName</code></td><td></td><td>The name of the selected strategy.</td></tr>
           <tr><td>Active host list</td><td><code>ActiveHostlist</code></td><td></td><td>The name of the active domain list.</td></tr>
           <tr><td>Auto-update the engine</td><td><code>AutoUpdateEngine</code></td><td><code>true</code></td><td>Quietly update <code>winws2</code> from releases.</td></tr>
@@ -519,19 +572,24 @@ gateway.discord.gg</code></pre>
           <tr><td>Start in the tray</td><td><code>StartMinimized</code></td><td><code>false</code></td><td>Start already minimised.</td></tr>
           <tr><td>Auto-repair</td><td><code>AutoHeal</code></td><td><code>false</code></td><td>Watch availability and re-select on failure.</td></tr>
           <tr><td>Game filter</td><td><code>GameFilter</code></td><td><code>false</code></td><td>Widen capture to all high ports.</td></tr>
-          <tr><td>Bypass all sites</td><td><code>BypassAllSites</code></td><td><code>false</code></td><td>All sites instead of the lists only.</td></tr>
+          <tr><td>Bypass all sites</td><td><code>BypassAllSites</code></td><td><code>false</code></td><td>All sites instead of the lists only. While the WARP proxy is on the bypass covers every site regardless of this value — the setting itself does not change.</td></tr>
           <tr><td>Disable QUIC</td><td><code>DisableQuic</code></td><td><code>false</code></td><td>Drop QUIC so the browser falls back to TCP.</td></tr>
           <tr><td>Cover the Telegram proxy</td><td><code>TgProxyCoverage</code></td><td><code>false</code></td><td>The engine additionally covers the proxy's own connections. For mobile DPI.</td></tr>
-          <tr><td>Interface scale</td><td><code>UiScale</code></td><td><code>1.0</code></td><td>Extra zoom from 1.0 to 2.5 on top of the system DPI.</td></tr>
+          <tr><td>Verbose log</td><td><code>DebugLog</code></td><td><code>false</code></td><td>The <b>--debug</b> chip on the Journal tab. The engine records which connections the techniques were applied to. Turning it on restarts the bypass.</td></tr>
+          <tr><td>Interface scale</td><td><code>UiScale</code></td><td><code>1.0</code></td><td>Extra zoom on top of the system DPI. The buttons give 100–200 %; a value written into the file is accepted up to 2.5.</td></tr>
           <tr><td>Notifications</td><td><code>NotificationsEnabled</code></td><td><code>true</code></td><td>Show pop-up messages in the corner of the screen.</td></tr>
           <tr><td>Notification sound</td><td><code>NotificationSound</code></td><td><code>true</code></td><td>A quiet chime along with the message.</td></tr>
           <tr><td>Telegram proxy port</td><td><code>TgProxyPort</code></td><td><code>1443</code></td><td>The local port of the built-in proxy.</td></tr>
           <tr><td>Proxy secret</td><td><code>TgProxySecret</code></td><td></td><td>The persistent MTProto secret.</td></tr>
           <tr><td>Start the proxy automatically</td><td><code>TgProxyAutostart</code></td><td><code>false</code></td><td>Start the proxy together with the program.</td></tr>
+          <tr><td>WARP proxy port</td><td><code>MasqueListenPort</code></td><td><code>1080</code></td><td>Local port of the WARP SOCKS5 proxy.</td></tr>
+          <tr><td>WARP transport</td><td><code>MasqueHttp2</code>, <code>MasqueConnectPort</code></td><td><code>true</code>, <code>443</code></td><td>Whatever connected last time. Worked out automatically.</td></tr>
           <tr><td>Per-network memory</td><td><code>NetworkStrategies</code></td><td><code>{}</code></td><td>A "network to strategy" mapping. Local only.</td></tr>
         </tbody>
       </table>
     </div>
+
+    <p>Besides the above, the file keeps two housekeeping marks for the interface: whether the support block is collapsed, and whether the first-run walkthrough has been shown. Neither is edited by hand.</p>
 
     <p>A separate <b>"Add to exclusions"</b> button registers the program and the engine folder with
       Windows Defender and the firewall in one click. The antivirus remains the most common reason a bypass
@@ -598,7 +656,7 @@ gateway.discord.gg</code></pre>
               left alone.</td>
             <td>All TLS and QUIC are bypassed, except the exclusion list (banks, government services and
               the like). Convenient, but it may break an application that is not on the exclusion
-              list.</td>
+              list. Turns itself on for as long as the WARP proxy is running.</td>
           </tr>
           <tr>
             <td><b>Game filter</b></td>
@@ -634,8 +692,12 @@ gateway.discord.gg</code></pre>
 ├─ lists\                      <span class="t-cmt">host lists and ipset</span>
 │  ├─ youtube.txt, discord.txt <span class="t-cmt">built-in domain lists</span>
 │  ├─ exclude.txt              <span class="t-cmt">exclusions: banks, government services</span>
-│  └─ ipset-discord.txt        <span class="t-cmt">collected subnets</span>
+│  ├─ ipset-discord.txt        <span class="t-cmt">collected subnets</span>
+│  └─ ipset-masque.txt         <span class="t-cmt">WARP entry points, always covered by the engine</span>
 ├─ logs\                       <span class="t-cmt">engine output per session</span>
+├─ masque\                     <span class="t-cmt">the bundled WARP client</span>
+│  ├─ usque.exe               <span class="t-cmt">the MASQUE client</span>
+│  └─ config.json             <span class="t-cmt">the registered device: key, licence, token</span>
 ├─ tmp\                        <span class="t-cmt">temporary downloads</span>
 ├─ presets.json                <span class="t-cmt">your strategies</span>
 └─ settings.json               <span class="t-cmt">settings</span></code></pre>
@@ -649,7 +711,7 @@ gateway.discord.gg</code></pre>
       </li>
       <li>
         <h3>Remove autostart, if you enabled it</h3>
-        <p>Settings, turn "Start with Windows" off. Or by hand:</p>
+        <p>Settings, turn "Start Zapret2UI when Windows logs in" off. Or by hand:</p>
 <pre><code>schtasks /delete /tn "Zapret2UI Autostart" /f</code></pre>
       </li>
       <li>
@@ -707,6 +769,7 @@ sc.exe delete WinDivert</code></pre>
       <a href="quickstart.html">Quick start</a>
       <a href="interface.html">Interface</a>
       <a href="strategies.html">Strategies explained</a>
+      <a href="warp.html">WARP and changing your address</a>
     </nav>
     <nav>
       <a href="reference.html">Reference</a>

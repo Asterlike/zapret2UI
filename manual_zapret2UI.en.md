@@ -1,4 +1,4 @@
-**EN** | [RU](manual_zapret2UI.md "Читать по-русски")
+﻿**EN** | [RU](manual_zapret2UI.md "Читать по-русски")
 
 # Zapret2UI — the full manual
 
@@ -40,14 +40,15 @@ wants to understand the program as a whole and tune it finely.
 9. [Strategy tokens](#9-strategy-tokens)
 10. [Writing your own strategies](#10-writing-your-own-strategies)
 11. [The built-in Telegram proxy](#11-the-built-in-telegram-proxy)
-12. [TCP timestamps](#12-tcp-timestamps)
-13. [Per-network memory](#13-per-network-memory)
-14. [Settings: the full list](#14-settings-the-full-list)
-15. [Updates](#15-updates)
-16. [Files and folders on disk](#16-files-and-folders-on-disk)
-17. [Troubleshooting and error codes](#17-troubleshooting-and-error-codes)
-18. [Building from source, and architecture](#18-building-from-source-and-architecture)
-19. [Links and credits](#19-links-and-credits)
+12. [WARP and changing your address](#12-warp-and-changing-your-address)
+13. [TCP timestamps](#13-tcp-timestamps)
+14. [Per-network memory](#14-per-network-memory)
+15. [Settings: the full list](#15-settings-the-full-list)
+16. [Updates](#16-updates)
+17. [Files and folders on disk](#17-files-and-folders-on-disk)
+18. [Troubleshooting and error codes](#18-troubleshooting-and-error-codes)
+19. [Building from source, and architecture](#19-building-from-source-and-architecture)
+20. [Links and credits](#20-links-and-credits)
 
 ---
 
@@ -68,6 +69,9 @@ What it offers:
 - **Per-network memory**: a working strategy is remembered for each network and turns on by itself.
 - **Auto-repair**: if the bypass falls over, the program re-selects a working variant.
 - **Diagnostics**: an availability table by service.
+- **Built-in Cloudflare WARP** as a local SOCKS5 proxy: changes the address you arrive from, with no
+  administrator rights and no changes to your network (see
+  [§12](#12-warp-and-changing-your-address)).
 - **Your own host lists and targets**, **IP-based bypass** (ipset), a **game filter**, and **disabling
   QUIC**.
 - **A single self-contained `.exe`**; the engine is downloaded on first launch and verified against
@@ -93,7 +97,7 @@ What it offers:
 3. On first launch the program downloads the `winws2` engine into `%LOCALAPPDATA%\Zapret2UI\engine` and
    verifies the download against its **SHA-256** checksum.
 
-The engine and the application are updated separately (see [§15](#15-updates)).
+The engine and the application are updated separately (see [§16](#16-updates)).
 
 ---
 
@@ -153,10 +157,11 @@ that:
 
 At the top centre is the **Простой / Расширенный** (Simple / Advanced) switch.
 
-- **Simple** — one big "Включить обход" (Turn on bypass) button, the Telegram card and the target
-  selector. Nothing else.
-- **Advanced** — seven tabs: **Главная** (Home), **Стратегии** (Strategies), **Хостлисты** (Host
-  lists), **Диагностика** (Diagnostics), **Журнал** (Journal), **Telegram**, **Настройки** (Settings).
+- **Simple** — one big "Включить обход" (Turn on bypass) button, the Telegram and WARP cards, and the
+  target selector. Nothing else.
+- **Advanced** — eight tabs: **Главная** (Home), **Стратегии** (Strategies), **Хостлисты** (Host
+  lists), **Диагностика** (Diagnostics), **Журнал** (Journal), **Telegram**, **WARP**, **Настройки**
+  (Settings).
 
 ### 4.1. Home
 
@@ -167,7 +172,10 @@ At the top centre is the **Простой / Расширенный** (Simple / A
   tries to open during selection and generation.
 - **The Telegram card** — the address and secret of the built-in proxy, with "Открыть" (Open) and
   "Копировать" (Copy) buttons.
-- **The "Telegram через прокси" switch** — turns the proxy on and off (mirrors the Telegram tab).
+- **The switch in the Telegram card** — turns the proxy on and off (mirrors the Telegram tab).
+- **The WARP card** — the Cloudflare proxy switch and a "Настроить WARP" (Configure WARP) button that
+  opens the tab. Remember that while the proxy is on, the bypass scope widens to every site
+  ([§12](#12-warp-and-changing-your-address)).
 - **"Подобрать стратегию"** (Select a strategy) — works through the proven strategies and keeps the one
   that opens your chosen targets. Start here: it follows a fixed list and is therefore more predictable.
 - **"Сгенерировать стратегию"** (Generate a strategy) — assembles a variant from scratch, separately for
@@ -250,7 +258,7 @@ engine's output:
   centres, the switch to domains behind Cloudflare, connection errors.
 
 Each pane has its own **"Копировать"** (Copy) and **"Очистить"** (Clear) buttons. The logs are also
-written to files (see [§16](#16-files-and-folders-on-disk)).
+written to files (see [§17](#17-files-and-folders-on-disk)).
 
 The **`--debug`** switch in the header turns verbose mode on for both panes at once. The engine receives
 `--debug=1` and records which connections the techniques were applied to and why; without that, working
@@ -280,7 +288,7 @@ was benched, a failure to connect.
 > away noticeably faster.
 
 Useful landmarks in the output: a line about windivert initialising and capture starting means the driver
-came up; a line about TCP timestamps being enabled means the mechanism from [§12](#12-tcp-timestamps)
+came up; a line about TCP timestamps being enabled means the mechanism from [§13](#13-tcp-timestamps)
 fired; a message about a non-existent desync function means the strategy names a verb the engine does not
 have.
 
@@ -292,9 +300,10 @@ button, changing the port, starting the proxy automatically, and a step-by-step 
 
 ### 4.7. Settings
 
-Interface scale, engine updates, autostart, notifications, auto-repair, bypass scope, the game filter,
-QUIC, covering the Telegram proxy with the engine, and "Добавить в исключения" (Add to exclusions). The
-full list is in [§14](#14-settings-the-full-list).
+Interface language, scale, engine updates, autostart, notifications, auto-repair, bypass scope, the
+game filter, QUIC, covering the Telegram proxy with the engine, IP-based bypass, "Добавить в
+исключения" (Add to exclusions), the environment check and the beginner's walkthrough. At the bottom:
+backup, settings reset and the log files. The full list is in [§15](#15-settings-the-full-list).
 
 ---
 
@@ -371,7 +380,7 @@ they run.
 
 The target (Discord+YouTube / Discord / YouTube) is set with the switch and determines which hosts count
 as "targets". The strategy that is found is tied to the current network (see
-[§13](#13-per-network-memory)).
+[§14](#14-per-network-memory)).
 
 > Important: both selection and diagnostics check availability at a low level. A "green" check does not
 > always mean the site will open in a browser — it may be cut some other way (ECH, IP blocking). If the
@@ -391,6 +400,10 @@ Three settings on the **Настройки** (Settings) tab determine *what exac
     the lists are **left alone**.
   - **All sites** — all TLS/QUIC is bypassed (except the exclusion list: banks, government services and
     so on). Convenient, but it may break a game or application that is not on the exclusion list.
+  - **While the WARP proxy is on** the scope widens to "all sites" by itself, whatever the switch says:
+    otherwise the connection to Cloudflare does not come up (see
+    [§12](#12-warp-and-changing-your-address)). Your choice is kept and comes back as soon as the proxy
+    is switched off.
 - **Game filter** (`GameFilter`): widens **UDP** capture to all high ports
   (`--wf-udp-out=443-65535`) so the bypass also reaches throttled games. Off by default: over UDP only
   443 (QUIC), STUN and the Discord voice range are caught, and game traffic goes straight through.
@@ -420,6 +433,7 @@ are not lost.
   | `youtube.txt` | YouTube domains and related Google services. Also built in |
   | `exclude.txt` | The **exclusion** list (banks, government services): it works the other way round, protecting those domains from the catch-all profiles |
   | `tgproxy-fronts.txt` | The domains behind Cloudflare for the built-in proxy; needed with `TgProxyCoverage` |
+  | `warp-api.txt` | Cloudflare WARP's service domain (device registration). Covered **always**, whatever the bypass scope |
   | your own files | Any list you create. **Not touched** when the built-in ones refresh |
 
   > ⚠️ Do not add your own domains straight into the built-in lists: they are refreshed on every launch
@@ -502,7 +516,7 @@ reference is in the [official manual](https://github.com/bol-van/zapret2/blob/ma
   drops the **real** packet instead.
 - **`tcp_ts`/`tcp_ts_up` are no-ops without TCP timestamps enabled.** Windows keeps them in `allowed`
   (not `enabled`) by default, so Zapret2UI enables them itself for the session (see
-  [§12](#12-tcp-timestamps)).
+  [§13](#13-tcp-timestamps)).
 - **`badsum` is unreliable behind a home NAT** — the router drops a packet with a broken checksum before
   the DPI sees it. On a desktop behind NAT use `tcp_md5` (which adds an MD5 option and is NAT-safe) or
   `tcp_seq` (badseq).
@@ -572,21 +586,131 @@ So the program has **a separate built-in proxy**.
   (`ee`) is unnecessary and has been left out. The working path is preserved: resolution through DoH and
   domains behind Cloudflare (fronting) with a pool of fronts and temporary benching of the bad ones. The
   code is MIT, with thanks to Flowseal.
-- **Chat and media are split across different nodes.** The original keeps one "sticky" domain per data
-  centre and sends everything through it. Telegram, however, opens its file connections **separately
-  from the chat and several at a time**, and every front domain is a single Cloudflare node: without the
-  split, the whole download plus the chat pile into one node. Hence the familiar complaint that
-  "messages arrive instantly but photos and videos never load" — and hence a side effect where a rate
-  limit earned by a download also benched the chat's front. Here each of the two lanes gets **its own
-  preferred node and its own cooldown list**, and parallel transfers rotate through different nodes.
+- **Chat and media travel by different routes.** Telegram opens its file connections **separately from
+  the chat and several at a time**. The original sends both the same way, so a download and the chat
+  pile into one node — hence the familiar complaint that "messages arrive instantly but photos and
+  videos never load".
+
+  Here the route is chosen by **lane**. Chat takes Telegram's direct node: it opens fast, with no
+  intermediary, and messages are small. Media prefers the **Cloudflare-fronted domains**, whose
+  addresses carry bulk at full speed — and parallel transfers spread across different nodes, each lane
+  holding its own preferred node and its own cooldown list. Each route also **backs up the other**: if
+  one side is unavailable the connection takes the second, and a share of the attempts is reserved for
+  exactly that.
+
+  It works this way because the direct route lands on **Telegram's own addresses** — the ones more often
+  rate-limited than blocked outright. A rate limit does not hinder a handshake, so the connection opens
+  as if nothing were wrong: the chat flies while a download on that very same route barely crawls.
 
   Verified by probe: the fronts have **no media edge of their own** (`kws{dc}-1.<domain>` does not
   resolve) — Telegram identifies media by the negative data-centre number in the relay init, not by the
-  hostname. Both lanes therefore use one and the same name, and can only be separated at node selection.
+  hostname. Both lanes therefore share one hostname, and can only be separated at route selection.
+- **Large messages are reassembled.** The channel may split a single message across several frames. Only
+  large ones get split — that is, files, not chat. Losing a continuation desynchronises the cipher
+  stream permanently: from that point the client reads garbage and drops the connection, which shows up
+  as "media loads sometimes and sometimes not". Frames are joined back together, and control packets
+  arriving between them do not disturb the assembly.
+- **The journal shows volume and speed.** With the verbose journal on, every connection closes with a
+  line carrying its lane ("chat" or "media"), its route, the bytes in each direction and the average
+  rate. A connection that opened, relayed a couple of kilobytes and died no longer looks healthy.
 
 ---
 
-## 12. TCP timestamps
+## 12. WARP and changing your address
+
+The bypass and WARP solve **different** problems, and that is the main thing to understand about this
+tab.
+
+The bypass rewrites packets. It can push a connection through a block — the case where your ISP will
+not let you reach a site at all. But the address you arrive from stays yours.
+
+WARP does the opposite: it does not break a block, it substitutes the address. With the proxy on,
+traffic leaves through Cloudflare and a site sees its address instead. That helps where it is **your
+address** that is blocked — when a service has shut out an entire ISP subnet, say.
+
+> **This will not lift geo-blocks.** Free WARP is anycast: you land on the nearest Cloudflare node, not
+> one you chose. From Russia the exit is Russian. Measured: every run came out on `104.28.x.x`, country
+> RU, node DME; an independent geo database labels those addresses `Cloudflare WARP` and flags them as a
+> proxy. No setting or entry point changes this — it is a Cloudflare limitation, not one of this
+> program.
+
+### Turning it on
+
+1. **Start the bypass.** Registration is an ordinary HTTPS request to `api.cloudflareclient.com`, and
+   that name is cut by SNI. The engine covers it unconditionally, whatever the scope — but only while it
+   is running.
+2. **WARP** tab → "Create device". The keys are made on your computer; only the public key leaves. Done
+   once.
+3. The **"Proxy on"** switch — there, or on Home in the card under Telegram.
+
+The program does not take success on trust: it asks Cloudflare, **through the proxy itself**, where it
+sees you, and only then reports that it works. The status line then shows the exit address and its
+country.
+
+### Where to point it
+
+The proxy intercepts nothing and changes nothing about the system — only what you point at it goes
+through it. The address is shown on the tab with a "Copy" button beside it. By default
+`127.0.0.1:1080`, protocol **SOCKS5**.
+
+| Where | How |
+|---|---|
+| Firefox | Settings → General → Network Settings → "Manual proxy configuration" → SOCKS host `127.0.0.1`, port `1080`, SOCKS v5 |
+| Chrome, Edge | No proxy settings of their own; they take the system ones. Easier to use the launch flag `--proxy-server="socks5://127.0.0.1:1080"` or a switcher extension |
+| Telegram | Settings → Data and Storage → Proxy → a SOCKS5 entry with the same address and port |
+
+The proxy listens on `127.0.0.1` only — nothing on your local network can reach it. That is deliberate:
+the client's own default is to listen on every address, which on a shared network would be an open
+route to the internet under your account.
+
+### What happens inside
+
+WARP speaks two transports. The first is plain WireGuard. The second is **MASQUE**, Cloudflare's own
+design: an IP tunnel over HTTP/3, falling back to HTTP/2 over ordinary TCP when QUIC does not get
+through. On port 443 it is indistinguishable from normal web traffic.
+
+The program uses MASQUE, and not as a matter of taste. WireGuard to WARP is cut **at the stream level**
+on Russian networks: the handshake is let through and the data after it is dropped. A desync cannot mend
+that — it can only disguise a connection's first packet, and there is nothing to hide a continuous
+stream behind.
+
+The way to connect is worked out automatically and remembered: HTTP/2 over TCP on 443 first, then 4443,
+8443, 500, then QUIC with a capped initial packet. Measured on a Russian network: **with the bypass
+running, 443 connects first try; with it stopped, 443 and 8443 are cut moments after connecting and only
+4443 survives.** One more reason to leave the bypass on.
+
+The entry-point addresses (`162.159.198.1` and `162.159.198.2`) are covered by the engine **always**,
+whatever the bypass scope — through a separate profile driven by `lists\ipset-masque.txt`. That profile
+alone turned out not to be enough: on a Russian network the connection only came up when MASQUE was
+handled by the whole strategy rather than by one narrow profile aimed at it. So **while the proxy is on,
+the bypass scope is widened to every site**, and it goes back to your setting when you switch it off.
+
+> **Worth knowing before you flip the switch.** While WARP is on, the bypass applies to all TLS/QUIC
+> except the exclusion list — a game or an application that is not excluded may start misbehaving
+> because of it. The "Bypass all sites" switch itself does not change: the program does not rewrite
+> your choice, it overrides it temporarily, and the card in Настройки (Settings) says so outright.
+
+### Where things live
+
+Everything sits in `%LOCALAPPDATA%\Zapret2UI\masque`: the unpacked `usque.exe` client and
+`config.json` with the device key, its licence and token. The client runs as an ordinary child process
+under your account with no elevation; a proxy left behind by a crash is cleared on the next start.
+
+### If it does not work
+
+| What you see | What to do |
+|---|---|
+| The device could not be created | Start the bypass and try again: `api.cloudflareclient.com` is cut by SNI. If it still fails, Cloudflare moves its client API version from time to time — check for a newer build |
+| "No way of reaching Cloudflare worked" | Every transport and port was tried. Make sure the bypass is running and no other VPN is up |
+| "Port is already in use by another program" | Something else is on `1080` — put a free port in Options |
+| "Cloudflare answers but says the traffic is not going through WARP" | The request left outside the proxy; usually another tunnel is capturing the routes |
+| The proxy is on but a site still says "not available in your region" | Expected: free WARP exits in Russia |
+| The browser ignores the proxy | Check the address is entered as SOCKS5 and the port matches the one shown |
+| Everything got slower | Expected: a detour through Cloudflare. Keep the proxy on only when you need it |
+
+---
+
+## 13. TCP timestamps
 
 Some strategies (ts fooling: `tcp_ts`/`tcp_ts_up`, which ALT10 and ALT11 rest on) only work if the
 outgoing TCP packet carries the timestamp option. Windows keeps it in the `allowed` state by default,
@@ -600,7 +724,7 @@ timestamps were enabled for the session and, later, restored to their original s
 
 ---
 
-## 13. Per-network memory
+## 14. Per-network memory
 
 The program ties a working strategy it has found to a **fingerprint of the current network** (the
 gateway/router address) and stores it in `settings.json` (`NetworkStrategies`). When you return to a
@@ -610,13 +734,14 @@ it as the line "Стратегия для этой сети: …" (Strategy for 
 
 ---
 
-## 14. Settings: the full list
+## 15. Settings: the full list
 
 The values are stored in `settings.json` (`AppSettings`).
 
 | Setting | Key | Default | What it does |
 |---|---|---|---|
 | Simple mode | `SimpleMode` | `true` | Simple (one button) versus Advanced (tabs). |
+| Interface language | `Language` | `ru` | Russian or English. The **RU \| EN** toggle on Home and in Settings; applied once the program restarts. |
 | Active strategy | `ActivePresetName` | — | The name of the selected strategy. |
 | Active host list | `ActiveHostlist` | — | The name of the active domain list. |
 | Auto-update the engine | `AutoUpdateEngine` | `true` | Quietly update `winws2` from releases. |
@@ -626,16 +751,22 @@ The values are stored in `settings.json` (`AppSettings`).
 | Start in the tray | `StartMinimized` | `false` | Start already minimised. |
 | Auto-repair | `AutoHeal` | `false` | Watch availability and re-select on failure. |
 | Game filter | `GameFilter` | `false` | Widen capture to all high ports. |
-| Bypass all sites | `BypassAllSites` | `false` | All sites versus the lists only. |
+| Bypass all sites | `BypassAllSites` | `false` | All sites versus the lists only. While the WARP proxy is on the bypass covers every site regardless of this value — the setting itself does not change. |
 | Disable QUIC | `DisableQuic` | `false` | Drop QUIC → fall back to TCP/H2. |
 | Cover the Telegram proxy | `TgProxyCoverage` | `false` | The engine additionally covers the built-in proxy's own 443 connections (for mobile DPI). |
-| Interface scale | `UiScale` | `1.0` | Extra UI zoom, 1.0–2.5, on top of the system DPI. |
+| Verbose log | `DebugLog` | `false` | The **--debug** chip on the Journal tab: `winws2` records which connections the techniques were applied to, and why. Turning it on restarts the bypass. |
+| Interface scale | `UiScale` | `1.0` | Extra UI zoom on top of the system DPI. The buttons give 100–200 %; a value written into the file is accepted up to 2.5. |
 | Notifications | `NotificationsEnabled` | `true` | Show toasts in the corner. |
 | Notification sound | `NotificationSound` | `true` | A quiet chime with the toast. |
 | Telegram proxy port | `TgProxyPort` | `1443` | The proxy's local port. |
 | Proxy secret | `TgProxySecret` | — | The persistent MTProto secret. |
 | Start the proxy automatically | `TgProxyAutostart` | `false` | Start the proxy at launch. |
+| WARP proxy port | `MasqueListenPort` | `1080` | Local port of the WARP SOCKS5 proxy (see [§12](#12-warp-and-changing-your-address)). |
+| WARP transport | `MasqueHttp2`, `MasqueConnectPort` | `true`, `443` | Whatever connected last time. Worked out automatically; no need to change it by hand. |
 | Per-network memory | `NetworkStrategies` | `{}` | Network → strategy (local only). |
+
+Besides the above, the file keeps two housekeeping marks for the interface: whether the support
+block is collapsed, and whether the first-run walkthrough has been shown. Neither is edited by hand.
 
 The **"Добавить в исключения"** (Add to exclusions) button registers the program and the engine folder
 with Windows Defender and the firewall in one click (the antivirus is a common cause of "it does not
@@ -648,7 +779,7 @@ under a third-party antivirus, the add command can report success while the excl
 explanation rather than a false tick. In that case add the `%LOCALAPPDATA%\Zapret2UI` folder to the
 exclusions by hand through Windows Security → Virus and threat protection → Exclusions.
 
-### 14.1. Backup
+### 15.1. Backup
 
 The **"Save to file"** and **"Restore from file"** buttons at the bottom of Settings. A single `.z2bak`
 file holds your settings (`settings.json`), your strategies (`presets.json`) and the `lists\` folder.
@@ -659,7 +790,7 @@ insurance before a reset. Restoring replaces the current settings, strategies an
 contents of the file, after which the program **restarts** — otherwise it would write the old values,
 still held in memory, back over the restore.
 
-### 14.2. Settings reset
+### 15.2. Settings reset
 
 The **"Reset settings"** button returns everything in the table above to its defaults: it removes
 autostart (including the scheduled task), turns off auto-repair, the game filter, QUIC handling and the
@@ -670,7 +801,7 @@ touched at all), the interface language and the Simple/Advanced mode (resetting 
 of the current screen), the current strategy and list selection, the **Telegram-proxy secret** (so a
 link already configured in the client keeps working) and the per-network memory.
 
-### 14.3. Log files
+### 15.3. Log files
 
 Every engine start writes its own `logs\engine-*.log`. These used to pile up without limit; now the
 **last 20** are kept when the program starts and the rest are deleted. The **"Clear logs"** button
@@ -679,7 +810,7 @@ grow in number and are needed for diagnosing failures.
 
 ---
 
-## 15. Updates
+## 16. Updates
 
 - **The engine** `winws2` is updated from the [bol-van/zapret2](https://github.com/bol-van/zapret2)
   releases (quietly, when `AutoUpdateEngine=true`). It is installed into `engine\`. If
@@ -695,14 +826,14 @@ grow in number and are needed for diagnosing failures.
   stamp remains, that is an antivirus quarantine — the program never deletes the file itself. A line
   about the false positive appears in the journal along with advice to add the exclusions, after which
   the engine is downloaded again. Without the exclusions it will disappear again after every download
-  (see [§14](#14-settings-the-full-list)).
+  (see [§15](#15-settings-the-full-list)).
 - **The application** is updated separately, from the
   [Asterlike/zapret2UI](https://github.com/Asterlike/zapret2UI/releases) releases. When a newer version
   exists, a notification appears with a link to the release.
 
 ---
 
-## 16. Files and folders on disk
+## 17. Files and folders on disk
 
 Everything lives under `%LOCALAPPDATA%\Zapret2UI\` (the program never writes to Program Files):
 
@@ -719,11 +850,15 @@ Everything lives under `%LOCALAPPDATA%\Zapret2UI\` (the program never writes to 
 ├─ lists\                      host lists and ipset
 │  ├─ youtube.txt, discord.txt built-in domain lists
 │  ├─ exclude.txt              exclusions (banks / government services)
-│  └─ ipset-discord.txt        collected CIDR subnets (after "Build the IP list")
+│  ├─ ipset-discord.txt        collected CIDR subnets (after "Build the IP list")
+│  └─ ipset-masque.txt         WARP entry points; always covered by the engine (see §12)
 ├─ logs\                       engine-YYYYMMDD-HHMMSS.log (engine output)
+├─ masque\                     the built-in WARP client (see §12)
+│  ├─ usque.exe               the MASQUE client, started with no window
+│  └─ config.json             the registered device: key, licence, token
 ├─ tmp\                        temporary downloads
 ├─ presets.json               your strategies
-└─ settings.json              settings (see §14)
+└─ settings.json              settings (see §15)
 ```
 
 `settings.json` is written atomically (through a temp file), so a failure during writing cannot corrupt
@@ -732,7 +867,7 @@ defaults.
 
 ---
 
-## 17. Troubleshooting and error codes
+## 18. Troubleshooting and error codes
 
 **What to do when "it does not work":**
 
@@ -767,7 +902,7 @@ defaults.
 
 ---
 
-## 18. Building from source, and architecture
+## 19. Building from source, and architecture
 
 **Building** (requires the .NET 9 SDK):
 
@@ -782,22 +917,38 @@ dotnet publish ZapretUI/ZapretUI.csproj -c Release -o publish
 
 - .NET 9, `net9.0-windows`, x64, **WPF** plus WinForms (tray only), with **no third-party NuGet
   dependencies** in the shipped application.
-- `-warnaserror` is the gate: unused fields and usings break the build (dead code has to be deleted).
+- `-warnaserror` is the gate: the build has to come out at zero warnings, so dead code (an unused
+  private field, say) breaks it.
 
 **Architecture** (MVVM, no DI container):
 
-- **App / MainWindow** — the entry point, the custom borderless window, the tray icon, the global crash
-  handler.
-- **MainViewModel** — a single view model: the collections (strategies, host lists, the log,
-  diagnostics) and the commands (start/stop, selection, generation, ipset, the toggles).
-- **Services** — `EngineService` (the `winws2` process, token expansion), `PresetService`,
-  `ComboStrategyCatalog`, `AutoSelectService`, `DiagnosticsService`+`NetProbe`, `IpsetService`,
-  `MonitorService` (the auto-repair watchdog), `HostlistService`, `SettingsService`, `AutostartService`,
-  `UpdaterService`, `TcpTimestampsService`, `TelegramProxyService`+`TgProxyCore`, `AppPaths`.
+- **`App` + `Startup/`** — starting up: command-line switches, the single-instance lock, the crash log.
+  Two switches live here rather than in the UI: `--lang ru|en` overrides the saved language for one run
+  (handy for a shortcut or for screenshots), and `--awaitpid <pid>` is internal — the new copy waits for
+  the previous one to release the mutex, and only the restart after a language change uses it.
+- **`Harness/`** — the headless developer modes (`--screenshot`, `--enginedump`, `--tgproxytest`,
+  `--tgbridgetest`, `--masquetest`, `--masqueregion`). None of them appear in the UI: each renders or
+  prints something and then shuts the process down itself.
+- **`Views/`** — the windows and dialogs: the main window with its own chrome, the site check, the
+  confirmation prompt, the environment check, the corner notifications.
+- **`ViewModels/`** — one `MainViewModel` spread over partial files: `.Engine`, `.Strategies`,
+  `.Diagnostics`, `.AutoSelect`, `.Telegram`, `.Masque`, `.Settings`, `.Updates`, `.Navigation`,
+  `.Maintenance`.
+- **`Services/`** — grouped by subject:
+
+| Folder | What is inside |
+|---|---|
+| `Engine/` | `EngineService` (the `winws2` process, token expansion), `HostlistService`, `IpsetService`, `ProbeEngineRunner` |
+| `Strategies/` | `PresetService`, `ComboStrategyCatalog`, `StrategyGeneratorService`, `AutoSelectService` |
+| `Network/` | `NetProbe`, `DiagnosticsService`, `MonitorService` (the auto-repair watchdog), `TargetService`, `DohResolver`, `NetworkFingerprint` |
+| `Telegram/` | `TelegramProxyService` plus the protocol: `TgProxyProto`, `AesCtr`, `MsgSplitter`, `CfProxyBalancer`, `TgWebSocket` |
+| `Warp/` | `MasqueService`, `MasqueRuntime`, `WarpTrace`, `WarpResult` |
+| `Platform/` | `AutostartService`, `ConflictScanService`, `ExclusionService`, `TcpTimestampsService` |
+| `Infrastructure/` | `AppPaths`, `SettingsService`, `BackupService`, `LogMaintenance`, `UpdaterService` |
 
 ---
 
-## 19. Links and credits
+## 20. Links and credits
 
 - [The documentation site](https://asterlike.github.io/zapret2UI/en/) — the same material with search,
   navigation and a line-by-line breakdown of the strategies.

@@ -1,0 +1,98 @@
+﻿using System.IO;
+
+namespace Zapret2UI.Services.Infrastructure;
+
+/// <summary>
+/// Central place for all on-disk locations. Everything lives under
+/// %LOCALAPPDATA%\Zapret2UI so the app never needs to write to Program Files.
+/// </summary>
+public static class AppPaths
+{
+    public static string Root { get; } = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "Zapret2UI");
+
+    // One-time data-folder migration: the app was renamed ZapretUI → Zapret2UI. On first access (before
+    // any service reads settings/presets), move an existing legacy folder over so users keep their
+    // downloaded engine, settings and custom lists. Best-effort — a fresh folder if the move fails.
+    static AppPaths()
+    {
+        try
+        {
+            string legacy = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ZapretUI");
+            if (Directory.Exists(legacy) && !Directory.Exists(Root))
+                Directory.Move(legacy, Root);
+        }
+        catch { /* keep going with a fresh folder */ }
+    }
+
+    // Engine (winws2.exe, WinDivert*, cygwin1.dll, lua\, files\)
+    public static string EngineDir => Path.Combine(Root, "engine");
+    public static string EngineVersionFile => Path.Combine(EngineDir, "installed_version.txt");
+    public static string WinwsExe => Path.Combine(EngineDir, "winws2.exe");
+    public static string MdigExe => Path.Combine(EngineDir, "mdig.exe");
+    public static string Ip2NetExe => Path.Combine(EngineDir, "ip2net.exe");
+    public static string LuaDir => Path.Combine(EngineDir, "lua");
+    public static string FilesDir => Path.Combine(EngineDir, "files");
+    public static string WinDivertFilterDir => Path.Combine(EngineDir, "windivert.filter");
+
+    /// <summary>Path of a named CIDR ipset, e.g. ipset("telegram") -> lists\ipset-telegram.txt.</summary>
+    public static string IpsetFile(string name) => Path.Combine(ListsDir, $"ipset-{name}.txt");
+
+    /// <summary>Aggregated CIDR ipset for Discord (built from the discord hostlist).</summary>
+    public static string IpsetDiscordFile => IpsetFile("discord");
+
+    /// <summary>Hostlist of the built-in Telegram proxy's Cloudflare fronting domains. The engine desyncs
+    /// their TLS (via an appended profile) so the proxy's own upstream survives mobile DPI (TSPU) that
+    /// kills the WebSocket tunnel mid-stream. Seeded by <see cref="HostlistService.SeedDefaults"/>.</summary>
+    public static string TgProxyFrontsFile => Path.Combine(ListsDir, "tgproxy-fronts.txt");
+
+    /// <summary>Hostlist of Cloudflare's WARP service domains. The engine desyncs their TLS via an
+    /// always-appended profile, because registering a WARP device is an HTTPS request to
+    /// <c>api.cloudflareclient.com</c> — and that name is cut by SNI on a censored network, so without
+    /// this the WARP tab cannot get past its first step. Seeded by
+    /// <see cref="HostlistService.SeedDefaults"/>.</summary>
+    public static string WarpApiFile => Path.Combine(ListsDir, "warp-api.txt");
+
+    /// <summary>WARP over MASQUE: the unpacked usque client and the device it registered.
+    ///
+    /// <para>This replaced a WireGuard implementation that could not work here at all — on a censored
+    /// Russian network the handshake is let through and the transport stream is then cut, and no amount
+    /// of desync repairs that. MASQUE is Cloudflare's own second transport and looks like ordinary
+    /// HTTP/3 or HTTPS on 443.</para>
+    ///
+    /// <para>Nothing here is locked down, and that is deliberate: the WireGuard folder had to be
+    /// SYSTEM-only because a SYSTEM service executed out of it. usque runs as a plain child process of
+    /// this app in proxy mode, so the same lock would protect nothing and only make the folder
+    /// unreadable to its owner. The config does hold a private key, which is why it lives under the
+    /// user's profile rather than anywhere shared.</para></summary>
+    public static string MasqueDir => Path.Combine(Root, "masque");
+    public static string MasqueExe => Path.Combine(MasqueDir, "usque.exe");
+
+    /// <summary>The registered MASQUE device: an ECDSA P-256 key plus the licence, id and access token
+    /// Cloudflare hands back.</summary>
+    public static string MasqueConfigFile => Path.Combine(MasqueDir, "config.json");
+
+    // User data
+    public static string ListsDir => Path.Combine(Root, "lists");
+    public static string LogsDir => Path.Combine(Root, "logs");
+    public static string PresetsFile => Path.Combine(Root, "presets.json");
+    public static string SettingsFile => Path.Combine(Root, "settings.json");
+
+    // Scratch space for downloads
+    public static string TempDir => Path.Combine(Root, "tmp");
+
+    /// <summary>Windows binary subfolder inside the release zip for this OS.</summary>
+    public static string ReleaseArchFolder =>
+        Environment.Is64BitOperatingSystem ? "windows-x86_64" : "windows-x86";
+
+    public static void EnsureCreated()
+    {
+        Directory.CreateDirectory(Root);
+        Directory.CreateDirectory(EngineDir);
+        Directory.CreateDirectory(ListsDir);
+        Directory.CreateDirectory(LogsDir);
+        Directory.CreateDirectory(TempDir);
+    }
+}

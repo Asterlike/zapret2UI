@@ -1,5 +1,5 @@
-using Zapret2UI.Mvvm;
 using Zapret2UI.Localization;
+using Zapret2UI.Mvvm;
 
 namespace Zapret2UI.Models;
 

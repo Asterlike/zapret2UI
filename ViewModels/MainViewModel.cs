@@ -2,10 +2,15 @@
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Data;
+using Zapret2UI.Localization;
 using Zapret2UI.Models;
 using Zapret2UI.Mvvm;
-using Zapret2UI.Services;
-using Zapret2UI.Localization;
+using Zapret2UI.Services.Engine;
+using Zapret2UI.Services.Infrastructure;
+using Zapret2UI.Services.Network;
+using Zapret2UI.Services.Platform;
+using Zapret2UI.Services.Strategies;
+using Zapret2UI.Services.Telegram;
 
 namespace Zapret2UI.ViewModels;
 
@@ -50,6 +55,7 @@ public sealed partial class MainViewModel : ObservableObject
         _tgProxy.LogLine += AppendProxyLog; // proxy output goes to its own log/tab, separate from the engine
         _tgProxy.StateChanged += () => OnUi(OnTelegramProxyStateChanged);
 
+        InitMasqueCommands();
         StartCommand = new RelayCommand(_ => Start(), _ => CanStart);
         StopCommand = new RelayCommand(_ => _engine.Stop(), _ => CanStop);
         ToggleCommand = new RelayCommand(_ => { if (IsRunning) _engine.Stop(); else Start(); },
@@ -83,6 +89,7 @@ public sealed partial class MainViewModel : ObservableObject
         SetAdvancedModeCommand = new RelayCommand(_ => IsSimpleMode = false);
         SetLanguageCommand = new RelayCommand(p => SetLanguage(p as string));
         GoToSettingsCommand = new RelayCommand(_ => { IsSimpleMode = false; SelectedTabIndex = SettingsTabIndex; });
+        GoToWarpTabCommand = new RelayCommand(_ => { IsSimpleMode = false; SelectedTabIndex = WarpTabIndex; });
         // Single big button on the Home screen — routes to the right toggle per mode.
         HomeToggleCommand = new RelayCommand(
             _ => (IsSimpleMode ? SimpleToggleCommand : ToggleCommand).Execute(null),
@@ -242,6 +249,9 @@ public sealed partial class MainViewModel : ObservableObject
     public RelayCommand CheckTelegramProxyCommand { get; }
     public RelayCommand OpenAppReleaseCommand { get; }
     public RelayCommand GoToSettingsCommand { get; }
+
+    /// <summary>Jump from the Home WARP card to the WARP tab (leaves Simple mode, which hides tabs).</summary>
+    public RelayCommand GoToWarpTabCommand { get; }
     public RelayCommand HomeToggleCommand { get; }
     public RelayCommand AddTargetCommand { get; }
     public RelayCommand OpenTargetCommand { get; }
@@ -261,9 +271,10 @@ public sealed partial class MainViewModel : ObservableObject
         _hostlists.SeedDefaults();
         ReloadHostlists();
         _engine.GameFilter = Settings.GameFilter;
-        _engine.BypassAllSites = Settings.BypassAllSites;
+        _engine.BypassAllSites = EffectiveBypassAllSites;
         _engine.DisableQuic = Settings.DisableQuic;
         _engine.CoverTgProxy = Settings.TgProxyCoverage;
+        InitMasqueState();
         _engine.DebugLog = Settings.DebugLog;
         _tgProxy.Verbose = Settings.DebugLog;
 
@@ -376,6 +387,27 @@ public sealed partial class MainViewModel : ObservableObject
         ApplyExclusionsCommand.RaiseCanExecuteChanged();
         HomeToggleCommand.RaiseCanExecuteChanged();
         ApplyScoreAndStartCommand.RaiseCanExecuteChanged();
+    }
+
+    // ---- shared plumbing ---------------------------------------------------
+
+    private static void OpenUrl(string url)
+    {
+        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true }); }
+        catch { /* no browser / blocked — ignore */ }
+    }
+
+    private void ReloadPresets()
+    {
+        Presets.Clear();
+        foreach (var p in _presets.All) Presets.Add(p);
+        OnPropertyChanged(nameof(RecommendedPreset));
+    }
+
+    private void ReloadHostlists()
+    {
+        Hostlists.Clear();
+        foreach (var h in _hostlists.GetLists()) Hostlists.Add(h);
     }
 
     /// <summary>Marshal an action onto the UI thread. Cross-thread calls POST asynchronously

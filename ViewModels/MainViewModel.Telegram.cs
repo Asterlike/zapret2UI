@@ -1,10 +1,4 @@
-﻿using System.Collections.ObjectModel;
-using System.ComponentModel;
-using System.Windows;
-using System.Windows.Data;
-using Zapret2UI.Models;
-using Zapret2UI.Mvvm;
-using Zapret2UI.Services;
+﻿using System.Windows;
 using Zapret2UI.Localization;
 
 namespace Zapret2UI.ViewModels;
@@ -147,4 +141,9 @@ public sealed partial class MainViewModel
         }
     }
 
+    private void CopyToClipboard(string text)
+    {
+        try { Clipboard.SetText(text); SimpleStatus = Loc.T("Ссылка на прокси скопирована."); }
+        catch { /* clipboard busy — ignore */ }
+    }
 }

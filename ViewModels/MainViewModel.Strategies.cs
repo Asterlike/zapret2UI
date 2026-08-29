@@ -1,11 +1,6 @@
-﻿using System.Collections.ObjectModel;
-using System.ComponentModel;
-using System.Windows;
-using System.Windows.Data;
-using Zapret2UI.Localization;
+﻿using Zapret2UI.Localization;
 using Zapret2UI.Models;
-using Zapret2UI.Mvvm;
-using Zapret2UI.Services;
+using Zapret2UI.Services.Engine;
 
 namespace Zapret2UI.ViewModels;
 
@@ -118,7 +113,7 @@ public sealed partial class MainViewModel
         SelectedPreset is null
             ? ""
             : EngineService.PreviewCommandLine(SelectedPreset, ActiveHostlistPath, Settings.GameFilter,
-                                               Settings.BypassAllSites, Settings.DisableQuic, Settings.TgProxyCoverage,
+                                               EffectiveBypassAllSites, Settings.DisableQuic, Settings.TgProxyCoverage,
                                                Settings.DebugLog);
 
     // ---- hostlists ---------------------------------------------------------

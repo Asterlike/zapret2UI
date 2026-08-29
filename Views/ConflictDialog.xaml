@@ -1,0 +1,72 @@
+<Window x:Class="Zapret2UI.Views.ConflictDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="clr-namespace:Zapret2UI.Localization"
+        Title="{loc:Loc 'Проверка окружения'}"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        ResizeMode="NoResize" WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        SizeToContent="WidthAndHeight">
+
+    <Border Background="{StaticResource SurfaceBrush}" CornerRadius="14"
+            BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1" MaxWidth="540">
+        <StackPanel Margin="24" MouseLeftButtonDown="OnDrag">
+            <TextBlock x:Name="HeadText" Style="{StaticResource H2}"/>
+            <TextBlock x:Name="SubText" Style="{StaticResource Muted}" Margin="0,10,0,0" TextWrapping="Wrap"/>
+
+            <ScrollViewer MaxHeight="430" VerticalScrollBarVisibility="Auto" Margin="0,16,0,0">
+                <ItemsControl x:Name="List">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Background="{StaticResource BgBrush}" BorderThickness="1"
+                                    CornerRadius="9" Padding="13,11" Margin="0,0,0,8">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="BorderBrush" Value="{StaticResource BorderBrush2}"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Severity}" Value="Conflict">
+                                                <Setter Property="BorderBrush" Value="{StaticResource DangerBrush}"/>
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding Severity}" Value="Warning">
+                                                <Setter Property="BorderBrush" Value="{StaticResource WarnBrush}"/>
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding Severity}" Value="Ok">
+                                                <Setter Property="BorderBrush" Value="{StaticResource SuccessBrush}"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Title}" FontWeight="Bold" FontSize="13" TextWrapping="Wrap"/>
+                                    <TextBlock Text="{Binding Detail}" Style="{StaticResource Muted}" FontSize="12.5"
+                                               TextWrapping="Wrap" Margin="0,5,0,0"/>
+                                    <!-- The actionable half. Collapsed on the "all clear" card, which has no action. -->
+                                    <TextBlock FontSize="12.5" TextWrapping="Wrap" Margin="0,8,0,0">
+                                        <TextBlock.Style>
+                                            <!-- BasedOn is required: a bare Style replaces the implicit
+                                                 TextBlock style wholesale, losing its Foreground → black
+                                                 text on the dark card (i.e. invisible). -->
+                                            <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Action}" Value="">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                        <Run Text="{loc:Loc 'Что делать: '}" FontWeight="SemiBold"
+                                             Foreground="{StaticResource AccentBrush}"/><Run Text="{Binding Action, Mode=OneWay}"/>
+                                    </TextBlock>
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
+                <Button Content="{loc:Loc 'Понятно'}" Style="{StaticResource PrimaryButton}"
+                        Click="OnOk" IsDefault="True" IsCancel="True"/>
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</Window>

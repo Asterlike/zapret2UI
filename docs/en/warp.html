@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WARP and changing your address — Zapret2UI documentation</title>
+<meta name="description" content="The built-in Cloudflare WARP in Zapret2UI: a local proxy over MASQUE, with no administrator rights and no changes to your network. What it changes, what it cannot do, and where to point its address.">
+<link rel="icon" href="../assets/logo.png">
+<link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+
+<header class="topbar">
+  <a class="brand" href="index.html">
+    <img src="../assets/logo.png" alt="" width="26" height="26">
+    <span>Zapret2UI</span>
+  </a>
+  <nav class="topnav">
+    <a href="how-it-works.html">How it works</a>
+    <a href="quickstart.html">Quick start</a>
+    <a href="interface.html">Interface</a>
+    <a href="strategies.html">Strategies</a>
+    <a href="warp.html" aria-current="page">WARP</a>
+    <a href="reference.html">Reference</a>
+    <a href="troubleshooting.html">Troubleshooting</a>
+  </nav>
+  <div class="topbar-tools">
+    <div class="lang-switch" role="group" aria-label="Page language">
+      <span class="lang-opt is-current" lang="en" aria-current="true">EN</span>
+      <a class="lang-opt" href="../warp.html" hreflang="ru" lang="ru" title="Читать по-русски">RU</a>
+    </div>
+    <button class="search-btn" data-search-open type="button">
+      <span>Search the docs</span>
+      <kbd>Ctrl K</kbd>
+    </button>
+    <button class="icon-btn theme-btn" data-theme-toggle type="button" aria-label="Switch theme">Dark</button>
+    <a class="icon-btn" href="https://github.com/Asterlike/zapret2UI" title="GitHub repository" aria-label="GitHub repository">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+    </a>
+  </div>
+</header>
+
+<div class="shell">
+
+  <aside class="sidebar">
+    <details class="sidebar-inner" open>
+      <summary>Sections</summary>
+      <h5>Start here</h5>
+      <ul>
+        <li><a href="index.html">Documentation overview</a></li>
+        <li><a href="how-it-works.html">How it works</a></li>
+        <li><a href="quickstart.html">Quick start</a></li>
+      </ul>
+      <h5>The program</h5>
+      <ul>
+        <li><a href="interface.html">Interface</a></li>
+        <li><a href="strategies.html">Strategies explained</a></li>
+        <li><a href="warp.html" aria-current="page">WARP and changing your address</a></li>
+      </ul>
+      <h5>Advanced</h5>
+      <ul>
+        <li><a href="reference.html">Reference</a></li>
+        <li><a href="troubleshooting.html">Troubleshooting</a></li>
+      </ul>
+      <h5>Project</h5>
+      <ul>
+        <li><a href="support.html">Support</a></li>
+        <li><a href="credits.html">Credits</a></li>
+      </ul>
+    </details>
+  </aside>
+
+  <nav class="toc">
+    <p>On this page</p>
+    <ul>
+      <li><a href="#zachem">What it gives you</a></li>
+      <li><a href="#strana">What it does not</a></li>
+      <li><a href="#vklyuchit">Turning it on</a></li>
+      <li><a href="#kuda">Where to point it</a></li>
+      <li><a href="#vnutri">What happens inside</a></li>
+      <li><a href="#parametry">Options</a></li>
+      <li><a href="#fayly">Where things live</a></li>
+      <li><a href="#problemy">If it does not work</a></li>
+    </ul>
+  </nav>
+
+  <main class="doc">
+
+    <div class="page-head">
+      <p class="kicker">The program</p>
+      <h1>WARP and changing your address</h1>
+      <p class="lede">The bypass pushes a connection through a block. WARP changes the address you arrive
+        from. Those are different problems and they need different tools.</p>
+    </div>
+
+    <figure>
+      <img src="warp.png" alt="The WARP tab: the proxy switch, the proxy address and the exit address, device buttons and the &quot;What this is for&quot; column" loading="lazy">
+      <figcaption>The WARP tab. The client is carried inside the program — there is nothing to install
+        and no administrator rights are needed.</figcaption>
+    </figure>
+
+    <h2 id="zachem">What it gives you</h2>
+
+    <p>The bypass rewrites packets. It can push a connection through a block — the case where your ISP
+      will not let you reach a site at all. But the address you arrive from stays yours.</p>
+
+    <p>WARP does the opposite: it does not break a block, it substitutes the address. With the proxy on,
+      traffic leaves through Cloudflare and a site sees its address instead. That helps where it is
+      <b>your address</b> that is blocked — when a service has shut out an entire ISP subnet, say.</p>
+
+    <div class="why">
+      <p>A simple rule. <b>The site does not open at all</b> — that is the bypass. <b>The site opens but
+        refuses you or your whole network</b> — that is WARP. They do not get in each other's way: the
+        connection to Cloudflare goes through the bypass itself and is better for it.</p>
+    </div>
+
+    <h2 id="strana">What it does not</h2>
+
+    <p><b>This will not lift geo-blocks.</b> Free WARP is anycast: you land on the nearest Cloudflare
+      node, not one you chose. From Russia the nearest node is Russian, and so is the exit address.</p>
+
+    <div class="note warn">
+      <p>Measured, not assumed: every run came out on <code>104.28.x.x</code>, country RU, city
+        Chelyabinsk, node DME. An independent geo database labels those addresses
+        <code>Cloudflare WARP</code> and flags them as a proxy. So a service closed to Russia will see
+        Russia, and a service that blocks VPNs will see the proxy flag.</p>
+    </div>
+
+    <p>No setting or entry point changes this: MASQUE has only two IPv4 entry points
+      (<code>162.159.198.1</code> and <code>162.159.198.2</code>) plus four over IPv6, and they all land
+      on the same nearest node. That is a Cloudflare limitation, not a limitation of this program.</p>
+
+    <h2 id="vklyuchit">Turning it on</h2>
+
+    <div class="note warn">
+      <p>Before you switch it on: along with the proxy, <b>the bypass scope widens to every site</b> —
+        otherwise the connection to Cloudflare does not come up. The bypass then applies to all TLS/QUIC
+        except the exclusion list, and an application or game that is not excluded may misbehave because
+        of it. Your setting in Настройки (Settings) does not change and comes back as soon as the proxy
+        is off.</p>
+    </div>
+
+    <ol class="step-list">
+      <li>
+        <h3>Start the bypass</h3>
+        <p>Registering a device is an ordinary HTTPS request to <code>api.cloudflareclient.com</code>, and
+          that name is cut by SNI. The engine covers it unconditionally, whatever the bypass scope — but
+          only while it is running. Without the bypass the request may simply never arrive.</p>
+      </li>
+      <li>
+        <h3>Press «Create device»</h3>
+        <p>The keys are made on your computer. Only the public key leaves — the private one never departs
+          the machine. Cloudflare answers with a licence and an address inside its network.</p>
+      </li>
+      <li>
+        <h3>Flip the «Proxy on» switch</h3>
+        <p>The program starts a local proxy and <b>checks that it works</b>: it asks Cloudflare, through
+          that same proxy, where it sees you. Success is not reported until the answer comes back. The
+          status line then shows the exit address and its country.</p>
+      </li>
+    </ol>
+
+    <h2 id="kuda">Where to point it</h2>
+
+    <p>The proxy intercepts nothing and changes nothing about the system. Only what you point at it goes
+      through it — a deliberate choice: a failure here cannot leave you without internet.</p>
+
+    <p>The address is shown on the tab with a «Copy» button beside it. By default it is
+      <code>127.0.0.1:1080</code> and the protocol is <b>SOCKS5</b>.</p>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th>Where</th><th>How</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Firefox</td>
+            <td>Settings → General → Network Settings → «Manual proxy configuration» → SOCKS host
+              <code>127.0.0.1</code>, port <code>1080</code>, SOCKS v5.</td>
+          </tr>
+          <tr>
+            <td>Chrome, Edge</td>
+            <td>They have no proxy settings of their own and take the system ones. Easier to launch with
+              <code>--proxy-server="socks5://127.0.0.1:1080"</code> or use a switcher extension.</td>
+          </tr>
+          <tr>
+            <td>Telegram</td>
+            <td>Settings → Data and Storage → Proxy → add a SOCKS5 entry with the same address and port.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note">
+      <p>The proxy listens on <code>127.0.0.1</code> only — nothing on your local network can reach it.
+        That is deliberate: the client's own default is to listen on every address, which on a shared
+        network would be an open route to the internet under your account.</p>
+    </div>
+
+    <h2 id="vnutri">What happens inside</h2>
+
+    <p>WARP speaks two transports. The first is plain WireGuard. The second is <b>MASQUE</b>, Cloudflare's
+      own design: an IP tunnel over HTTP/3, falling back to HTTP/2 over ordinary TCP when QUIC does not
+      get through. On port 443 it is indistinguishable from normal web traffic.</p>
+
+    <p>The program uses MASQUE, and not as a matter of taste. WireGuard to WARP is <b>cut at the stream
+      level</b> on Russian networks: the handshake is let through and the data after it is dropped. A
+      desync cannot mend that — it can only disguise a connection's first packet, and there is nothing to
+      hide a continuous stream behind.</p>
+
+    <div class="note">
+      <p>The program works out how to connect by itself and remembers what succeeded: HTTP/2 over TCP on
+        443 first, then 4443, 8443, 500, then QUIC with a capped initial packet. Measured on a Russian
+        network: with the bypass running, 443 connects first try; with it stopped, 443 and 8443 are cut
+        moments after connecting and only 4443 survives. One more reason to leave the bypass on.</p>
+    </div>
+
+    <div class="note">
+      <p>The MASQUE entry-point addresses (<code>162.159.198.1</code> and <code>162.159.198.2</code>) are
+        covered by the engine <b>unconditionally</b>, whatever the bypass scope — through a separate
+        profile driven by <code>lists\ipset-masque.txt</code>. It has to be: without it the connection
+        only came up with the scope set to every site, and nobody would think to connect those two
+        things. The profile is aimed at exactly two addresses and touches nothing else.</p>
+    </div>
+
+    <div class="note warn">
+      <p>That profile alone is still not enough: measured on a Russian network, the connection only came
+        up when MASQUE was handled by the whole strategy. So for as long as the proxy runs, the bypass
+        scope is widened to every site — with all the consequences set out under
+        <a href="#vklyuchit">Turning it on</a>. The saved setting is not rewritten: the program overrides
+        it while the proxy is up and lets go once it is off.</p>
+    </div>
+
+    <h2 id="parametry">Options</h2>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th>Option</th><th>What it does</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Proxy port</td>
+            <td>Which port to listen on. <code>1080</code> by default — the conventional SOCKS port, and
+              therefore often already taken by something else. If it is, the program says so plainly
+              instead of failing silently. A change applies after switching the proxy off and on.</td>
+          </tr>
+          <tr>
+            <td>Create device</td>
+            <td>Registers a device with Cloudflare. Available while no device exists.</td>
+          </tr>
+          <tr>
+            <td>Recreate</td>
+            <td>Forgets the current device and enrols a new one. Useful if Cloudflare stops serving the
+              old one.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2 id="fayly">Where things live</h2>
+
+    <p>Everything sits in <code>%LOCALAPPDATA%\Zapret2UI\masque</code>: the unpacked
+      <code>usque.exe</code> client and <code>config.json</code> with the device key, its licence and
+      token. The folder is inside your own profile, alongside the program's other data.</p>
+
+    <div class="note">
+      <p>The client runs as an ordinary child process under your account, with no elevation. If the
+        program crashes, a proxy left behind is cleared away on the next start.</p>
+    </div>
+
+    <h2 id="problemy">If it does not work</h2>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th>What you see</th><th>What to do</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>The device could not be created</td>
+            <td>Registration goes to <code>api.cloudflareclient.com</code>, and that name is cut by SNI.
+              Start the bypass and try again: the engine covers that domain unconditionally, whatever the
+              scope. If it still fails, Cloudflare moves its client API version from time to time — check
+              for a newer build of the program.</td>
+          </tr>
+          <tr>
+            <td>«No way of reaching Cloudflare worked»</td>
+            <td>Every transport and port was tried. Make sure the bypass is running — without it only port
+              4443 gets through, with it 443 connects immediately. Check too whether another VPN is up.</td>
+          </tr>
+          <tr>
+            <td>«Port is already in use by another program»</td>
+            <td>Something else is sitting on <code>1080</code>. Put a free port in «Options».</td>
+          </tr>
+          <tr>
+            <td>«Cloudflare answers but says the traffic is not going through WARP»</td>
+            <td>The request left the machine outside the proxy. That usually means another tunnel is up
+              and capturing the routes.</td>
+          </tr>
+          <tr>
+            <td>The proxy is on but a site still says «not available in your region»</td>
+            <td>Expected: free WARP exits in Russia. See <a href="#strana">What it does not</a>.</td>
+          </tr>
+          <tr>
+            <td>The browser ignores the proxy</td>
+            <td>Check that the address is entered as SOCKS5 and the port matches the one on the tab.
+              Chrome and Edge have no proxy settings of their own — they need a launch flag or an
+              extension.</td>
+          </tr>
+          <tr>
+            <td>Everything got slower</td>
+            <td>Expected: traffic takes a detour through Cloudflare. Keep the proxy on only when you need
+              it.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="pager">
+      <a class="prev" href="strategies.html">
+        <small>Back</small>
+        Strategies explained
+      </a>
+      <a class="next" href="reference.html">
+        <small>Next</small>
+        Reference
+      </a>
+    </div>
+
+  </main>
+</div>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div>
+      <p>Zapret2UI: a shell for the <a href="https://github.com/bol-van/zapret2">bol-van/zapret2</a> engine.
+        Source code and releases on <a href="https://github.com/Asterlike/zapret2UI">GitHub</a>.</p>
+      <p class="legal">MIT licence. The <code>winws2</code> engine ships under its own licence.
+        MASQUE client — <a href="https://github.com/Diniboy1123/usque">usque</a>, MIT.</p>
+    </div>
+    <nav>
+      <a href="how-it-works.html">How it works</a>
+      <a href="quickstart.html">Quick start</a>
+      <a href="interface.html">Interface</a>
+      <a href="strategies.html">Strategies explained</a>
+      <a href="warp.html">WARP and changing your address</a>
+    </nav>
+    <nav>
+      <a href="reference.html">Reference</a>
+      <a href="troubleshooting.html">Troubleshooting</a>
+      <a href="support.html">Support</a>
+      <a href="credits.html">Credits</a>
+      <a href="https://t.me/Zapret2UI">Telegram channel</a>
+      <a href="https://github.com/Asterlike/zapret2UI/releases/latest">Releases</a>
+    </nav>
+  </div>
+</footer>
+
+<script src="search-index.js"></script>
+<script src="../assets/site.js"></script>
+</body>
+</html>

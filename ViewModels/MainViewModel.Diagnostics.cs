@@ -1,11 +1,9 @@
-﻿using System.Collections.ObjectModel;
-using System.ComponentModel;
-using System.Windows;
-using System.Windows.Data;
+﻿using Zapret2UI.Localization;
 using Zapret2UI.Models;
-using Zapret2UI.Mvvm;
-using Zapret2UI.Services;
-using Zapret2UI.Localization;
+using Zapret2UI.Services.Engine;
+using Zapret2UI.Services.Network;
+using Zapret2UI.Services.Warp;
+using Zapret2UI.Views;
 
 namespace Zapret2UI.ViewModels;
 
@@ -310,7 +308,7 @@ public sealed partial class MainViewModel
         ShowTargetPopup = false;
         Notify?.Invoke(Loc.T("Цель сохранена"),
             Loc.T("«{0}»: {1} домен(ов). Учитывается в диагностике, подборе и обходе.", root, domains.Count));
-        if (IsRunning) _ = ApplyStrategyAsync(); // relaunch so the bypass covers the new domains
+        if (IsRunning) _ = ApplyEngineOptionsAsync(); // relaunch so the bypass covers the new domains
     }
 
     private void DeleteTarget(CustomTarget? t)
@@ -319,7 +317,7 @@ public sealed partial class MainViewModel
         _targets.Delete(t.Name);
         ReloadTargets();
         RebuildDiagRows();
-        if (IsRunning) _ = ApplyStrategyAsync();
+        if (IsRunning) _ = ApplyEngineOptionsAsync();
     }
 
     /// <summary>Flatten an exception chain into one line. HttpRequestException hides the real cause
@@ -526,6 +524,12 @@ public sealed partial class MainViewModel
         try { _autoSelect.Dispose(); } catch { }
         try { _generator.Dispose(); } catch { }
         try { _tgProxy.Stop(); } catch { }
+        // The WARP switch promises the tunnel goes down with the program. A tunnel left standing would
+        // keep routing the whole machine through Cloudflare with nothing on screen to explain it.
+        // A proxy left behind by a crash is a listening socket, not a broken network — but it would
+        // still hold the port the next run wants.
+        try { MasqueService.DropStaleProxy(); } catch { }
+        try { _masque.Dispose(); } catch { }
         try { _engine.Dispose(); } catch { }
     }
 

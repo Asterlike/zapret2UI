@@ -1,11 +1,7 @@
-﻿using System.Collections.ObjectModel;
-using System.ComponentModel;
-using System.Windows;
-using System.Windows.Data;
+﻿using Zapret2UI.Localization;
 using Zapret2UI.Models;
-using Zapret2UI.Mvvm;
-using Zapret2UI.Services;
-using Zapret2UI.Localization;
+using Zapret2UI.Services.Network;
+using Zapret2UI.Services.Strategies;
 
 namespace Zapret2UI.ViewModels;
 

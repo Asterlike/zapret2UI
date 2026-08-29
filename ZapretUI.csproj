@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
@@ -13,7 +13,7 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <Platforms>x64</Platforms>
     <PlatformTarget>x64</PlatformTarget>
-    <Version>1.1.0</Version>
+    <Version>1.1.2</Version>
     <Product>Zapret2UI</Product>
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
     <!-- Self-contained single-file publish so the user needs nothing installed -->
@@ -66,6 +66,24 @@
          assembly can't see it. These pin it into the main assembly under a fixed name. -->
     <EmbeddedResource Include="Localization\strings.en.json" WithCulture="false"
                       LogicalName="Zapret2UI.Localization.strings.en.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- usque - an open reimplementation of the MASQUE mode of Cloudflare's own WARP client
+         (CONNECT-IP over HTTP/3, RFC 9484). Carried inside our exe for the same reason as WireGuard:
+         it is wanted precisely where github.com is unreachable.
+
+         Why it is here at all: WireGuard to WARP is blocked at the TRANSPORT level on Russian ISPs -
+         the handshake is let through and the data stream is cut, which the engine cannot fix because a
+         desync only disguises the first packet of a flow. MASQUE looks like ordinary HTTP/3 on port
+         443 and is what the official client uses. Measured on the owner's ISP: all four MASQUE ports
+         complete a TLS 1.3 handshake.
+
+         Run in proxy mode, which needs no adapter, no routes and no administrator - so unlike the
+         WireGuard path a failure cannot take the machine off the network. MIT, redistributed verbatim
+         with LICENSE.txt alongside. -->
+    <EmbeddedResource Include="Assets\usque\usque.exe" LogicalName="Zapret2UI.usque.usque.exe" />
+    <EmbeddedResource Include="Assets\usque\LICENSE.txt" LogicalName="Zapret2UI.usque.LICENSE.txt" />
   </ItemGroup>
 
   <ItemGroup>

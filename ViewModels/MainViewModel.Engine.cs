@@ -1,11 +1,6 @@
-﻿using System.Collections.ObjectModel;
-using System.ComponentModel;
-using System.Windows;
-using System.Windows.Data;
-using Zapret2UI.Models;
-using Zapret2UI.Mvvm;
-using Zapret2UI.Services;
+﻿using System.Windows;
 using Zapret2UI.Localization;
+using Zapret2UI.Services.Engine;
 
 namespace Zapret2UI.ViewModels;
 
@@ -81,6 +76,23 @@ public sealed partial class MainViewModel
         if (!IsRunning) { if (CanStart) Start(); return; }
 
         AppendLog(Loc.T("Смена стратегии → «{0}». Перезапуск движка…", Loc.T(SelectedPreset.Name)));
+        await RestartEngineAsync();
+    }
+
+    /// <summary>Relaunch a running engine because an OPTION changed — scope, capture width, QUIC, one of
+    /// the coverage profiles, the target list. Separate from <see cref="ApplyStrategyAsync"/> only for
+    /// the log line: every one of those used to announce «Смена стратегии», and reading a strategy change
+    /// you did not make, fifteen times in a row, is how a log stops being trusted.</summary>
+    private async Task ApplyEngineOptionsAsync()
+    {
+        if (!IsRunning) return;
+        AppendLog(Loc.T("Настройки изменились. Перезапуск движка…"));
+        await RestartEngineAsync();
+    }
+
+    /// <summary>Stop, wait for WinDivert to be released, start again.</summary>
+    private async Task RestartEngineAsync()
+    {
         _engine.Stop();
         // Wait for the process to release WinDivert before relaunching.
         for (int i = 0; i < 60 && State != EngineState.Stopped; i++)
