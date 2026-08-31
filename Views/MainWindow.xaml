@@ -417,7 +417,8 @@
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
-                                        <emoji:TextBlock Grid.Column="0" Text="🌍" FontSize="17" VerticalAlignment="Center"/>
+                                        <Path Grid.Column="0" Data="{StaticResource Icon.Cloudflare}" Fill="{StaticResource Brand.Cloudflare}"
+                                              Width="26" Height="22" Stretch="Uniform" VerticalAlignment="Center"/>
                                         <TextBlock Grid.Column="1" Text="WARP" FontWeight="SemiBold" FontSize="14" VerticalAlignment="Center" Margin="9,0,0,0"/>
                                         <CheckBox Grid.Column="2" Style="{StaticResource ToggleSwitch}" VerticalAlignment="Center"
                                                   IsChecked="{Binding IsMasqueEnabled, Mode=TwoWay}"
@@ -1307,12 +1308,13 @@
                                         <emoji:TextBlock Text="{loc:Loc '📖  Инструкция'}"/>
                                     </Button>
                                     <StackPanel Orientation="Horizontal">
-                                        <emoji:TextBlock Text="🌍" FontSize="22" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                        <Path Data="{StaticResource Icon.Cloudflare}" Fill="{StaticResource Brand.Cloudflare}"
+                                              Width="32" Height="26" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,10,0"/>
                                         <TextBlock Text="WARP" Style="{StaticResource H1}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </DockPanel>
                                 <TextBlock Style="{StaticResource Muted}" Margin="0,3,0,0" TextWrapping="Wrap"
-                                           Text="{loc:Loc 'Cloudflare WARP через встроенный клиент: ставить ничего не нужно и права администратора не требуются. Программа поднимает локальный прокси — укажите его адрес в браузере, и он будет выходить в сеть через Cloudflare, а не напрямую.'}"/>
+                                           Text="{loc:Loc 'Меняет адрес, с которого вас видят сайты. Нужен, когда сайт открывается, но не пускает именно вас: бесконечная капча, «доступ ограничен», отказ при регистрации или оплате. Клиент лежит внутри программы — ставить ничего не нужно, права администратора не требуются.'}"/>
                             </StackPanel>
 
                             <Grid Grid.Row="1">
@@ -1383,6 +1385,19 @@
                                                        Text="{loc:Loc 'Прокси слушает только на этом компьютере — снаружи к нему не подключиться. Меняйте порт, если 1080 уже занят другой программой.'}"/>
                                             <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" FontSize="11" Margin="0,10,0,0"
                                                        Text="{loc:Loc 'Способ подключения к Cloudflare программа подбирает сама и запоминает тот, который сработал.'}"/>
+
+                                            <!-- Opt-out instead of opt-in: normally only what you point at the proxy uses
+                                                 it, this hands Windows' own proxy setting to it for everything. Applied
+                                                 only once the tunnel is up, and put back when it goes down. -->
+                                            <Separator Margin="0,14,0,10" Background="#22FFFFFF"/>
+                                            <CheckBox Content="{loc:Loc 'Направлять весь трафик системы'}"
+                                                      IsChecked="{Binding MasqueSystemProxy, Mode=TwoWay}"
+                                                      Style="{StaticResource ToggleSwitch}"
+                                                      ToolTip="{loc:Loc 'Прописать прокси в настройках Windows, пока WARP включён'}"/>
+                                            <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" FontSize="11" Margin="0,8,0,0"
+                                                       Text="{loc:Loc 'Обычно через прокси идёт только то, что вы в него направили. С этой галочкой адрес прописывается в настройках прокси Windows, и его подхватывают Chrome, Edge и большинство программ — вписывать ничего не нужно. Настройка ставится, только когда подключение проверено, и снимается при выключении WARP и при выходе из программы.'}"/>
+                                            <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" FontSize="11" Margin="0,8,0,0"
+                                                       Text="{loc:Loc 'Firefox системную настройку не читает — ему адрес нужно вписать вручную. И помните, что через Cloudflare пойдут игры, мессенджеры и загрузки: это лишний крюк там, где он не нужен.'}"/>
                                         </StackPanel>
                                     </Border>
                                 </StackPanel>
@@ -1404,7 +1419,7 @@
                                                            HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                             </Border>
                                             <TextBlock Grid.Column="1" Margin="10,0,0,0" Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap"
-                                                       Text="{loc:Loc 'Обход меняет пакеты — это снимает блокировку сайта у провайдера. Но адрес, с которого вы приходите, пакетами не поменять.'}"/>
+                                                       Text="{loc:Loc 'Преграды две, и они разные. Обход снимает первую: провайдер не даёт достучаться до сайта. Пакеты переписываются, соединение проходит. Адрес, с которого вы приходите, при этом остаётся вашим.'}"/>
                                         </Grid>
 
                                         <Grid Margin="0,0,0,13">
@@ -1418,7 +1433,7 @@
                                                            HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                             </Border>
                                             <TextBlock Grid.Column="1" Margin="10,0,0,0" Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap"
-                                                       Text="{loc:Loc 'Прокси может: трафик выходит через Cloudflare, и сайт видит её адрес, а не ваш. Это помогает там, где блокируют именно ваш адрес.'}"/>
+                                                       Text="{loc:Loc 'Вторая преграда — сам сайт. Он смотрит, с какого адреса вы пришли, и сверяется с репутацией. Домашние российские диапазоны у антифрод-систем на плохом счету: оттуда идёт много ботов и злоупотреблений, и низкое доверие получает весь диапазон разом, а не отдельный нарушитель.'}"/>
                                         </Grid>
 
                                         <Grid Margin="0,0,0,13">
@@ -1432,7 +1447,7 @@
                                                            HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                             </Border>
                                             <TextBlock Grid.Column="1" Margin="10,0,0,0" Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap"
-                                                       Text="{loc:Loc 'Гео-блокировки так не снять. Бесплатный WARP выводит через ближайший узел — из России это российский адрес, и помечен он как WARP. Для зарубежных сервисов он не поможет.'}"/>
+                                                       Text="{loc:Loc 'Адреса WARP принадлежат Cloudflare, а через неё проходит заметная часть всего веба — в списках доверия её адреса стоят совсем иначе. С включённым прокси вы приходите не из подозрительного пула, а как клиент Cloudflare, и та же самая проверка вас пропускает.'}"/>
                                         </Grid>
 
                                         <Grid>
@@ -1446,12 +1461,12 @@
                                                            HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                             </Border>
                                             <TextBlock Grid.Column="1" Margin="10,0,0,0" Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap"
-                                                       Text="{loc:Loc 'Работает только то, что вы направите в прокси: браузер, мессенджер. Остальные программы пойдут напрямую, как и раньше — в системе ничего не меняется.'}"/>
+                                                       Text="{loc:Loc 'Страну он не меняет. Бесплатный WARP выводит через ближайший узел, и из России адрес будет российским. Меняется репутация адреса, а не страна: «недоступно в вашем регионе» так не обойти.'}"/>
                                         </Grid>
 
                                         <Border Background="#1FFFFFFF" CornerRadius="8" Padding="12,9" Margin="0,14,0,0">
                                             <TextBlock Style="{StaticResource Muted}" FontSize="11.5" TextWrapping="Wrap"
-                                                       Text="{loc:Loc 'Обход лучше держать включённым: с ним подключение к Cloudflare встаёт с первой попытки, без него — через раз.'}"/>
+                                                       Text="{loc:Loc 'Через прокси идёт только то, что вы в него направили: браузер, мессенджер. Остальное пойдёт напрямую — или включите в «Параметрах» пункт «Направлять весь трафик системы». И держите обход запущенным: до Cloudflare тоже надо ещё дойти, с обходом подключение встаёт с первой попытки, без него — через раз.'}"/>
                                         </Border>
                                     </StackPanel>
                                 </Border>

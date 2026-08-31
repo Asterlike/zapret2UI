@@ -89,8 +89,9 @@
     <div class="page-head">
       <p class="kicker">The program</p>
       <h1>WARP and changing your address</h1>
-      <p class="lede">The bypass pushes a connection through a block. WARP changes the address you arrive
-        from. Those are different problems and they need different tools.</p>
+      <p class="lede">There are two different obstacles between you and a site. The provider that will not
+        let you reach it — that is the bypass. And the site itself, which does not trust your address —
+        that is WARP.</p>
     </div>
 
     <figure>
@@ -101,23 +102,60 @@
 
     <h2 id="zachem">What it gives you</h2>
 
-    <p>The bypass rewrites packets. It can push a connection through a block — the case where your ISP
-      will not let you reach a site at all. But the address you arrive from stays yours.</p>
+    <p><b>The first obstacle is your provider.</b> It tears the connection down the moment the site's
+      name becomes visible. That is the bypass's job: packets are rewritten so the name cannot be
+      recognised, and the connection gets through. The address you arrive from stays yours.</p>
 
-    <p>WARP does the opposite: it does not break a block, it substitutes the address. With the proxy on,
-      traffic leaves through Cloudflare and a site sees its address instead. That helps where it is
-      <b>your address</b> that is blocked — when a service has shut out an entire ISP subnet, say.</p>
+    <p><b>The second obstacle is the site itself.</b> The connection arrived, the site answered — and
+      refused. The reason is not in the packets but in the address: the site looks at where you came
+      from and checks that address's reputation.</p>
+
+    <p>Anti-fraud systems keep reputation for whole ranges, not for individual addresses. Russian home
+      ranges score badly in those lists: a lot of bots, credential stuffing and abuse come from them,
+      and the low score lands on the entire range at once rather than on the actual offender. From your
+      side it looks like this:</p>
+
+    <ul>
+      <li>a captcha that never ends, however many you solve;</li>
+      <li>"access restricted" or "we could not process your request" out of nowhere;</li>
+      <li>a refusal at sign-up, at sign-in or at payment;</li>
+      <li>the site opens, but some of its features stay unusable.</li>
+    </ul>
+
+    <p>Your provider has nothing to do with it — it let you through, and the bypass is useless here:
+      there is nothing left to push through.</p>
+
+    <p><b>Cloudflare gets you in</b> because WARP's addresses are its own. A sizeable share of the whole
+      web passes through its network, and in those reputation lists these addresses sit very differently
+      from subscriber ones: this is not a "suspect home pool" but infrastructure that already carries an
+      enormous flow of ordinary users. With the proxy on you arrive not from a bad range but as a
+      Cloudflare client — and the very same check that refused you lets you through.</p>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th>What you see</th><th>What to turn on</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>The site does not open at all, the connection drops</td><td><b>The bypass</b></td></tr>
+          <tr><td>The site opens but will not let you in: captcha, refusal, "access restricted"</td><td><b>WARP</b></td></tr>
+          <tr><td>"Not available in your country or region"</td><td>Neither will help</td></tr>
+        </tbody>
+      </table>
+    </div>
 
     <div class="why">
-      <p>A simple rule. <b>The site does not open at all</b> — that is the bypass. <b>The site opens but
-        refuses you or your whole network</b> — that is WARP. They do not get in each other's way: the
-        connection to Cloudflare goes through the bypass itself and is better for it.</p>
+      <p>The bypass and WARP do not get in each other's way — they are needed together, because
+        Cloudflare has to be reached in the first place. Registering a device goes to
+        <code>api.cloudflareclient.com</code>, a name that is cut by SNI, and the MASQUE connection
+        itself is under pressure from the provider too. So the bypass has to be running.</p>
     </div>
 
     <h2 id="strana">What it does not</h2>
 
-    <p><b>This will not lift geo-blocks.</b> Free WARP is anycast: you land on the nearest Cloudflare
-      node, not one you chose. From Russia the nearest node is Russian, and so is the exit address.</p>
+    <p><b>WARP does not change your country.</b> What changes is the address's reputation, not the
+      country. Free WARP is anycast: you land on the nearest Cloudflare node, not one you chose. From
+      Russia the nearest node is Russian, and so is the exit address.</p>
 
     <div class="note warn">
       <p>Measured, not assumed: every run came out on <code>104.28.x.x</code>, country RU, city
@@ -247,6 +285,14 @@
               instead of failing silently. A change applies after switching the proxy off and on.</td>
           </tr>
           <tr>
+            <td>Send all system traffic through it</td>
+            <td>Off by default. While WARP is on, the proxy address is written into Windows' own proxy
+              settings, and Chrome, Edge and most ordinary applications pick it up — there is nothing to
+              fill in. The setting is applied <b>only after the connection has been verified</b>, and is
+              removed when WARP is switched off, when the program exits and on a settings reset; if the
+              program crashed, the previous value is put back on the next launch.</td>
+          </tr>
+          <tr>
             <td>Create device</td>
             <td>Registers a device with Cloudflare. Available while no device exists.</td>
           </tr>
@@ -257,6 +303,12 @@
           </tr>
         </tbody>
       </table>
+    </div>
+
+    <div class="note warn">
+      <p><b>Firefox does not read the system setting</b> — it needs the address filled in by hand, as in
+        the table above. And bear in mind that everything goes through Cloudflare: games, messengers,
+        downloads. That is a detour where none is needed, which is why the switch is off by default.</p>
     </div>
 
     <h2 id="fayly">Where things live</h2>

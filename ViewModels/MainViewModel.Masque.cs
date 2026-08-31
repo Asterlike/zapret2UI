@@ -1,6 +1,7 @@
 using System.Windows;
 using Zapret2UI.Localization;
 using Zapret2UI.Mvvm;
+using Zapret2UI.Services.Platform;
 using Zapret2UI.Services.Warp;
 
 namespace Zapret2UI.ViewModels;
@@ -104,6 +105,22 @@ public partial class MainViewModel
         }
     }
 
+    /// <summary>Send the whole system through the proxy while it runs, by pointing Windows' own proxy
+    /// setting at it. Applied only once the tunnel is proved up — the setting is what most applications
+    /// obey, so pointing it at a proxy that turned out not to work would take browsing down with it.</summary>
+    public bool MasqueSystemProxy
+    {
+        get => Settings.MasqueSystemProxy;
+        set
+        {
+            if (value == Settings.MasqueSystemProxy) return;
+            Settings.MasqueSystemProxy = value;
+            _settingsSvc.Save();
+            OnPropertyChanged();
+            SyncSystemProxy();
+        }
+    }
+
     public RelayCommand RegisterMasqueCommand { get; private set; } = null!;
     public RelayCommand ResetMasqueCommand { get; private set; } = null!;
     public RelayCommand CopyProxyAddressCommand { get; private set; } = null!;
@@ -192,8 +209,50 @@ public partial class MainViewModel
             // …and put the scope where that real state says it belongs. A connection that failed must
             // not leave every site being desynced on behalf of a proxy that is not running.
             await SyncMasqueBypassScopeAsync();
+            SyncSystemProxy();
             IsMasqueBusy = false;
         }
+    }
+
+    /// <summary>Point Windows' proxy setting at the proxy, or put it back, according to the setting and
+    /// the REAL state of the proxy. Called after every change of either, so the two can never disagree.
+    ///
+    /// <para>Unlike the bypass scope this is applied <b>after</b> the tunnel is up, not before: almost
+    /// everything on the machine obeys this setting, so aiming it at a proxy that then fails to connect
+    /// would cost the user their browsing rather than just their WARP.</para></summary>
+    private void SyncSystemProxy()
+    {
+        bool wanted = Settings.MasqueSystemProxy && _masque.IsRunning;
+        bool applied = Settings.SystemProxyBackup.Length > 0;
+        if (wanted == applied) return;
+
+        int port = Settings.MasqueListenPort;
+        if (wanted)
+        {
+            string? backup = SystemProxyService.Apply(port);
+            if (backup is null) return;                    // nothing changed — nothing to remember
+            Settings.SystemProxyBackup = backup;
+            AppendLog(Loc.T("Системный прокси Windows направлен на {0}. Firefox читает свою настройку — "
+                            + "его нужно настроить отдельно.", MasqueProxyAddress));
+        }
+        else
+        {
+            SystemProxyService.Restore(Settings.SystemProxyBackup, port);
+            Settings.SystemProxyBackup = "";
+            AppendLog(Loc.T("Системный прокси Windows возвращён в исходное состояние."));
+        }
+        _settingsSvc.Save();
+    }
+
+    /// <summary>Undo a system proxy left applied by a crash. The proxy itself never survives the
+    /// process, so a backup found at startup always means the setting outlived the thing it pointed
+    /// at.</summary>
+    internal void RestoreStaleSystemProxy()
+    {
+        if (Settings.SystemProxyBackup.Length == 0) return;
+        SystemProxyService.Restore(Settings.SystemProxyBackup, Settings.MasqueListenPort);
+        Settings.SystemProxyBackup = "";
+        _settingsSvc.Save();
     }
 
     /// <summary>Push <see cref="EffectiveBypassAllSites"/> into the engine, restarting it if that
@@ -226,6 +285,7 @@ public partial class MainViewModel
     {
         OnPropertyChanged(nameof(IsMasqueEnabled));
         OnPropertyChanged(nameof(IsMasqueOn));
+        OnPropertyChanged(nameof(MasqueSystemProxy));
         OnPropertyChanged(nameof(CanToggleMasque));
         OnPropertyChanged(nameof(IsMasqueRegistered));
         OnPropertyChanged(nameof(MasqueProxyAddress));

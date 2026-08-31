@@ -114,6 +114,9 @@ public sealed partial class MainViewModel
         bool wasAutostart = Settings.Autostart;
         if (IsRunning) _engine.Stop();
         if (_tgProxy.IsRunning) _tgProxy.Stop();
+        // Windows' proxy setting is ours to put back while we still remember what it was — the reset
+        // switches the toggle that drove it off, and the backup would then have nothing to explain it.
+        RestoreStaleSystemProxy();
 
         _settingsSvc.ResetToDefaults();
 

@@ -528,6 +528,9 @@ public sealed partial class MainViewModel
         // keep routing the whole machine through Cloudflare with nothing on screen to explain it.
         // A proxy left behind by a crash is a listening socket, not a broken network — but it would
         // still hold the port the next run wants.
+        // The system proxy has to come down BEFORE the proxy it points at, or there is a window in
+        // which Windows is aimed at a socket that has already gone.
+        try { RestoreStaleSystemProxy(); } catch { }
         try { MasqueService.DropStaleProxy(); } catch { }
         try { _masque.Dispose(); } catch { }
         try { _engine.Dispose(); } catch { }

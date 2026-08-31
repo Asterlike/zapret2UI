@@ -274,6 +274,9 @@ public sealed partial class MainViewModel : ObservableObject
         _engine.BypassAllSites = EffectiveBypassAllSites;
         _engine.DisableQuic = Settings.DisableQuic;
         _engine.CoverTgProxy = Settings.TgProxyCoverage;
+        // Before anything else touches the network: a system proxy left applied by a crash points at a
+        // socket that no longer exists, which reads to the user as «интернет пропал».
+        RestoreStaleSystemProxy();
         InitMasqueState();
         _engine.DebugLog = Settings.DebugLog;
         _tgProxy.Verbose = Settings.DebugLog;

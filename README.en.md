@@ -116,15 +116,24 @@ The official engine manual: [manual.en.md](https://github.com/bol-van/zapret2/bl
   notices and quietly re-selects a working variant.
 - **Diagnostics**: an availability table plus a separate check for whether the provider is interfering
   via DPI specifically.
-- **Built-in Cloudflare WARP** as a local SOCKS5 proxy: the other half of the job — the bypass pushes a
-  connection through a block, WARP substitutes the address you arrive from. The client is carried inside
-  the program, so **there is nothing to install** and **no administrator rights are needed**: no
-  adapter, no routes, nothing changed in the system, so a failure cannot leave you without internet. It
-  speaks MASQUE — the same protocol Cloudflare's own app uses.
-  *This will not lift geo-blocks:* free WARP exits through the nearest node, and from Russia the address
-  will be Russian. While the proxy is on, **the bypass scope widens to every site by itself** —
-  otherwise the connection to Cloudflare does not come up; your setting is kept and comes back when you
-  switch the proxy off.
+- **Built-in Cloudflare WARP** as a local SOCKS5 proxy: the other half of the job. The bypass removes
+  the first obstacle — a provider that will not let you reach the site. The second obstacle is the site
+  itself: it looks at the address you came from and checks its reputation. Russian home ranges score
+  badly with anti-fraud systems, and the low score lands on the whole range at once — hence the endless
+  captchas, the "access restricted" pages and the refusals at sign-up or payment, even though the site
+  opens and the provider has nothing to do with it. WARP's addresses belong to Cloudflare, which already
+  carries a sizeable share of the web, so they sit differently in those reputation lists: **you arrive
+  not from a bad range but as a Cloudflare client** — and the same check lets you through.
+  The client is carried inside the program, so **there is nothing to install** and **no administrator
+  rights are needed**: no adapter, no routes, nothing changed in the system, so a failure cannot leave
+  you without internet. It speaks MASQUE — the same protocol Cloudflare's own app uses.
+  *This does not change your country:* free WARP exits through the nearest node, from Russia the address
+  will be Russian, and "not available in your region" cannot be got round this way — what changes is the
+  address's reputation, not the country. While the proxy is on, **the bypass scope widens to every site
+  by itself** — otherwise the connection to Cloudflare does not come up; your setting is kept and comes
+  back when you switch the proxy off. Normally only what you point at the proxy uses it, but a separate
+  switch writes it into Windows' settings and sends **all system traffic** through it (Firefox reads its
+  own setting and is not covered).
 - **Your own site lists** (host lists) and **your own targets**: any domain can be added.
 - **Autostart** at Windows logon, minimise to tray, quiet notifications in the corner.
 - **A backup of your settings and strategies** in a single file — for a reinstall or a move to another
@@ -284,8 +293,11 @@ Voice runs over UDP on high ports. Try `Discord — голос (QUIC-фейк)` 
 QUIC is often to blame. Settings → disable **QUIC / HTTP-3**.
 
 **Diagnostics is all green but the site will not open.**
-The site may be cut off some other way (ECH, IP blocking). Try another strategy, turn QUIC off, or use
-a VPN.
+The site may be cut off some other way (ECH, IP blocking) — try another strategy or turn QUIC off. If
+the page loads forever while `curl` returns it instantly, that is QUIC: add the domain to "Свои цели"
+(My targets) and turn on "Отключить QUIC" (Disable QUIC). And if the site opens but refuses *you* — an
+endless captcha, "access restricted", a refusal at sign-up — the provider is not the problem, your
+address's reputation is: that is a job for **WARP**.
 
 **Are administrator rights required?**
 For bypassing Discord/YouTube, yes. For the Telegram proxy, **no**.

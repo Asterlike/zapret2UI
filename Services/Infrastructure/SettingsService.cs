@@ -57,6 +57,19 @@ public sealed class AppSettings
     public bool MasqueHttp2 { get; set; } = true;
     public int MasqueConnectPort { get; set; } = 443;
 
+    /// <summary>Send the whole system through the WARP proxy while it runs, by pointing Windows' own
+    /// proxy setting at it. Off by default: the proxy is opt-in per application by design, and this
+    /// makes it opt-out instead — every browser tab, updater and game goes the long way round through
+    /// Cloudflare. Firefox keeps its own proxy setting and is NOT covered.</summary>
+    public bool MasqueSystemProxy { get; set; }
+
+    /// <summary>Windows' proxy setting as it was before <see cref="MasqueSystemProxy"/> pointed it at
+    /// the local proxy, encoded as <c>enabled|server|override</c>. Empty when nothing is applied.
+    /// Persisted rather than held in memory precisely because it has to survive a crash: a registry
+    /// setting left pointing at a proxy that is no longer listening is a machine with no browsing, and
+    /// the next launch undoes it.</summary>
+    public string SystemProxyBackup { get; set; } = "";
+
     /// <summary>Verbose engine log (<c>--debug=1</c>): winws2 reports per-connection decisions, which is
     /// what you need to see WHY a desync did or didn't fire. Off by default — it is noisy, and the
     /// Журнал buffer is capped, so ordinary startup messages scroll away faster while it is on.</summary>
@@ -145,6 +158,9 @@ public sealed class SettingsService
         TgProxySecret = current.TgProxySecret,
         NetworkStrategies = current.NetworkStrategies,
         WelcomeShown = current.WelcomeShown,
+        // Not a preference: it is how Windows' own proxy setting gets put back. Wiping it on a reset
+        // would strand the machine on a proxy that is about to stop listening.
+        SystemProxyBackup = current.SystemProxyBackup,
     };
 
     private void Load()

@@ -270,14 +270,26 @@
       <b>at a low level</b>: a connection is established and the TLS handshake completes. That is not the
       same as "the page opened in the browser".</p>
 
-    <p>A mismatch usually means one of four things.</p>
+    <p>A mismatch usually means one of six things.</p>
 
     <ul>
       <li><b>ECH.</b> The browser encrypts the site name itself, and the provider cuts such connections
         wholesale without inspecting them. A check that runs without ECH still passes. Try another strategy
         or disable ECH in your browser settings.</li>
+      <li><b>QUIC.</b> The check goes over TCP, while the browser tries HTTP/3 (QUIC) first for sites
+        behind Cloudflare. If your provider throttles it, the page loads forever even though everything
+        opens fine over TCP. The tell is distinctive: <code>curl</code> returns the page instantly while
+        the browser stalls. Two settings fix it — the domain in "Свои цели" (My targets), so that it is
+        inside the bypass scope at all, and "Отключить QUIC" (Disable QUIC) in the settings. The order
+        matters: the second only affects what the bypass covers.</li>
+      <li><b>The site does not trust your address.</b> The connection gets through, the site answers — and
+        refuses: an endless captcha, "access restricted", a refusal at sign-up or payment. Your provider
+        has nothing to do with it and the bypass has nothing left to push through. That is a job for
+        <a href="warp.html">WARP</a>: Cloudflare's addresses sit differently in reputation lists than
+        Russian home ranges.</li>
       <li><b>Blocking by IP address.</b> The bypass lifts name-based blocking, not address-based. The DPI
-        check will report "no connection". You need a VPN here.</li>
+        check will report "no connection". <a href="warp.html">WARP</a> helps here too — it changes the
+        address you arrive from.</li>
       <li><b>A volume limit.</b> The handshake is short and stays under the limit, while a real page does
         not. The DPI check can detect this separately.</li>
       <li><b>Stale browser connections.</b> The most harmless one. Wait ten seconds and refresh, or better,

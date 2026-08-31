@@ -618,21 +618,58 @@ So the program has **a separate built-in proxy**.
 
 ## 12. WARP and changing your address
 
-The bypass and WARP solve **different** problems, and that is the main thing to understand about this
-tab.
+There are **two different obstacles** between you and a site, and they need different cures.
 
-The bypass rewrites packets. It can push a connection through a block — the case where your ISP will
-not let you reach a site at all. But the address you arrive from stays yours.
+**The first is your provider.** It will not let you reach the site: the connection is torn down the
+moment the site's name becomes visible. That is the bypass's job — it rewrites packets so the name
+cannot be recognised, and the connection gets through. The address you arrive from stays yours.
 
-WARP does the opposite: it does not break a block, it substitutes the address. With the proxy on,
-traffic leaves through Cloudflare and a site sees its address instead. That helps where it is **your
-address** that is blocked — when a service has shut out an entire ISP subnet, say.
+**The second is the site itself.** The connection arrived, the site answered — and refused. The reason
+is not in the packets but in the address: the site looks at where you came from and checks that
+address's reputation.
 
-> **This will not lift geo-blocks.** Free WARP is anycast: you land on the nearest Cloudflare node, not
-> one you chose. From Russia the exit is Russian. Measured: every run came out on `104.28.x.x`, country
-> RU, node DME; an independent geo database labels those addresses `Cloudflare WARP` and flags them as a
-> proxy. No setting or entry point changes this — it is a Cloudflare limitation, not one of this
-> program.
+### Why an address can be unacceptable to a site
+
+Anti-fraud systems keep reputation for whole ranges, not for individual addresses. Russian home ranges
+score badly in those lists — a lot of bots, credential stuffing and abuse come from them, and the low
+score lands on the entire range at once rather than on the actual offender. From your side it looks
+like this:
+
+- a captcha that never ends, however many you solve;
+- "access restricted" / "we could not process your request" out of nowhere;
+- a refusal at sign-up, at sign-in or at payment;
+- the site opens, but some of its features stay unusable.
+
+Your provider has nothing to do with it — it let you through. The bypass is useless here: there is
+nothing left to push through.
+
+### Why Cloudflare gets you in
+
+WARP's addresses belong to Cloudflare. A sizeable share of the whole web passes through its network,
+and in those reputation lists its addresses sit very differently from subscriber ones: this is not a
+"suspect home pool" but infrastructure that already carries an enormous flow of ordinary users. With
+the proxy on you arrive not from a bad range but as a Cloudflare client — and the very same check that
+refused you lets you through.
+
+### The simple rule
+
+| What you see | What to turn on |
+|---|---|
+| The site does not open at all, the connection drops | **The bypass** |
+| The site opens but will not let you in: captcha, refusal, "access restricted" | **WARP** |
+| "Not available in your country / region" | Neither will help |
+
+> **WARP does not change your country.** Free WARP is anycast: you land on the nearest Cloudflare node,
+> not one you chose. From Russia the exit is Russian. Measured: every run came out on `104.28.x.x`,
+> country RU, node DME; an independent geo database labels those addresses `Cloudflare WARP` and flags
+> them as a proxy. No setting or entry point changes this — it is a Cloudflare limitation, not one of
+> this program. What changes is the address's **reputation**, not the country.
+
+> **The bypass and WARP do not get in each other's way — they are needed together.** Cloudflare has to
+> be reached in the first place: registering a device goes to `api.cloudflareclient.com`, a name that is
+> cut by SNI, and the MASQUE connection itself is under pressure from the provider too. So the bypass
+> has to be running, and while WARP is on the bypass scope is widened to every site automatically (see
+> below).
 
 ### Turning it on
 
@@ -662,6 +699,21 @@ through it. The address is shown on the tab with a "Copy" button beside it. By d
 The proxy listens on `127.0.0.1` only — nothing on your local network can reach it. That is deliberate:
 the client's own default is to listen on every address, which on a shared network would be an open
 route to the internet under your account.
+
+**If you would rather not fill anything in**, the WARP tab's «Параметры» (Options) card has a
+**«Направлять весь трафик системы»** (Send all system traffic through it) switch, off by default. With it
+on, the proxy address is written into Windows' own proxy settings for as long as WARP is running, and
+Chrome, Edge and most ordinary applications pick it up.
+
+- The setting is applied **only after the connection has been verified** — otherwise the machine would be
+  pointed at a proxy that does not work, which means no internet at all.
+- It is removed when WARP is switched off, when the program exits, and on a settings reset. If the program
+  died with the switch on, the previous value is put back on the next launch: it is kept in
+  `settings.json` for exactly that reason.
+- **Firefox does not read the system setting** — it needs the address filled in by hand, as in the table
+  above.
+- Everything goes through Cloudflare: games, messengers, downloads. That is a detour where none is needed,
+  which is why the switch is off by default.
 
 ### What happens inside
 
@@ -761,6 +813,7 @@ The values are stored in `settings.json` (`AppSettings`).
 | Telegram proxy port | `TgProxyPort` | `1443` | The proxy's local port. |
 | Proxy secret | `TgProxySecret` | — | The persistent MTProto secret. |
 | Start the proxy automatically | `TgProxyAutostart` | `false` | Start the proxy at launch. |
+| All traffic through WARP | `MasqueSystemProxy` | `false` | Write the proxy into Windows' settings for as long as WARP is on (see [§12](#12-warp-and-changing-your-address)). Firefox is not covered. |
 | WARP proxy port | `MasqueListenPort` | `1080` | Local port of the WARP SOCKS5 proxy (see [§12](#12-warp-and-changing-your-address)). |
 | WARP transport | `MasqueHttp2`, `MasqueConnectPort` | `true`, `443` | Whatever connected last time. Worked out automatically; no need to change it by hand. |
 | Per-network memory | `NetworkStrategies` | `{}` | Network → strategy (local only). |
@@ -889,8 +942,10 @@ defaults.
   Voice runs over UDP — on the most stubborn networks the provider throttles it separately, and then a
   dedicated proxy or VPN just for voice may be needed for stable audio.
 - **YouTube buffers.** Turn QUIC off.
-- **All green but the site will not open.** A different blocking mechanism (ECH/IP) → another strategy,
-  QUIC off, or a VPN.
+- **All green but the site will not open.** A different blocking mechanism (ECH/IP) → another strategy
+  or QUIC off. Loads forever while `curl` returns it instantly — that is QUIC: the domain in «Свои цели»
+  plus «Отключить QUIC». Opens but refuses *you* (captcha, "access restricted", a refusal at sign-up) —
+  that is the address's reputation, not the provider: see [§12](#12-warp-and-changing-your-address).
 
 **Engine exit codes (in the Journal):**
 
