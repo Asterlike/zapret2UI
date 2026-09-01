@@ -188,7 +188,7 @@ the Telegram and WARP cards and the target selector; advanced adds eight tabs.
 | **Журнал** (Journal) | Live output from the engine and the proxy. The first place to look if the bypass did not start |
 | **Telegram** | The built-in proxy: address, secret, port, autostart |
 | **WARP** | The Cloudflare proxy for changing your address: create a device, turn it on, where to point it |
-| **Настройки** (Settings) | Scale, engine updates, autostart, notifications, auto-repair, bypass scope, game filter, QUIC, backup, settings reset, log cleanup |
+| **Настройки** (Settings) | Four sections: **Appearance** (language, scale, notifications), **Bypass** (scope, game filter, QUIC, Telegram through the engine), **System** (engine, startup, auto-repair, environment check), **Maintenance** (IP list, exclusions, backup, reset, logs) |
 
 More in the documentation: [Interface](https://asterlike.github.io/zapret2UI/en/interface.html) — every
 screen with a screenshot, the full settings table and a breakdown of host lists.

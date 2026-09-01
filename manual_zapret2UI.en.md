@@ -788,7 +788,8 @@ it as the line "Стратегия для этой сети: …" (Strategy for 
 
 ## 15. Settings: the full list
 
-The values are stored in `settings.json` (`AppSettings`).
+The tab is split into four sections — **Appearance**, **Bypass**, **System**, **Maintenance**;
+none of them scrolls. The values are stored in `settings.json` (`AppSettings`).
 
 | Setting | Key | Default | What it does |
 |---|---|---|---|
