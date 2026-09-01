@@ -65,8 +65,7 @@
 
     <Grid HorizontalAlignment="Left">
         <!-- COLLAPSED: compact "support" pill + a chevron-down that brings the QR back -->
-        <Border Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource BorderBrush2}"
-                BorderThickness="1" CornerRadius="10" Padding="4"
+        <Border Background="{StaticResource SurfaceBrush}" CornerRadius="14" Padding="4"
                 Visibility="{Binding DonateExpanded, Converter={StaticResource BoolToVis}, ConverterParameter=invert}">
             <StackPanel Orientation="Horizontal">
                 <Border Background="Transparent" Cursor="Hand" MouseLeftButtonUp="OnOpen"
@@ -84,15 +83,17 @@
         </Border>
 
         <!-- EXPANDED: full donate card with QR (click anywhere opens the support page) -->
-        <Border Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource BorderBrush2}"
-                BorderThickness="1" CornerRadius="12" Padding="14" Cursor="Hand"
+        <Border CornerRadius="16" Padding="14" Cursor="Hand"
                 MouseLeftButtonUp="OnOpen" ToolTip="{loc:Loc 'Открыть страницу поддержки'}"
                 Visibility="{Binding DonateExpanded, Converter={StaticResource BoolToVis}}">
             <Border.Style>
+                <!-- The whole card is one big link, so it still needs a hover state — and with the
+                     outline gone that state has to be the fill. -->
                 <Style TargetType="Border">
+                    <Setter Property="Background" Value="{StaticResource SurfaceBrush}"/>
                     <Style.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                            <Setter Property="Background" Value="{StaticResource SurfaceAltBrush}"/>
                         </Trigger>
                     </Style.Triggers>
                 </Style>
@@ -104,8 +105,8 @@
                                FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,0,0,10"/>
 
                     <!-- White tile keeps the QR scannable on the dark theme -->
-                    <Border Background="White" CornerRadius="8" Padding="7" HorizontalAlignment="Center">
-                        <Image Source="/Assets/donate-qr.png" Width="112" Height="112"
+                    <Border Background="White" CornerRadius="12" Padding="6" HorizontalAlignment="Center">
+                        <Image Source="/Assets/donate-qr.png" Width="98" Height="98"
                                RenderOptions.BitmapScalingMode="HighQuality"/>
                     </Border>
 

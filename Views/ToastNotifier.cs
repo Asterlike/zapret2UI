@@ -64,18 +64,36 @@ public sealed class ToastNotifier
         catch { /* sound is best-effort */ }
     }
 
-    /// <summary>Synthesize a short, soft, low-amplitude "blip" WAV (16-bit PCM mono) — quiet by design,
-    /// no bundled asset, no NuGet dependency. A raised-sine envelope avoids click artifacts.</summary>
+    /// <summary>Synthesize the notification sound (16-bit PCM mono) — no bundled asset, no NuGet
+    /// dependency.
+    ///
+    /// <para>It is a struck note rather than a beep, and that is the whole point. A pure sine held at
+    /// constant pitch under a symmetric envelope — what this used to be — is the shape of an alarm: the
+    /// ear gets a steady tone with no attack to place it, sitting right in the band it is most sensitive
+    /// to. Reported as irritating, and it was. A fast attack followed by an exponential decay is how
+    /// every struck object on earth sounds, so it reads as an event and then gets out of the way, even
+    /// though it is LONGER than the beep it replaces (260 ms against 85).</para>
+    ///
+    /// <para>The two partials fade several times faster than the fundamental; that is what gives the
+    /// onset its wooden definition without leaving anything ringing. The final linear fade matters more
+    /// than it looks: an exponential never actually reaches zero, and ending the buffer on a step is a
+    /// click.</para></summary>
     private static byte[] BuildBlipWav()
     {
         const int sr = 44100;
-        int n = (int)(sr * 0.085);
+        const double f0 = 587.33;          // D5 — clear of the 2–5 kHz band where the ear is harshest
+        int n = (int)(sr * 0.26);
+        int fade = (int)(sr * 0.02);       // tail fade, so the buffer ends at silence and not on a step
         var samples = new short[n];
         for (int i = 0; i < n; i++)
         {
-            double env = Math.Sin(Math.PI * i / n);                 // 0 → 1 → 0
-            double tone = Math.Sin(2 * Math.PI * 720.0 * i / sr);   // soft mid tone
-            samples[i] = (short)(tone * env * 0.16 * short.MaxValue);
+            double t = i / (double)sr;
+            double attack = t < 0.007 ? 0.5 - 0.5 * Math.Cos(Math.PI * t / 0.007) : 1.0;
+            double env = attack * Math.Exp(-t / 0.075) * Math.Min(1.0, (n - i) / (double)fade);
+            double tone = Math.Sin(2 * Math.PI * f0 * t)
+                        + 0.16 * Math.Sin(4 * Math.PI * f0 * t) * Math.Exp(-t / 0.030)
+                        + 0.05 * Math.Sin(6 * Math.PI * f0 * t) * Math.Exp(-t / 0.018);
+            samples[i] = (short)(tone * env * 0.11 * short.MaxValue);
         }
         using var ms = new MemoryStream();
         using var w = new BinaryWriter(ms);

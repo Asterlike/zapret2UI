@@ -12,15 +12,20 @@
     <mvvm:DiagStatusToBrushConverter x:Key="DiagBrush"/>
     <mvvm:RefEqualsToVisibilityConverter x:Key="RefEqualsToVis"/>
 
-    <!-- ====================== Palette (redesign · concept C) ====================== -->
-    <Color x:Key="C.Bg">#FF090C11</Color>
-    <Color x:Key="C.Surface">#FF11161F</Color>
-    <Color x:Key="C.Card">#FF141B25</Color>
-    <Color x:Key="C.SurfaceAlt">#FF1C2431</Color>
+    <!-- ====================== Palette ======================
+         Softer ground than the original near-black: #090C11 made every surface a cut-out with a
+         hard edge, which is what forced borders onto everything to stop the cards dissolving. Lifting
+         the ground to #12151C narrows the gap between it and a card enough that the FILL alone
+         separates them — which is why the borders could then come off. Picked on a live mock of the
+         real screen, not from a swatch. -->
+    <Color x:Key="C.Bg">#FF12151C</Color>
+    <Color x:Key="C.Surface">#FF191D25</Color>
+    <Color x:Key="C.Card">#FF1B202A</Color>
+    <Color x:Key="C.SurfaceAlt">#FF252B36</Color>
     <Color x:Key="C.Border">#1AFFFFFF</Color>
-    <Color x:Key="C.Fg">#FFEDF1F8</Color>
-    <Color x:Key="C.FgMuted">#FF92A0B3</Color>
-    <Color x:Key="C.Muted2">#FF5B6675</Color>
+    <Color x:Key="C.Fg">#FFEFF2F7</Color>
+    <Color x:Key="C.FgMuted">#FF9BA6B6</Color>
+    <Color x:Key="C.Muted2">#FF68717F</Color>
     <Color x:Key="C.Accent">#FFA78BFA</Color>
     <Color x:Key="C.AccentHover">#FF6D4BD8</Color>
     <Color x:Key="C.AccentSoft">#24A78BFA</Color>
@@ -39,6 +44,35 @@
     <SolidColorBrush x:Key="SuccessBrush"   Color="#FF34D399"/>
     <SolidColorBrush x:Key="DangerBrush"    Color="#FFE2566A"/>
     <SolidColorBrush x:Key="WarnBrush"      Color="#FFF5A623"/>
+
+    <!-- Cards are lit from above rather than painted flat, and they carry NO outline: on the softened
+         ground the fill alone is enough to separate them, and a border on top of that only added a
+         second edge to look at. The two stops are what keeps a borderless card from reading as a flat
+         patch — it still has a top and a bottom.
+         CardEdge survives for the few places that genuinely need a hairline (the status badge, dialog
+         chrome); it is no longer on the Card style itself. -->
+    <LinearGradientBrush x:Key="CardFill" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#FF1D222C" Offset="0"/>
+        <GradientStop Color="#FF191E27" Offset="1"/>
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="CardEdge" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#2BFFFFFF" Offset="0"/>
+        <GradientStop Color="#12FFFFFF" Offset="0.5"/>
+        <GradientStop Color="#0CFFFFFF" Offset="1"/>
+    </LinearGradientBrush>
+
+    <!-- The halo under a primary action. One resource rather than an inline effect per button, so
+         «главные кнопки светятся» cannot drift into «одна главная кнопка светится». -->
+    <DropShadowEffect x:Key="AccentGlow" Color="#A78BFA" BlurRadius="34" ShadowDepth="0" Opacity="0.30"/>
+
+    <!-- Laid over a button's own colour, so one overlay works for every variant (accent, danger,
+         success) without knowing the hue. Darkening the bottom rather than glossing the top: a white
+         highlight on a light lavender just washes it out. -->
+    <LinearGradientBrush x:Key="ButtonDepth" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#00000000" Offset="0"/>
+        <GradientStop Color="#0A000000" Offset="0.55"/>
+        <GradientStop Color="#1F000000" Offset="1"/>
+    </LinearGradientBrush>
 
     <!-- Bundled OFL fonts (see ZapretUI.csproj Resource glob). Folder pack-URI + family name. -->
     <FontFamily x:Key="UiFont">/Assets/Fonts/#Hanken Grotesk</FontFamily>
@@ -69,7 +103,7 @@
                 <ControlTemplate TargetType="ToolTip">
                     <Border Background="{StaticResource SurfaceAltBrush}"
                             BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1"
-                            CornerRadius="7" Padding="10,7">
+                            CornerRadius="11" Padding="10,7">
                         <Border.Resources>
                             <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
                                 <Setter Property="TextWrapping" Value="Wrap"/>
@@ -100,14 +134,23 @@
         <Setter Property="FontFamily" Value="{StaticResource UiFont}"/>
         <Setter Property="FontSize" Value="12.5"/>
         <Setter Property="TextWrapping" Value="Wrap"/>
+        <!-- Explanatory paragraphs are most of this app's text, and at the default leading they set as a
+             grey slab. Two extra points of line spacing is the cheapest readability the UI can buy.
+             BlockLineHeight makes it an exact value instead of a floor, so mixed font sizes inside one
+             paragraph can't make the lines drift apart. -->
+        <Setter Property="LineHeight" Value="17"/>
+        <Setter Property="LineStackingStrategy" Value="BlockLineHeight"/>
     </Style>
 
     <!-- ====================== Card ====================== -->
     <Style x:Key="Card" TargetType="Border">
-        <Setter Property="Background" Value="{StaticResource CardBrush}"/>
-        <Setter Property="BorderBrush" Value="{StaticResource BorderBrush2}"/>
-        <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="CornerRadius" Value="14"/>
+        <Setter Property="Background" Value="{StaticResource CardFill}"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="CornerRadius" Value="18"/>
+        <!-- 18, not 22. Two reasons pulling the same way: 22 read as coarse next to the mock this
+             design was chosen from (which sat at 16-18), and the tallest settings group cleared its
+             viewport by only a few pixels — four of those pixels per card per side is the difference
+             between a page and a scrollbar. -->
         <Setter Property="Padding" Value="18"/>
     </Style>
 
@@ -217,15 +260,20 @@
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="Padding" Value="16,9"/>
         <Setter Property="Cursor" Value="Hand"/>
+        <!-- Every primary action glows, not just the big one on Главная. Leaving it on the hero alone
+             is what made «Подобрать стратегию» look broken next to it. -->
+        <Setter Property="Effect" Value="{StaticResource AccentGlow}"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
-                    <Border x:Name="b" Background="{TemplateBinding Background}"
-                            CornerRadius="9" Padding="{TemplateBinding Padding}"
-                            RenderTransformOrigin="0.5,0.5">
-                        <Border.RenderTransform><ScaleTransform x:Name="bs" ScaleX="1" ScaleY="1"/></Border.RenderTransform>
-                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    </Border>
+                    <!-- See StartStopButton: the overlay has to be a sibling of the fill, not its child. -->
+                    <Grid x:Name="root" RenderTransformOrigin="0.5,0.5">
+                        <Grid.RenderTransform><ScaleTransform x:Name="bs" ScaleX="1" ScaleY="1"/></Grid.RenderTransform>
+                        <Border x:Name="b" Background="{TemplateBinding Background}" CornerRadius="14"/>
+                        <Border Background="{StaticResource ButtonDepth}" CornerRadius="14" IsHitTestVisible="False"/>
+                        <ContentPresenter Margin="{TemplateBinding Padding}"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="b" Property="Background" Value="{StaticResource AccentHoverBrush}"/>
@@ -251,7 +299,7 @@
                             </Trigger.ExitActions>
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
-                            <Setter TargetName="b" Property="Opacity" Value="0.4"/>
+                            <Setter TargetName="root" Property="Opacity" Value="0.4"/>
                             <Setter Property="Cursor" Value="Arrow"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
@@ -270,14 +318,16 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
+                    <!-- No outline: the fill carries it now. Hover therefore has to be a change of
+                         FILL — with the border gone, recolouring a border nobody can see is a hover
+                         state that does not exist. -->
                     <Border x:Name="b" Background="{TemplateBinding Background}"
-                            BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1"
-                            CornerRadius="9" Padding="{TemplateBinding Padding}">
+                            CornerRadius="14" Padding="{TemplateBinding Padding}">
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="b" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                            <Setter TargetName="b" Property="Background" Value="#26FFFFFF"/>
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="b" Property="Opacity" Value="0.4"/>
@@ -302,7 +352,7 @@
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
                     <Border x:Name="b" Background="{TemplateBinding Background}"
-                            CornerRadius="9" Padding="{TemplateBinding Padding}">
+                            CornerRadius="14" Padding="{TemplateBinding Padding}">
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
                     <ControlTemplate.Triggers>
@@ -335,106 +385,12 @@
                 <ControlTemplate TargetType="TextBox">
                     <Border x:Name="b" Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="8">
+                            BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="12">
                         <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}"/>
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsFocused" Value="True">
                             <Setter TargetName="b" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
-                        </Trigger>
-                    </ControlTemplate.Triggers>
-                </ControlTemplate>
-            </Setter.Value>
-        </Setter>
-    </Style>
-
-    <!-- ====================== ComboBox ====================== -->
-    <!-- WPF's stock ComboBox is chrome from another era and another palette: on this background its text
-         is invisible and its popup is a white slab. Templated here rather than patched inline so any
-         later drop-down inherits the same look. -->
-    <Style TargetType="ComboBox">
-        <Setter Property="Foreground" Value="{StaticResource FgBrush}"/>
-        <Setter Property="Background" Value="{StaticResource SurfaceAltBrush}"/>
-        <Setter Property="BorderBrush" Value="{StaticResource BorderBrush2}"/>
-        <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="FontFamily" Value="{StaticResource UiFont}"/>
-        <Setter Property="FontSize" Value="13"/>
-        <Setter Property="Padding" Value="10,7"/>
-        <Setter Property="HorizontalContentAlignment" Value="Left"/>
-        <Setter Property="VerticalContentAlignment" Value="Center"/>
-        <Setter Property="Template">
-            <Setter.Value>
-                <ControlTemplate TargetType="ComboBox">
-                    <Grid>
-                        <ToggleButton x:Name="tb" Focusable="False" ClickMode="Press"
-                                      IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
-                            <ToggleButton.Template>
-                                <ControlTemplate TargetType="ToggleButton">
-                                    <Border x:Name="bd" Background="{TemplateBinding Background}"
-                                            BorderBrush="{TemplateBinding BorderBrush}"
-                                            BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="8">
-                                        <Path x:Name="arrow" HorizontalAlignment="Right" VerticalAlignment="Center"
-                                              Margin="0,0,11,0" Width="9" Height="6" Stretch="Fill"
-                                              Fill="{StaticResource FgMutedBrush}" Data="M0,0 L4.5,6 L9,0 Z"/>
-                                    </Border>
-                                    <ControlTemplate.Triggers>
-                                        <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
-                                        </Trigger>
-                                    </ControlTemplate.Triggers>
-                                </ControlTemplate>
-                            </ToggleButton.Template>
-                            <ToggleButton.Background><StaticResource ResourceKey="SurfaceAltBrush"/></ToggleButton.Background>
-                            <ToggleButton.BorderBrush><StaticResource ResourceKey="BorderBrush2"/></ToggleButton.BorderBrush>
-                            <ToggleButton.BorderThickness>1</ToggleButton.BorderThickness>
-                        </ToggleButton>
-
-                        <ContentPresenter x:Name="cp" IsHitTestVisible="False"
-                                          Margin="{TemplateBinding Padding}"
-                                          HorizontalAlignment="Left" VerticalAlignment="Center"
-                                          Content="{TemplateBinding SelectionBoxItem}"
-                                          ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
-                                          TextElement.Foreground="{TemplateBinding Foreground}"/>
-
-                        <Popup x:Name="PART_Popup" AllowsTransparency="True" Placement="Bottom"
-                               IsOpen="{TemplateBinding IsDropDownOpen}" PopupAnimation="Fade" Focusable="False">
-                            <Border Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource BorderBrush2}"
-                                    BorderThickness="1" CornerRadius="8" Margin="0,4,0,0"
-                                    MinWidth="{TemplateBinding ActualWidth}"
-                                    MaxHeight="{TemplateBinding MaxDropDownHeight}">
-                                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                                    <StackPanel IsItemsHost="True" Margin="4"/>
-                                </ScrollViewer>
-                            </Border>
-                        </Popup>
-                    </Grid>
-                    <ControlTemplate.Triggers>
-                        <Trigger Property="IsEnabled" Value="False">
-                            <Setter TargetName="cp" Property="Opacity" Value="0.45"/>
-                        </Trigger>
-                    </ControlTemplate.Triggers>
-                </ControlTemplate>
-            </Setter.Value>
-        </Setter>
-    </Style>
-
-    <Style TargetType="ComboBoxItem">
-        <Setter Property="Foreground" Value="{StaticResource FgBrush}"/>
-        <Setter Property="FontFamily" Value="{StaticResource UiFont}"/>
-        <Setter Property="FontSize" Value="13"/>
-        <Setter Property="Padding" Value="9,7"/>
-        <Setter Property="Template">
-            <Setter.Value>
-                <ControlTemplate TargetType="ComboBoxItem">
-                    <Border x:Name="bd" Background="Transparent" CornerRadius="6" Padding="{TemplateBinding Padding}">
-                        <ContentPresenter/>
-                    </Border>
-                    <ControlTemplate.Triggers>
-                        <Trigger Property="IsHighlighted" Value="True">
-                            <Setter TargetName="bd" Property="Background" Value="#22FFFFFF"/>
-                        </Trigger>
-                        <Trigger Property="IsSelected" Value="True">
-                            <Setter TargetName="bd" Property="Background" Value="#33A78BFA"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -457,7 +413,7 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ListBoxItem">
-                    <Border x:Name="b" Background="Transparent" CornerRadius="8"
+                    <Border x:Name="b" Background="Transparent" CornerRadius="12"
                             Padding="{TemplateBinding Padding}">
                         <ContentPresenter/>
                     </Border>
@@ -532,7 +488,7 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="TabItem">
-                    <Border x:Name="b" CornerRadius="9" Padding="15,8" Margin="3,0"
+                    <Border x:Name="b" CornerRadius="14" Padding="15,8" Margin="3,0"
                             Background="Transparent" BorderBrush="Transparent" BorderThickness="1">
                         <ContentPresenter ContentSource="Header" VerticalAlignment="Center"
                                           HorizontalAlignment="Center"/>
@@ -581,18 +537,20 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="TabItem">
-                    <Border x:Name="b" CornerRadius="8" Padding="14,7" Margin="0,0,7,0"
-                            Background="Transparent" BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1">
+                    <!-- Borderless, like the chips: an outlined-but-transparent tab was the last thing
+                         left over from the bordered era, and on the softened ground it read as an empty
+                         wire rectangle. The fill carries it, and every state is a change of fill. -->
+                    <Border x:Name="b" CornerRadius="14" Padding="14,8" Margin="0,0,7,0"
+                            Background="#12FFFFFF">
                         <ContentPresenter ContentSource="Header" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter Property="Foreground" Value="{StaticResource FgBrush}"/>
-                            <Setter TargetName="b" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                            <Setter TargetName="b" Property="Background" Value="#26FFFFFF"/>
                         </Trigger>
                         <Trigger Property="IsSelected" Value="True">
                             <Setter TargetName="b" Property="Background" Value="{StaticResource AccentSoftBrush}"/>
-                            <Setter TargetName="b" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
                             <Setter Property="Foreground" Value="{StaticResource AccentBrush}"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
@@ -636,17 +594,19 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="RadioButton">
-                    <Border x:Name="b" CornerRadius="9" Padding="15,9" Margin="0,0,8,0"
-                            Background="Transparent" BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1">
+                    <!-- Borderless like everything else, which forces one real change: the chip can no
+                         longer be Transparent. A transparent chip was VISIBLE only because of its
+                         outline; without a fill of its own an unselected target would disappear. -->
+                    <Border x:Name="b" CornerRadius="14" Padding="15,9" Margin="0,0,8,0"
+                            Background="#12FFFFFF">
                         <ContentPresenter VerticalAlignment="Center" HorizontalAlignment="Center"/>
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="b" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                            <Setter TargetName="b" Property="Background" Value="#26FFFFFF"/>
                         </Trigger>
                         <Trigger Property="IsChecked" Value="True">
                             <Setter TargetName="b" Property="Background" Value="{StaticResource AccentSoftBrush}"/>
-                            <Setter TargetName="b" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
                             <Setter Property="Foreground" Value="{StaticResource AccentBrush}"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
@@ -718,12 +678,15 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
-                    <Border x:Name="b" Background="{TemplateBinding Background}"
-                            CornerRadius="10" Padding="{TemplateBinding Padding}"
-                            RenderTransformOrigin="0.5,0.5">
-                        <Border.RenderTransform><ScaleTransform x:Name="bs" ScaleX="1" ScaleY="1"/></Border.RenderTransform>
-                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    </Border>
+                    <!-- Grid rather than a single Border so the depth overlay can cover the whole
+                         button: as a Border child it would sit inside Padding and leave a bright frame. -->
+                    <Grid x:Name="b" RenderTransformOrigin="0.5,0.5">
+                        <Grid.RenderTransform><ScaleTransform x:Name="bs" ScaleX="1" ScaleY="1"/></Grid.RenderTransform>
+                        <Border Background="{TemplateBinding Background}" CornerRadius="14"/>
+                        <Border Background="{StaticResource ButtonDepth}" CornerRadius="14" IsHitTestVisible="False"/>
+                        <ContentPresenter Margin="{TemplateBinding Padding}"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="b" Property="Opacity" Value="0.92"/>
@@ -772,7 +735,7 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ToggleButton">
-                    <Border x:Name="Chip" CornerRadius="6" Padding="7,2" SnapsToDevicePixels="True"
+                    <Border x:Name="Chip" CornerRadius="8" Padding="7,2" SnapsToDevicePixels="True"
                             Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1">
                         <ContentPresenter VerticalAlignment="Center"

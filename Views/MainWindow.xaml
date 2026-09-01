@@ -23,7 +23,7 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="RadioButton">
-                        <Border x:Name="b" CornerRadius="6" Background="Transparent"
+                        <Border x:Name="b" CornerRadius="8" Background="Transparent"
                                 Padding="{TemplateBinding Padding}">
                             <ContentPresenter VerticalAlignment="Center" HorizontalAlignment="Center"/>
                         </Border>
@@ -48,13 +48,13 @@
     </shell:WindowChrome.WindowChrome>
 
     <Border x:Name="RootBorder" BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1">
-        <Border.Background>
-            <RadialGradientBrush GradientOrigin="0.5,-0.1" Center="0.5,-0.1" RadiusX="0.9" RadiusY="0.8">
-                <GradientStop Color="#FF0F1218" Offset="0"/>
-                <GradientStop Color="#FF080A0E" Offset="0.6"/>
-                <GradientStop Color="#FF060709" Offset="1"/>
-            </RadialGradientBrush>
-        </Border.Background>
+        <!-- The window ground. It used to be a radial gradient hard-coded to the OLD near-black
+             palette (#0F1218 → #060709), which quietly won over C.Bg: BgBrush is set on the Window,
+             and this Border covers the Window completely. Measured on a render — the bottom of the
+             screen was #060709 while the palette said #12151C, and the whole app read as much darker
+             and harder than it was designed to be. Flat now, from the palette; the light comes from
+             the blooms below, exactly as in the mock this was chosen from. -->
+        <Border.Background><StaticResource ResourceKey="BgBrush"/></Border.Background>
         <!-- ContentRoot carries the app-wide UI-scale ScaleTransform (see MainWindow.ApplyUiScale) -->
         <Grid x:Name="ContentRoot">
             <Grid.RowDefinitions>
@@ -64,12 +64,19 @@
 
             <!-- ============ Decorative background blooms (violet · concept C) ============ -->
             <Grid Grid.RowSpan="2" IsHitTestVisible="False" ClipToBounds="True">
-                <Ellipse Width="1000" Height="680" HorizontalAlignment="Center" VerticalAlignment="Top"
-                         Margin="0,-200,0,0">
+                <!-- Wider and fainter than it used to be: at 1000px with 18% alpha the falloff was
+                     inside the window, so it read as a blotch parked over the top of the page instead
+                     of as light in the room. -->
+                <Ellipse Width="1280" Height="780" HorizontalAlignment="Center" VerticalAlignment="Top"
+                         Margin="0,-240,0,0">
                     <Ellipse.Fill>
                         <RadialGradientBrush>
-                            <GradientStop Color="#2EA78BFA" Offset="0"/>
-                            <GradientStop Color="#00080A0E" Offset="1"/>
+                            <GradientStop Color="#24A78BFA" Offset="0"/>
+                            <!-- Fades to the SAME hue at zero alpha, not to a transparent near-black.
+                                 WPF interpolates gradient stops in straight ARGB, so a lavender→dark
+                                 pair drags every midpoint toward grey-brown and the bloom ends up
+                                 muddy instead of simply fading out. -->
+                            <GradientStop Color="#00A78BFA" Offset="1"/>
                         </RadialGradientBrush>
                     </Ellipse.Fill>
                 </Ellipse>
@@ -78,7 +85,7 @@
                     <Ellipse.Fill>
                         <RadialGradientBrush>
                             <GradientStop Color="#186AA0FF" Offset="0"/>
-                            <GradientStop Color="#00080A0E" Offset="1"/>
+                            <GradientStop Color="#006AA0FF" Offset="1"/>
                         </RadialGradientBrush>
                     </Ellipse.Fill>
                 </Ellipse>
@@ -91,7 +98,7 @@
                            RenderOptions.BitmapScalingMode="HighQuality"/>
                     <TextBlock Text="Zapret2UI" FontFamily="{StaticResource DisplayFont}" FontWeight="Bold" FontSize="14"
                                VerticalAlignment="Center"/>
-                    <Border CornerRadius="6" BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1"
+                    <Border CornerRadius="8" BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1"
                             Padding="7,2" Margin="10,0,0,0" VerticalAlignment="Center">
                         <TextBlock Text="DPI bypass" FontSize="11" Foreground="{StaticResource FgMutedBrush}"/>
                     </Border>
@@ -105,7 +112,7 @@
                         <Button.Template>
                             <ControlTemplate TargetType="Button">
                                 <Border Background="#26F5A623" BorderBrush="{StaticResource WarnBrush}" BorderThickness="1"
-                                        CornerRadius="6" Padding="8,2">
+                                        CornerRadius="8" Padding="8,2">
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="&#x2B07;" FontSize="11" Foreground="{StaticResource WarnBrush}"
                                                    VerticalAlignment="Center" Margin="0,0,6,0"/>
@@ -126,7 +133,7 @@
                         <Button.Template>
                             <ControlTemplate TargetType="Button">
                                 <Border Background="#1A34D399" BorderBrush="{StaticResource SuccessBrush}" BorderThickness="1"
-                                        CornerRadius="6" Padding="8,2">
+                                        CornerRadius="8" Padding="8,2">
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="&#x21BB;" FontSize="12" Foreground="{StaticResource SuccessBrush}"
                                                    VerticalAlignment="Center" Margin="0,0,6,0"/>
@@ -139,7 +146,7 @@
                     </Button>
                 </StackPanel>
 
-                <Border HorizontalAlignment="Center" VerticalAlignment="Center" CornerRadius="8"
+                <Border HorizontalAlignment="Center" VerticalAlignment="Center" CornerRadius="12"
                         Background="{StaticResource BgBrush}" BorderBrush="{StaticResource BorderBrush2}"
                         BorderThickness="1" Padding="3"
                         shell:WindowChrome.IsHitTestVisibleInChrome="True">
@@ -179,9 +186,8 @@
                         <!-- top-right: language switch + gear → Настройки -->
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top"
                                     Margin="0,22,26,0">
-                            <Border VerticalAlignment="Center" Margin="0,0,10,0" CornerRadius="8"
-                                    Background="{StaticResource BgBrush}" BorderBrush="{StaticResource BorderBrush2}"
-                                    BorderThickness="1" Padding="3">
+                            <Border VerticalAlignment="Center" Margin="0,0,10,0" CornerRadius="12"
+                                    Background="#12FFFFFF" Padding="3">
                                 <StackPanel Orientation="Horizontal">
                                     <RadioButton Style="{StaticResource ModeSegment}" Content="RU" GroupName="langHome"
                                                  IsChecked="{Binding LanguageIsRussian, Mode=OneWay}"
@@ -199,7 +205,7 @@
 
                         <!-- top banner (apply-strategy) -->
                         <StackPanel VerticalAlignment="Top" HorizontalAlignment="Center" MaxWidth="540" Margin="24,20,24,0">
-                            <Border CornerRadius="10" Padding="12,10" Margin="0,0,0,10"
+                            <Border CornerRadius="14" Padding="12,10" Margin="0,0,0,10"
                                     Background="#1A34D399" BorderBrush="{StaticResource SuccessBrush}" BorderThickness="1"
                                     Visibility="{Binding IsStrategyChangePending, Converter={StaticResource BoolToVis}}">
                                 <Grid>
@@ -218,6 +224,9 @@
                         </StackPanel>
 
                         <!-- centered status hero + one big action button -->
+                        <!-- Centred on the WINDOW, not on the space the rail leaves. Tried the latter and
+                             it was rejected on sight: the hero is the axis of the whole app, and an axis
+                             that moves because a sidebar exists reads as a mistake. -->
                         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="440" Margin="24"
                                     Opacity="0" RenderTransformOrigin="0.5,0.5">
                             <StackPanel.RenderTransform><TranslateTransform x:Name="homeSlide" Y="12"/></StackPanel.RenderTransform>
@@ -235,8 +244,12 @@
                                 </EventTrigger>
                             </StackPanel.Triggers>
 
-                            <!-- status dot + word -->
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,18">
+                            <!-- status dot + word, set in a pill. Loose on the background the two of them
+                                 read as a caption that lost its picture; enclosed, they read as a badge,
+                                 which is what gives the button below something to answer. -->
+                            <Border HorizontalAlignment="Center" Margin="0,0,0,18" CornerRadius="14"
+                                    Padding="14,7" Background="#12FFFFFF">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                                 <Ellipse Width="9" Height="9" VerticalAlignment="Center" Margin="0,0,10,0"
                                          Fill="{Binding State, Converter={StaticResource StateToBrush}}">
                                     <Ellipse.Style>
@@ -274,6 +287,7 @@
                                     </TextBlock.Style>
                                 </TextBlock>
                             </StackPanel>
+                            </Border>
 
                             <!-- one big action button (routes by mode). The compact dot+label above is the
                                  sole status now (no redundant 30pt headline) — the button itself names the action. -->
@@ -283,9 +297,23 @@
                                     <Style TargetType="Button" BasedOn="{StaticResource StartStopButton}">
                                         <Setter Property="Background" Value="{StaticResource AccentBrush}"/>
                                         <Setter Property="FontSize" Value="16"/>
+                                        <!-- The one element on the page that is allowed to glow. It carries
+                                             its own colour, so the halo has to be restated per state rather
+                                             than inherited — a lavender bloom under a red STOP button would
+                                             be worse than no bloom at all. -->
+                                        <Setter Property="Effect">
+                                            <Setter.Value>
+                                                <DropShadowEffect Color="#A78BFA" BlurRadius="42" ShadowDepth="0" Opacity="0.38"/>
+                                            </Setter.Value>
+                                        </Setter>
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding IsRunning}" Value="True">
                                                 <Setter Property="Background" Value="{StaticResource DangerBrush}"/>
+                                                <Setter Property="Effect">
+                                                    <Setter.Value>
+                                                        <DropShadowEffect Color="#E2566A" BlurRadius="42" ShadowDepth="0" Opacity="0.38"/>
+                                                    </Setter.Value>
+                                                </Setter>
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
@@ -364,7 +392,7 @@
                              a tight, compact layout fits the default window size. tg-ws-proxy is independent
                              of the winws2 engine, so the card stays visible in Simple and Advanced alike. -->
                         <DockPanel HorizontalAlignment="Left" Width="248" Margin="24,20,0,22" LastChildFill="False">
-                            <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Padding="16">
+                            <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Padding="18">
                                 <StackPanel>
                                     <!-- Header row: icon + title + the on/off toggle (moved here from the Home
                                          hero so it sits with Открыть/Копировать). Shown in both modes. -->
@@ -381,12 +409,12 @@
                                                   IsChecked="{Binding IsTelegramProxyEnabled, Mode=TwoWay}"
                                                   ToolTip="{loc:Loc 'Включить встроенный прокси для Telegram'}"/>
                                     </Grid>
-                                    <Border Background="#1FFFFFFF" CornerRadius="8" Padding="10,7" Margin="0,10,0,0">
+                                    <Border Background="#1FFFFFFF" CornerRadius="12" Padding="10,7" Margin="0,10,0,0">
                                         <StackPanel>
                                             <TextBlock Text="{loc:Loc 'Адрес (MTProto-прокси)'}" Style="{StaticResource Muted}" FontSize="10.5"/>
                                             <TextBlock Text="{Binding TelegramProxyEndpoint}" FontSize="12.5" FontWeight="SemiBold" Margin="0,1,0,0"/>
                                             <TextBlock Text="{loc:Loc 'Секрет'}" Style="{StaticResource Muted}" FontSize="10.5" Margin="0,5,0,0"/>
-                                            <TextBlock Text="{Binding TelegramProxySecret}" FontSize="10.5" TextWrapping="Wrap" Margin="0,1,0,0"/>
+                                            <TextBlock Text="{Binding TelegramProxySecret}" FontSize="10" TextWrapping="Wrap" Margin="0,1,0,0"/>
                                         </StackPanel>
                                     </Border>
                                     <!-- open + copy on one row -->
@@ -409,7 +437,7 @@
                                  an extra way through. It is the other half of what the program does: the
                                  engine defeats blocking BY destination, the tunnel changes WHERE you look
                                  like you are, which is what a region lock keys on. -->
-                            <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Padding="16" Margin="0,12,0,0">
+                            <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Padding="18" Margin="0,16,0,0">
                                 <StackPanel>
                                     <Grid>
                                         <Grid.ColumnDefinitions>
@@ -434,7 +462,7 @@
                             </Border>
 
                             <!-- Instruction entry (both modes), right under the Telegram card -->
-                            <Button DockPanel.Dock="Top" Style="{StaticResource GhostButton}" Margin="0,12,0,0"
+                            <Button DockPanel.Dock="Top" Style="{StaticResource GhostButton}" Margin="0,16,0,0"
                                     HorizontalContentAlignment="Center"
                                     Command="{Binding OpenLinkCommand}"
                                     CommandParameter="{loc:Loc 'https://github.com/Asterlike/zapret2UI/blob/main/README.md#-быстрый-старт-для-новичка'}"
@@ -493,7 +521,7 @@
                                                                 Background="{StaticResource AccentBrush}" VerticalAlignment="Center"/>
                                                         <emoji:TextBlock Text="{Binding Name}" FontSize="11" FontWeight="Bold"
                                                                    Foreground="{StaticResource FgMutedBrush}" VerticalAlignment="Center"/>
-                                                        <Border CornerRadius="6" Background="{StaticResource AccentSoftBrush}"
+                                                        <Border CornerRadius="8" Background="{StaticResource AccentSoftBrush}"
                                                                 Padding="6,1" Margin="8,0,0,0" VerticalAlignment="Center">
                                                             <TextBlock Text="{Binding ItemCount}" FontSize="10" FontWeight="Bold"
                                                                        FontFamily="{StaticResource MonoFont}"
@@ -522,7 +550,7 @@
                                                 <emoji:TextBlock Grid.Column="1" Text="{Binding PrimaryLabel}" FontWeight="SemiBold"
                                                            TextTrimming="CharacterEllipsis" Margin="0,0,64,0"/>
                                                 <!-- "ВКЛЮЧЁН" badge — visible only on the actually-running preset -->
-                                                <Border Grid.ColumnSpan="2" CornerRadius="5" Padding="6,1" HorizontalAlignment="Right"
+                                                <Border Grid.ColumnSpan="2" CornerRadius="7" Padding="6,1" HorizontalAlignment="Right"
                                                         Background="#2634D399" VerticalAlignment="Center">
                                                     <Border.Visibility>
                                                         <MultiBinding Converter="{StaticResource RefEqualsToVis}">
@@ -563,7 +591,7 @@
                                 <!-- Row 1: friendly tagline + «рекомендуемая» badge — fills what used to be dead
                                      space under the technical name. -->
                                 <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,7,0,0">
-                                    <Border CornerRadius="6" Background="{StaticResource AccentSoftBrush}" Padding="8,2" Margin="0,0,8,0"
+                                    <Border CornerRadius="8" Background="{StaticResource AccentSoftBrush}" Padding="8,2" Margin="0,0,8,0"
                                             VerticalAlignment="Center"
                                             Visibility="{Binding SelectedPreset.IsRecommended, Converter={StaticResource BoolToVis}}">
                                         <emoji:TextBlock Text="{loc:Loc '★ Рекомендуемая'}" FontSize="11" FontWeight="Bold"
@@ -587,7 +615,7 @@
                                         <StackPanel>
                                             <TextBlock Text="{Binding SelectedPreset.DescriptionDisplay}" TextWrapping="Wrap"
                                                        FontSize="13.5" LineHeight="20" Foreground="{StaticResource FgBrush}"/>
-                                            <Border CornerRadius="10" Padding="14,12" Margin="0,16,0,0"
+                                            <Border CornerRadius="14" Padding="14,12" Margin="0,16,0,0"
                                                     Background="{StaticResource BgBrush}" BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1">
                                                 <StackPanel>
                                                     <TextBlock Text="{loc:Loc 'Не заработало?'}" FontWeight="SemiBold"/>
@@ -611,7 +639,7 @@
                                     </ScrollViewer>
                                     <!-- Opt-in: in-app args editor, styled as a terminal -->
                                     <Border Visibility="{Binding ShowPresetArgs, Converter={StaticResource BoolToVis}}"
-                                            Background="{StaticResource BgBrush}" CornerRadius="12"
+                                            Background="{StaticResource BgBrush}" CornerRadius="16"
                                             BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1" ClipToBounds="True">
                                         <Grid>
                                             <Grid.RowDefinitions>
@@ -650,7 +678,7 @@
                                 <StackPanel Grid.Row="3" Margin="0,14,0,0">
                                     <!-- Apply-strategy banner: a strategy change needs an engine restart,
                                          so the user confirms it explicitly here. -->
-                                    <Border CornerRadius="8" Padding="12,10" Margin="0,0,0,12"
+                                    <Border CornerRadius="12" Padding="12,10" Margin="0,0,0,12"
                                             Background="#1A34D399" BorderBrush="{StaticResource SuccessBrush}" BorderThickness="1"
                                             Visibility="{Binding IsStrategyChangePending, Converter={StaticResource BoolToVis}}">
                                         <Grid>
@@ -740,7 +768,7 @@
                                     <ListBox.ItemTemplate>
                                         <DataTemplate>
                                             <StackPanel Orientation="Horizontal">
-                                                <Border Width="28" Height="28" CornerRadius="8" VerticalAlignment="Center"
+                                                <Border Width="28" Height="28" CornerRadius="12" VerticalAlignment="Center"
                                                         Background="{StaticResource AccentSoftBrush}"
                                                         BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1">
                                                     <emoji:TextBlock Text="📄" FontSize="13"
@@ -834,7 +862,7 @@
                                 <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
                                     <TextBlock Text="{loc:Loc 'ЦЕЛЬ ПОДБОРА'}" Style="{StaticResource Muted}" FontSize="11"
                                                VerticalAlignment="Center" Margin="0,0,12,0"/>
-                                    <Border CornerRadius="8" Background="{StaticResource BgBrush}"
+                                    <Border CornerRadius="12" Background="{StaticResource BgBrush}"
                                             BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1" Padding="3">
                                         <StackPanel Orientation="Horizontal">
                                             <RadioButton Style="{StaticResource ModeSegment}" IsChecked="{Binding ScopeBoth, Mode=TwoWay}">
@@ -895,7 +923,7 @@
                                 <emoji:TextBlock Text="{Binding AutoStatusText}" Style="{StaticResource Muted}"
                                            Margin="0,12,0,0" TextWrapping="Wrap"/>
 
-                                <Border Background="#22F59E0B" CornerRadius="6" Padding="10,7" Margin="0,12,0,0">
+                                <Border Background="#22F59E0B" CornerRadius="8" Padding="10,7" Margin="0,12,0,0">
                                     <TextBlock Text="{Binding DiagEngineNote}" TextWrapping="Wrap"
                                                FontSize="11.5" Foreground="#FFFBBF24"/>
                                 </Border>
@@ -908,7 +936,7 @@
                                 </Grid>
 
                                 <!-- DPI-signature verdict (обрыв/RST · заморозка · чисто · нет соединения) -->
-                                <Border CornerRadius="8" Background="{StaticResource BgBrush}"
+                                <Border CornerRadius="12" Background="{StaticResource BgBrush}"
                                         BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1"
                                         Padding="12,10" Margin="0,12,0,0">
                                     <StackPanel>
@@ -933,7 +961,7 @@
                                     <ItemsControl ItemsSource="{Binding CustomTargets}" Margin="0,12,0,0">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
-                                                <Border CornerRadius="9" Background="{StaticResource BgBrush}"
+                                                <Border CornerRadius="12" Background="{StaticResource BgBrush}"
                                                         BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1"
                                                         Padding="12,9" Margin="0,0,0,6">
                                                     <Grid>
@@ -1019,7 +1047,7 @@
                                     </ItemsControl.GroupStyle>
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <Border Padding="14,7" Margin="0,1" CornerRadius="6" Background="{StaticResource BgBrush}"
+                                            <Border Padding="14,7" Margin="0,1" CornerRadius="8" Background="{StaticResource BgBrush}"
                                                     Opacity="0">
                                                 <Border.Triggers>
                                                     <EventTrigger RoutedEvent="FrameworkElement.Loaded">
@@ -1104,7 +1132,7 @@
                                         <Button Content="{loc:Loc 'Очистить'}" Command="{Binding ClearLogCommand}"
                                                 Style="{StaticResource GhostButton}"/>
                                     </StackPanel>
-                                    <Border Grid.Row="1" Background="{StaticResource BgBrush}" CornerRadius="13" Padding="8"
+                                    <Border Grid.Row="1" Background="{StaticResource BgBrush}" CornerRadius="16" Padding="8"
                                             BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1">
                                         <ListBox x:Name="LogList" ItemsSource="{Binding LogLines}"
                                                  Style="{StaticResource LogListBox}"/>
@@ -1124,7 +1152,7 @@
                                         <Button Content="{loc:Loc 'Очистить'}" Command="{Binding ClearProxyLogCommand}"
                                                 Style="{StaticResource GhostButton}"/>
                                     </StackPanel>
-                                    <Border Grid.Row="1" Background="{StaticResource BgBrush}" CornerRadius="13" Padding="8"
+                                    <Border Grid.Row="1" Background="{StaticResource BgBrush}" CornerRadius="16" Padding="8"
                                             BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1">
                                         <ListBox x:Name="ProxyLogList" ItemsSource="{Binding ProxyLogLines}"
                                                  Style="{StaticResource LogListBox}"/>
@@ -1181,7 +1209,7 @@
                                                     ToolTip="{loc:Loc 'Проверить, доходит ли прокси до Telegram (DoH, системный DNS, фронт-домены). Без прав администратора.'}"/>
                                             <TextBlock Style="{StaticResource Muted}" FontSize="11.5" TextWrapping="Wrap" Margin="0,10,0,0"
                                                        Text="{Binding TelegramProxyStatus}"/>
-                                            <Border Background="#1FFFFFFF" CornerRadius="8" Padding="12,9" Margin="0,12,0,0">
+                                            <Border Background="#1FFFFFFF" CornerRadius="12" Padding="12,9" Margin="0,12,0,0">
                                                 <StackPanel>
                                                     <TextBlock Text="{loc:Loc 'Адрес (MTProto-прокси)'}" Style="{StaticResource Muted}" FontSize="11"/>
                                                     <TextBlock Text="{Binding TelegramProxyEndpoint}" FontSize="14" FontWeight="SemiBold" Margin="0,2,0,0"/>
@@ -1336,11 +1364,11 @@
                                             <!-- The one side effect of this switch that reaches outside the tab, so it
                                                  is said here rather than left to be discovered. -->
                                             <Border Background="#26F5A623" BorderBrush="{StaticResource WarnBrush}" BorderThickness="1"
-                                                    CornerRadius="8" Padding="12,9" Margin="0,12,0,0">
+                                                    CornerRadius="12" Padding="12,9" Margin="0,12,0,0">
                                                 <TextBlock Style="{StaticResource Muted}" FontSize="11.5" TextWrapping="Wrap"
                                                            Text="{loc:Loc 'Пока прокси включён, обход работает для всех сайтов, а не только для списков — иначе подключение к Cloudflare не встаёт. Программа или игра, которой нет в исключениях, может из-за этого сбоить. Когда прокси выключен, область обхода возвращается к вашей настройке.'}"/>
                                             </Border>
-                                            <Border Background="#1FFFFFFF" CornerRadius="8" Padding="12,9" Margin="0,12,0,0">
+                                            <Border Background="#1FFFFFFF" CornerRadius="12" Padding="12,9" Margin="0,12,0,0">
                                                 <StackPanel>
                                                     <DockPanel>
                                                         <Button DockPanel.Dock="Right" Content="{loc:Loc 'Копировать'}"
@@ -1464,7 +1492,7 @@
                                                        Text="{loc:Loc 'Страну он не меняет. Бесплатный WARP выводит через ближайший узел, и из России адрес будет российским. Меняется репутация адреса, а не страна: «недоступно в вашем регионе» так не обойти.'}"/>
                                         </Grid>
 
-                                        <Border Background="#1FFFFFFF" CornerRadius="8" Padding="12,9" Margin="0,14,0,0">
+                                        <Border Background="#1FFFFFFF" CornerRadius="12" Padding="12,9" Margin="0,14,0,0">
                                             <TextBlock Style="{StaticResource Muted}" FontSize="11.5" TextWrapping="Wrap"
                                                        Text="{loc:Loc 'Через прокси идёт только то, что вы в него направили: браузер, мессенджер. Остальное пойдёт напрямую — или включите в «Параметрах» пункт «Направлять весь трафик системы». И держите обход запущенным: до Cloudflare тоже надо ещё дойти, с обходом подключение встаёт с первой попытки, без него — через раз.'}"/>
                                         </Border>
@@ -1477,259 +1505,345 @@
 
                 <!-- Настройки -->
                 <TabItem Header="{loc:Loc 'Настройки'}">
-                    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="24">
-                        <StackPanel>
-                            <DockPanel Margin="2,0,0,16">
-                                <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" VerticalAlignment="Center"
-                                        Command="{Binding OpenLinkCommand}"
-                                        CommandParameter="{loc:Loc 'https://github.com/Asterlike/zapret2UI/blob/main/manual_zapret2UI.md#15-настройки--полный-список'}"
-                                        ToolTip="{loc:Loc 'Открыть раздел «Настройки — полный список» в инструкции'}">
-                                    <emoji:TextBlock Text="{loc:Loc '📖  Инструкция'}"/>
-                                </Button>
-                                <TextBlock Text="{loc:Loc Настройки}" Style="{StaticResource H1}" VerticalAlignment="Center"/>
-                            </DockPanel>
+                    <!-- Seventeen cards in one scroll had no structure at all: the language of the
+                         interface sat in the same stream as the factory reset. Four sub-tabs, and no group
+                         scrolls — the largest is five cards, which is two rows. SubTabs/SubTabItem already
+                         existed for the Журнал tab, so this adds a grouping, not a new mechanism. -->
+                    <Grid Margin="24,24,24,18">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <DockPanel Grid.Row="0" Margin="2,0,0,16">
+                            <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" VerticalAlignment="Center"
+                                    Command="{Binding OpenLinkCommand}"
+                                    CommandParameter="{loc:Loc 'https://github.com/Asterlike/zapret2UI/blob/main/manual_zapret2UI.md#15-настройки--полный-список'}"
+                                    ToolTip="{loc:Loc 'Открыть раздел «Настройки — полный список» в инструкции'}">
+                                <emoji:TextBlock Text="{loc:Loc '📖  Инструкция'}"/>
+                            </Button>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="{loc:Loc Настройки}" Style="{StaticResource H1}"/>
+                                <TextBlock Style="{StaticResource Muted}" Margin="0,2,0,0"
+                                           Text="{loc:Loc 'Всё, что можно поменять. Разложено по четырём разделам.'}"/>
+                            </StackPanel>
+                        </DockPanel>
 
-                            <!-- Language: full-width, first, because it governs everything below it. -->
-                            <Border Style="{StaticResource Card}" Margin="0,0,0,16">
-                                <DockPanel>
-                                    <Border DockPanel.Dock="Right" VerticalAlignment="Center" CornerRadius="8"
-                                            Background="{StaticResource BgBrush}" BorderBrush="{StaticResource BorderBrush2}"
-                                            BorderThickness="1" Padding="3">
-                                        <StackPanel Orientation="Horizontal">
-                                            <RadioButton Style="{StaticResource ModeSegment}" Content="RU" GroupName="langSettings"
-                                                         IsChecked="{Binding LanguageIsRussian, Mode=OneWay}"
-                                                         Command="{Binding SetLanguageCommand}" CommandParameter="ru"/>
-                                            <RadioButton Style="{StaticResource ModeSegment}" Content="EN" GroupName="langSettings"
-                                                         IsChecked="{Binding LanguageIsEnglish, Mode=OneWay}"
-                                                         Command="{Binding SetLanguageCommand}" CommandParameter="en"/>
+                        <TabControl Grid.Row="1" Style="{StaticResource SubTabs}">
+                            <TabItem Style="{StaticResource SubTabItem}">
+                                <TabItem.Header>
+                                    <StackPanel Orientation="Horizontal">
+                                        <!-- Foreground is bound to the tab, not inherited: the implicit
+                                             TextBlock style sets it explicitly, and a local setter beats an
+                                             inherited value — the label would stay bright in every state. -->
+                                        <TextBlock Text="{loc:Loc 'Вид'}"
+                                                   Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
+                                        <TextBlock Text="4" Margin="7,0,0,0" FontFamily="{StaticResource MonoFont}"
+                                                   FontSize="10.5" Opacity="0.5"
+                                                   Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
+                                    </StackPanel>
+                                </TabItem.Header>
+                                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,0,6,0">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                            <Border Style="{StaticResource Card}">
+                                                <DockPanel>
+                                                    <Border DockPanel.Dock="Right" VerticalAlignment="Center" CornerRadius="12"
+                                                            Background="#12FFFFFF" Padding="3">
+                                                        <StackPanel Orientation="Horizontal">
+                                                            <RadioButton Style="{StaticResource ModeSegment}" Content="RU" GroupName="langSettings"
+                                                                         IsChecked="{Binding LanguageIsRussian, Mode=OneWay}"
+                                                                         Command="{Binding SetLanguageCommand}" CommandParameter="ru"/>
+                                                            <RadioButton Style="{StaticResource ModeSegment}" Content="EN" GroupName="langSettings"
+                                                                         IsChecked="{Binding LanguageIsEnglish, Mode=OneWay}"
+                                                                         Command="{Binding SetLanguageCommand}" CommandParameter="en"/>
+                                                        </StackPanel>
+                                                    </Border>
+                                                    <StackPanel VerticalAlignment="Center">
+                                                        <TextBlock Text="{loc:Loc 'Язык / Language'}" Style="{StaticResource H2}"/>
+                                                        <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4,12,0"
+                                                                   Text="{loc:Loc 'Язык интерфейса. Переключение перезапускает приложение.'}"/>
+                                                    </StackPanel>
+                                                </DockPanel>
+                                            </Border>
+                                            <Border Style="{StaticResource Card}" Margin="0,14,0,0">
+                                                <StackPanel>
+                                                    <TextBlock Text="{loc:Loc 'Уведомления'}" Style="{StaticResource H2}" Margin="0,0,0,8"/>
+                                                    <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,10"
+                                                               Text="{loc:Loc 'Небольшие подсказки в углу экрана (запуск, остановка, авто-починка) — видны, даже когда приложение свёрнуто в трей.'}"/>
+                                                    <CheckBox Content="{loc:Loc 'Показывать уведомления'}"
+                                                              IsChecked="{Binding NotificationsEnabled}" Style="{StaticResource ToggleSwitch}"
+                                                              Margin="0,6"/>
+                                                    <CheckBox Content="{loc:Loc 'Звук уведомлений'}"
+                                                              IsChecked="{Binding NotificationSound}" Style="{StaticResource ToggleSwitch}"
+                                                              Margin="0,6"/>
+                                                </StackPanel>
+                                            </Border>
                                         </StackPanel>
-                                    </Border>
-                                    <StackPanel VerticalAlignment="Center">
-                                        <TextBlock Text="{loc:Loc 'Язык / Language'}" Style="{StaticResource H2}"/>
-                                        <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4,12,0"
-                                                   Text="{loc:Loc 'Язык интерфейса. Переключение перезапускает приложение.'}"/>
-                                    </StackPanel>
-                                </DockPanel>
-                            </Border>
-
-                            <!-- Two columns so the settings fill the width instead of a half-empty left strip. -->
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0" Margin="0,0,8,0">
-
-                            <Border Style="{StaticResource Card}" Margin="0,0,0,16">
-                                <StackPanel>
-                                    <TextBlock Text="{loc:Loc 'Масштаб интерфейса'}" Style="{StaticResource H2}" Margin="0,0,0,8"/>
-                                    <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,12"
-                                               Text="{loc:Loc 'Увеличивает весь интерфейс поверх масштаба Windows — на 4K и мониторах с высоким разрешением, где всё выглядит мелко. Работает независимо от системного DPI, применяется сразу.'}"/>
+                                        <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                                            <Border Style="{StaticResource Card}">
+                                                <StackPanel>
+                                                    <TextBlock Text="{loc:Loc 'Масштаб интерфейса'}" Style="{StaticResource H2}" Margin="0,0,0,8"/>
+                                                    <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,12"
+                                                               Text="{loc:Loc 'Увеличивает весь интерфейс поверх масштаба Windows — на 4K и мониторах с высоким разрешением, где всё выглядит мелко. Работает независимо от системного DPI, применяется сразу.'}"/>
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <RadioButton Style="{StaticResource ChipButton}" Content="100%" IsChecked="{Binding Scale100, Mode=TwoWay}"/>
+                                                        <RadioButton Style="{StaticResource ChipButton}" Content="125%" IsChecked="{Binding Scale125, Mode=TwoWay}"/>
+                                                        <RadioButton Style="{StaticResource ChipButton}" Content="150%" IsChecked="{Binding Scale150, Mode=TwoWay}"/>
+                                                        <RadioButton Style="{StaticResource ChipButton}" Content="175%" IsChecked="{Binding Scale175, Mode=TwoWay}"/>
+                                                        <RadioButton Style="{StaticResource ChipButton}" Content="200%" IsChecked="{Binding Scale200, Mode=TwoWay}"/>
+                                                    </StackPanel>
+                                                </StackPanel>
+                                            </Border>
+                                            <Border Style="{StaticResource Card}" Margin="0,14,0,0">
+                                                <StackPanel>
+                                                    <TextBlock Text="{loc:Loc 'Вводная для новичка'}" Style="{StaticResource H2}" Margin="0,0,0,8"/>
+                                                    <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,10"
+                                                               Text="{loc:Loc 'Разбор по шагам: что нажать, чего ждать и что делать, если не заработало. Показывается один раз при первом запуске — отсюда её можно открыть снова в любой момент.'}"/>
+                                                    <Button Content="{loc:Loc 'Показать вводную'}" Command="{Binding OpenWelcomeCommand}"
+                                                            Style="{StaticResource GhostButton}" HorizontalAlignment="Left"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </StackPanel>
+                                    </Grid>
+                                </ScrollViewer>
+                            </TabItem>
+                            <TabItem Style="{StaticResource SubTabItem}">
+                                <TabItem.Header>
                                     <StackPanel Orientation="Horizontal">
-                                        <RadioButton Style="{StaticResource ChipButton}" Content="100%" IsChecked="{Binding Scale100, Mode=TwoWay}"/>
-                                        <RadioButton Style="{StaticResource ChipButton}" Content="125%" IsChecked="{Binding Scale125, Mode=TwoWay}"/>
-                                        <RadioButton Style="{StaticResource ChipButton}" Content="150%" IsChecked="{Binding Scale150, Mode=TwoWay}"/>
-                                        <RadioButton Style="{StaticResource ChipButton}" Content="175%" IsChecked="{Binding Scale175, Mode=TwoWay}"/>
-                                        <RadioButton Style="{StaticResource ChipButton}" Content="200%" IsChecked="{Binding Scale200, Mode=TwoWay}"/>
+                                        <!-- Foreground is bound to the tab, not inherited: the implicit
+                                             TextBlock style sets it explicitly, and a local setter beats an
+                                             inherited value — the label would stay bright in every state. -->
+                                        <TextBlock Text="{loc:Loc 'Обход'}"
+                                                   Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
+                                        <TextBlock Text="4" Margin="7,0,0,0" FontFamily="{StaticResource MonoFont}"
+                                                   FontSize="10.5" Opacity="0.5"
+                                                   Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
                                     </StackPanel>
-                                </StackPanel>
-                            </Border>
-
-                            <Border Style="{StaticResource Card}" Margin="0,0,0,16">
-                                <StackPanel>
-                                    <TextBlock Text="{loc:Loc 'Движок'}" Style="{StaticResource H2}" Margin="0,0,0,12"/>
-                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
-                                        <TextBlock Text="{loc:Loc 'Установленная версия:'}" Style="{StaticResource Muted}" VerticalAlignment="Center"/>
-                                        <TextBlock Text="{Binding EngineVersion}" Margin="8,0,0,0" VerticalAlignment="Center"
-                                                   FontWeight="SemiBold"/>
-                                        <Button Content="{loc:Loc 'Проверить обновления'}" Command="{Binding CheckUpdateCommand}"
-                                                Style="{StaticResource GhostButton}" Margin="16,0,0,0"/>
-                                    </StackPanel>
-                                    <CheckBox Content="{loc:Loc 'Автоматически обновлять движок при запуске'}"
-                                              IsChecked="{Binding AutoUpdateEngine}" Style="{StaticResource ToggleSwitch}"
-                                              Margin="0,4"/>
-                                </StackPanel>
-                            </Border>
-
-                            <Border Style="{StaticResource Card}">
-                                <StackPanel>
-                                    <TextBlock Text="{loc:Loc 'Запуск'}" Style="{StaticResource H2}" Margin="0,0,0,12"/>
-                                    <CheckBox Content="{loc:Loc 'Запускать Zapret2UI при входе в Windows'}"
-                                              IsChecked="{Binding AutostartEnabled}" Style="{StaticResource ToggleSwitch}"
-                                              Margin="0,6"/>
-                                    <CheckBox Content="{loc:Loc 'Сразу запускать обход при старте приложения'}"
-                                              IsChecked="{Binding AutostartEngine}" Style="{StaticResource ToggleSwitch}"
-                                              Margin="0,6"/>
-                                    <CheckBox Content="{loc:Loc 'Сворачивать в трей вместо закрытия'}"
-                                              IsChecked="{Binding MinimizeToTray}" Style="{StaticResource ToggleSwitch}"
-                                              Margin="0,6"/>
-                                </StackPanel>
-                            </Border>
-
-                            <Border Style="{StaticResource Card}" Margin="0,16,0,0">
-                                <StackPanel>
-                                    <TextBlock Text="{loc:Loc 'Уведомления'}" Style="{StaticResource H2}" Margin="0,0,0,8"/>
-                                    <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,10"
-                                               Text="{loc:Loc 'Небольшие подсказки в углу экрана (запуск, остановка, авто-починка) — видны, даже когда приложение свёрнуто в трей.'}"/>
-                                    <CheckBox Content="{loc:Loc 'Показывать уведомления'}"
-                                              IsChecked="{Binding NotificationsEnabled}" Style="{StaticResource ToggleSwitch}"
-                                              Margin="0,6"/>
-                                    <CheckBox Content="{loc:Loc 'Звук уведомлений'}"
-                                              IsChecked="{Binding NotificationSound}" Style="{StaticResource ToggleSwitch}"
-                                              Margin="0,6"/>
-                                </StackPanel>
-                            </Border>
-
-                            <Border Style="{StaticResource Card}" Margin="0,16,0,0">
-                                <StackPanel>
-                                    <TextBlock Text="{loc:Loc 'Авто-починка'}" Style="{StaticResource H2}" Margin="0,0,0,8"/>
-                                    <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,10"
-                                               Text="{loc:Loc 'Приложение фоном следит за доступностью Discord и YouTube. Если обход вдруг перестал работать — само переподбирает рабочую стратегию и перезапускает, без вашего участия.'}"/>
-                                    <CheckBox Content="{loc:Loc 'Сам переподбирать обход, если он сломался'}"
-                                              IsChecked="{Binding AutoHeal}" Style="{StaticResource ToggleSwitch}"
-                                              Margin="0,4"/>
-                                </StackPanel>
-                            </Border>
-
-                            <Border Style="{StaticResource Card}" Margin="0,16,0,0">
-                                <StackPanel>
-                                    <TextBlock Text="{loc:Loc 'Область обхода'}" Style="{StaticResource H2}" Margin="0,0,0,8"/>
-                                    <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,10"
-                                               Text="{loc:Loc 'Обычно обходятся только YouTube, Discord, Telegram и ваши «Свои цели»/хостлисты — остальное не трогается, игры и приложения работают как есть. Включите, чтобы обходить любой заблокированный сайт (весь TLS/QUIC, кроме списка исключений) — удобно, но может сломать приложение, которого нет в исключениях. Меняется на лету.'}"/>
-                                    <CheckBox Content="{loc:Loc 'Обходить все сайты, а не только из списков'}"
-                                              IsChecked="{Binding BypassAllSites}" Style="{StaticResource ToggleSwitch}"
-                                              Margin="0,4"/>
-                                    <!-- The switch shows the saved preference; WARP overrides it while it runs. Without
-                                         this line the two would simply disagree and neither would explain itself. -->
-                                    <Border Background="#26F5A623" BorderBrush="{StaticResource WarnBrush}" BorderThickness="1"
-                                            CornerRadius="8" Padding="12,9" Margin="0,10,0,0"
-                                            Visibility="{Binding IsMasqueOn, Converter={StaticResource BoolToVis}}">
-                                        <TextBlock Style="{StaticResource Muted}" FontSize="11.5" TextWrapping="Wrap"
-                                                   Text="{loc:Loc 'Сейчас включён прокси WARP, и обход распространён на все сайты независимо от этой настройки — иначе подключение к Cloudflare не встаёт. Ваш выбор сохранён и вернётся, когда прокси будет выключен.'}"/>
-                                    </Border>
-                                </StackPanel>
-                            </Border>
-
-                            <Border Style="{StaticResource Card}" Margin="0,16,0,0">
-                                <StackPanel>
-                                    <TextBlock Text="{loc:Loc 'Игровой фильтр'}" Style="{StaticResource H2}" Margin="0,0,0,8"/>
-                                    <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,10"
-                                               Text="{loc:Loc 'По умолчанию ВЫКЛ — обход не трогает игровой трафик (высокие порты), игры работают напрямую. Включите, только если душат саму игру: обход распространится на все порты выше 1023 (заодно покроет Discord-медиа на высоких портах). Меняется на лету — движок перезапустится.'}"/>
-                                    <CheckBox Content="{loc:Loc 'Распространять обход на игровые порты (>1023)'}"
-                                              IsChecked="{Binding GameFilter}" Style="{StaticResource ToggleSwitch}"
-                                              Margin="0,4"/>
-                                </StackPanel>
-                            </Border>
-                                </StackPanel>
-                                <StackPanel Grid.Column="1" Margin="8,0,0,0">
-
-                            <Border Style="{StaticResource Card}">
-                                <StackPanel>
-                                    <TextBlock Text="QUIC / HTTP-3" Style="{StaticResource H2}" Margin="0,0,0,8"/>
-                                    <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,10"
-                                               Text="{loc:Loc 'Провайдер/ТСПУ часто режет именно QUIC (HTTP-3) — тогда YouTube «тормозит», а Discord не грузит медиа, хотя по TCP всё открывается. Включите, чтобы принудительно отправить YouTube/Discord на TCP: QUIC-подключения отбрасываются, браузер сам откатывается на HTTP/2. Меняется на лету — движок перезапустится.'}"/>
-                                    <CheckBox Content="{loc:Loc 'Отключить QUIC (форсировать TCP)'}"
-                                              IsChecked="{Binding DisableQuic}" Style="{StaticResource ToggleSwitch}"
-                                              Margin="0,4"/>
-                                </StackPanel>
-                            </Border>
-
-                            <Border Style="{StaticResource Card}" Margin="0,16,0,0">
-                                <StackPanel>
-                                    <TextBlock Text="{loc:Loc 'Telegram-прокси через движок'}" Style="{StaticResource H2}" Margin="0,0,0,8"/>
-                                    <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,10"
-                                               Text="{loc:Loc 'Если встроенный прокси Telegram подключается, но связь всё равно рвётся (мобильный DPI/ТСПУ портит туннель на лету), включите — движок обхода дополнительно прикроет 443-соединения прокси, и стратегия будет собираться уже с этим профилем. Нужно, чтобы обход был запущен. Большинству не требуется — по умолчанию выключено. Меняется на лету.'}"/>
-                                    <CheckBox Content="{loc:Loc 'Прикрывать соединения Telegram-прокси движком'}"
-                                              IsChecked="{Binding TgProxyCoverage}" Style="{StaticResource ToggleSwitch}"
-                                              Margin="0,4"/>
-                                </StackPanel>
-                            </Border>
-
-                            <Border Style="{StaticResource Card}" Margin="0,16,0,0">
-                                <StackPanel>
-                                    <TextBlock Text="{loc:Loc 'Обход по IP (для жёстких блоков)'}" Style="{StaticResource H2}" Margin="0,0,0,8"/>
-                                    <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,10"
-                                               Text="{Binding IpsetHelpDiag}"/>
+                                </TabItem.Header>
+                                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,0,6,0">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                            <Border Style="{StaticResource Card}">
+                                                <StackPanel>
+                                                    <TextBlock Text="{loc:Loc 'Область обхода'}" Style="{StaticResource H2}" Margin="0,0,0,8"/>
+                                                    <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,10"
+                                                               Text="{loc:Loc 'Обычно обходятся только YouTube, Discord, Telegram и ваши «Свои цели»/хостлисты — остальное не трогается, игры и приложения работают как есть. Включите, чтобы обходить любой заблокированный сайт (весь TLS/QUIC, кроме списка исключений) — удобно, но может сломать приложение, которого нет в исключениях. Меняется на лету.'}"/>
+                                                    <CheckBox Content="{loc:Loc 'Обходить все сайты, а не только из списков'}"
+                                                              IsChecked="{Binding BypassAllSites}" Style="{StaticResource ToggleSwitch}"
+                                                              Margin="0,4"/>
+                                                    <!-- The switch shows the saved preference; WARP overrides it while it runs. Without
+                                                         this line the two would simply disagree and neither would explain itself. -->
+                                                    <Border Background="#26F5A623" BorderBrush="{StaticResource WarnBrush}" BorderThickness="1"
+                                                            CornerRadius="12" Padding="12,9" Margin="0,10,0,0"
+                                                            Visibility="{Binding IsMasqueOn, Converter={StaticResource BoolToVis}}">
+                                                        <TextBlock Style="{StaticResource Muted}" FontSize="11.5" TextWrapping="Wrap"
+                                                                   Text="{loc:Loc 'Сейчас включён прокси WARP, и обход распространён на все сайты независимо от этой настройки — иначе подключение к Cloudflare не встаёт. Ваш выбор сохранён и вернётся, когда прокси будет выключен.'}"/>
+                                                    </Border>
+                                                </StackPanel>
+                                            </Border>
+                                            <Border Style="{StaticResource Card}" Margin="0,14,0,0">
+                                                <StackPanel>
+                                                    <TextBlock Text="{loc:Loc 'Игровой фильтр'}" Style="{StaticResource H2}" Margin="0,0,0,8"/>
+                                                    <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,10"
+                                                               Text="{loc:Loc 'По умолчанию ВЫКЛ — обход не трогает игровой трафик (высокие порты), игры работают напрямую. Включите, только если душат саму игру: обход распространится на все порты выше 1023 (заодно покроет Discord-медиа на высоких портах). Меняется на лету — движок перезапустится.'}"/>
+                                                    <CheckBox Content="{loc:Loc 'Распространять обход на игровые порты (>1023)'}"
+                                                              IsChecked="{Binding GameFilter}" Style="{StaticResource ToggleSwitch}"
+                                                              Margin="0,4"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                                            <Border Style="{StaticResource Card}">
+                                                <StackPanel>
+                                                    <TextBlock Text="QUIC / HTTP-3" Style="{StaticResource H2}" Margin="0,0,0,8"/>
+                                                    <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,10"
+                                                               Text="{loc:Loc 'Провайдер/ТСПУ часто режет именно QUIC (HTTP-3) — тогда YouTube «тормозит», а Discord не грузит медиа, хотя по TCP всё открывается. Включите, чтобы принудительно отправить YouTube/Discord на TCP: QUIC-подключения отбрасываются, браузер сам откатывается на HTTP/2. Меняется на лету — движок перезапустится.'}"/>
+                                                    <CheckBox Content="{loc:Loc 'Отключить QUIC (форсировать TCP)'}"
+                                                              IsChecked="{Binding DisableQuic}" Style="{StaticResource ToggleSwitch}"
+                                                              Margin="0,4"/>
+                                                </StackPanel>
+                                            </Border>
+                                            <Border Style="{StaticResource Card}" Margin="0,14,0,0">
+                                                <StackPanel>
+                                                    <TextBlock Text="{loc:Loc 'Telegram-прокси через движок'}" Style="{StaticResource H2}" Margin="0,0,0,8"/>
+                                                    <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,10"
+                                                               Text="{loc:Loc 'Если встроенный прокси Telegram подключается, но связь всё равно рвётся (мобильный DPI/ТСПУ портит туннель на лету), включите — движок обхода дополнительно прикроет 443-соединения прокси, и стратегия будет собираться уже с этим профилем. Нужно, чтобы обход был запущен. Большинству не требуется — по умолчанию выключено. Меняется на лету.'}"/>
+                                                    <CheckBox Content="{loc:Loc 'Прикрывать соединения Telegram-прокси движком'}"
+                                                              IsChecked="{Binding TgProxyCoverage}" Style="{StaticResource ToggleSwitch}"
+                                                              Margin="0,4"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </StackPanel>
+                                    </Grid>
+                                </ScrollViewer>
+                            </TabItem>
+                            <TabItem Style="{StaticResource SubTabItem}">
+                                <TabItem.Header>
                                     <StackPanel Orientation="Horizontal">
-                                        <Button Content="{loc:Loc 'Собрать IP-список Discord'}" Command="{Binding BuildDiscordIpsetCommand}"
-                                                Style="{StaticResource GhostButton}"
-                                                Visibility="{Binding IsBuildingIpset, Converter={StaticResource BoolToVis}, ConverterParameter=invert}"/>
-                                        <TextBlock Text="{loc:Loc 'Сбор…'}" Style="{StaticResource Muted}" VerticalAlignment="Center"
-                                                   Visibility="{Binding IsBuildingIpset, Converter={StaticResource BoolToVis}}"/>
+                                        <!-- Foreground is bound to the tab, not inherited: the implicit
+                                             TextBlock style sets it explicitly, and a local setter beats an
+                                             inherited value — the label would stay bright in every state. -->
+                                        <TextBlock Text="{loc:Loc 'Система'}"
+                                                   Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
+                                        <TextBlock Text="4" Margin="7,0,0,0" FontFamily="{StaticResource MonoFont}"
+                                                   FontSize="10.5" Opacity="0.5"
+                                                   Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
                                     </StackPanel>
-                                    <TextBlock Text="{Binding IpsetStatus}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,10,0,0"/>
-                                </StackPanel>
-                            </Border>
-
-                            <Border Style="{StaticResource Card}" Margin="0,16,0,0">
-                                <StackPanel>
-                                    <TextBlock Text="{loc:Loc 'Исключения (антивирус и брандмауэр)'}" Style="{StaticResource H2}" Margin="0,0,0,8"/>
-                                    <TextBlock Text="{Binding ExclusionsStatus}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,10"/>
+                                </TabItem.Header>
+                                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,0,6,0">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                            <Border Style="{StaticResource Card}">
+                                                <StackPanel>
+                                                    <TextBlock Text="{loc:Loc 'Движок'}" Style="{StaticResource H2}" Margin="0,0,0,12"/>
+                                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                                        <TextBlock Text="{loc:Loc 'Установленная версия:'}" Style="{StaticResource Muted}" VerticalAlignment="Center"/>
+                                                        <TextBlock Text="{Binding EngineVersion}" Margin="8,0,0,0" VerticalAlignment="Center"
+                                                                   FontWeight="SemiBold"/>
+                                                        <Button Content="{loc:Loc 'Проверить обновления'}" Command="{Binding CheckUpdateCommand}"
+                                                                Style="{StaticResource GhostButton}" Margin="16,0,0,0"/>
+                                                    </StackPanel>
+                                                    <CheckBox Content="{loc:Loc 'Автоматически обновлять движок при запуске'}"
+                                                              IsChecked="{Binding AutoUpdateEngine}" Style="{StaticResource ToggleSwitch}"
+                                                              Margin="0,4"/>
+                                                </StackPanel>
+                                            </Border>
+                                            <Border Style="{StaticResource Card}" Margin="0,14,0,0">
+                                                <StackPanel>
+                                                    <TextBlock Text="{loc:Loc 'Запуск'}" Style="{StaticResource H2}" Margin="0,0,0,12"/>
+                                                    <CheckBox Content="{loc:Loc 'Запускать Zapret2UI при входе в Windows'}"
+                                                              IsChecked="{Binding AutostartEnabled}" Style="{StaticResource ToggleSwitch}"
+                                                              Margin="0,6"/>
+                                                    <CheckBox Content="{loc:Loc 'Сразу запускать обход при старте приложения'}"
+                                                              IsChecked="{Binding AutostartEngine}" Style="{StaticResource ToggleSwitch}"
+                                                              Margin="0,6"/>
+                                                    <CheckBox Content="{loc:Loc 'Сворачивать в трей вместо закрытия'}"
+                                                              IsChecked="{Binding MinimizeToTray}" Style="{StaticResource ToggleSwitch}"
+                                                              Margin="0,6"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                                            <Border Style="{StaticResource Card}">
+                                                <StackPanel>
+                                                    <TextBlock Text="{loc:Loc 'Авто-починка'}" Style="{StaticResource H2}" Margin="0,0,0,8"/>
+                                                    <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,10"
+                                                               Text="{loc:Loc 'Приложение фоном следит за доступностью Discord и YouTube. Если обход вдруг перестал работать — само переподбирает рабочую стратегию и перезапускает, без вашего участия.'}"/>
+                                                    <CheckBox Content="{loc:Loc 'Сам переподбирать обход, если он сломался'}"
+                                                              IsChecked="{Binding AutoHeal}" Style="{StaticResource ToggleSwitch}"
+                                                              Margin="0,4"/>
+                                                </StackPanel>
+                                            </Border>
+                                            <Border Style="{StaticResource Card}" Margin="0,14,0,0">
+                                                <StackPanel>
+                                                    <TextBlock Text="{loc:Loc 'Проверка окружения'}" Style="{StaticResource H2}" Margin="0,0,0,8"/>
+                                                    <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,10"
+                                                               Text="{loc:Loc 'Ищет в системе то, что мешает обходу: другие программы обхода блокировок (они занимают тот же драйвер WinDivert), включённый VPN или туннельный адаптер, а также недокачанный движок. По каждой находке показывает, что это значит и что сделать. Та же проверка идёт автоматически при запуске — здесь её можно вызвать в любой момент.'}"/>
+                                                    <Button Content="{loc:Loc 'Проверить окружение'}" Click="OnCheckEnvironment"
+                                                            Style="{StaticResource GhostButton}" HorizontalAlignment="Left"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </StackPanel>
+                                    </Grid>
+                                </ScrollViewer>
+                            </TabItem>
+                            <TabItem Style="{StaticResource SubTabItem}">
+                                <TabItem.Header>
                                     <StackPanel Orientation="Horizontal">
-                                        <Button Content="{loc:Loc 'Добавить в исключения'}" Command="{Binding ApplyExclusionsCommand}"
-                                                Style="{StaticResource GhostButton}"
-                                                Visibility="{Binding IsApplyingExclusions, Converter={StaticResource BoolToVis}, ConverterParameter=invert}"/>
-                                        <TextBlock Text="{loc:Loc 'Добавление…'}" Style="{StaticResource Muted}" VerticalAlignment="Center"
-                                                   Visibility="{Binding IsApplyingExclusions, Converter={StaticResource BoolToVis}}"/>
+                                        <!-- Foreground is bound to the tab, not inherited: the implicit
+                                             TextBlock style sets it explicitly, and a local setter beats an
+                                             inherited value — the label would stay bright in every state. -->
+                                        <TextBlock Text="{loc:Loc 'Обслуживание'}"
+                                                   Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
+                                        <TextBlock Text="5" Margin="7,0,0,0" FontFamily="{StaticResource MonoFont}"
+                                                   FontSize="10.5" Opacity="0.5"
+                                                   Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
                                     </StackPanel>
-                                </StackPanel>
-                            </Border>
-
-                            <Border Style="{StaticResource Card}" Margin="0,16,0,0">
-                                <StackPanel>
-                                    <TextBlock Text="{loc:Loc 'Проверка окружения'}" Style="{StaticResource H2}" Margin="0,0,0,8"/>
-                                    <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,10"
-                                               Text="{loc:Loc 'Ищет в системе то, что мешает обходу: другие программы обхода блокировок (они занимают тот же драйвер WinDivert), включённый VPN или туннельный адаптер, а также недокачанный движок. По каждой находке показывает, что это значит и что сделать. Та же проверка идёт автоматически при запуске — здесь её можно вызвать в любой момент.'}"/>
-                                    <Button Content="{loc:Loc 'Проверить окружение'}" Click="OnCheckEnvironment"
-                                            Style="{StaticResource GhostButton}" HorizontalAlignment="Left"/>
-                                </StackPanel>
-                            </Border>
-
-                            <Border Style="{StaticResource Card}" Margin="0,16,0,0">
-                                <StackPanel>
-                                    <TextBlock Text="{loc:Loc 'Вводная для новичка'}" Style="{StaticResource H2}" Margin="0,0,0,8"/>
-                                    <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,10"
-                                               Text="{loc:Loc 'Разбор по шагам: что нажать, чего ждать и что делать, если не заработало. Показывается один раз при первом запуске — отсюда её можно открыть снова в любой момент.'}"/>
-                                    <Button Content="{loc:Loc 'Показать вводную'}" Command="{Binding OpenWelcomeCommand}"
-                                            Style="{StaticResource GhostButton}" HorizontalAlignment="Left"/>
-                                </StackPanel>
-                            </Border>
-
-                            <Border Style="{StaticResource Card}" Margin="0,16,0,0">
-                                <StackPanel>
-                                    <TextBlock Text="{loc:Loc 'Резервная копия'}" Style="{StaticResource H2}" Margin="0,0,0,8"/>
-                                    <TextBlock Text="{Binding BackupStatus}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,10"/>
-                                    <StackPanel Orientation="Horizontal">
-                                        <Button Content="{loc:Loc 'Сохранить в файл'}" Command="{Binding ExportBackupCommand}"
-                                                Style="{StaticResource GhostButton}" Margin="0,0,8,0"/>
-                                        <Button Content="{loc:Loc 'Восстановить из файла'}" Command="{Binding ImportBackupCommand}"
-                                                Style="{StaticResource GhostButton}"/>
-                                    </StackPanel>
-                                </StackPanel>
-                            </Border>
-
-                            <Border Style="{StaticResource Card}" Margin="0,16,0,0">
-                                <StackPanel>
-                                    <TextBlock Text="{loc:Loc 'Сброс настроек'}" Style="{StaticResource H2}" Margin="0,0,0,8"/>
-                                    <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,10"
-                                               Text="{loc:Loc 'Вернёт все настройки к значениям по умолчанию. Стратегии, хостлисты, язык и ссылка Telegram-прокси при этом сохраняются — удаляются только сами настройки.'}"/>
-                                    <Button Content="{loc:Loc 'Сбросить настройки'}" Command="{Binding ResetSettingsCommand}"
-                                            Style="{StaticResource GhostButton}" HorizontalAlignment="Left"/>
-                                </StackPanel>
-                            </Border>
-
-                            <Border Style="{StaticResource Card}" Margin="0,16,0,0">
-                                <StackPanel>
-                                    <TextBlock Text="{loc:Loc 'Файлы логов'}" Style="{StaticResource H2}" Margin="0,0,0,8"/>
-                                    <TextBlock Text="{Binding LogFilesStatus}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,10"/>
-                                    <Button Content="{loc:Loc 'Очистить логи'}" Command="{Binding ClearLogFilesCommand}"
-                                            Style="{StaticResource GhostButton}" HorizontalAlignment="Left"/>
-                                </StackPanel>
-                            </Border>
-                                </StackPanel>
-                            </Grid>
-                        </StackPanel>
-                    </ScrollViewer>
+                                </TabItem.Header>
+                                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,0,6,0">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                            <Border Style="{StaticResource Card}">
+                                                <StackPanel>
+                                                    <TextBlock Text="{loc:Loc 'Обход по IP (для жёстких блоков)'}" Style="{StaticResource H2}" Margin="0,0,0,8"/>
+                                                    <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,10"
+                                                               Text="{Binding IpsetHelpDiag}"/>
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <Button Content="{loc:Loc 'Собрать IP-список Discord'}" Command="{Binding BuildDiscordIpsetCommand}"
+                                                                Style="{StaticResource GhostButton}"
+                                                                Visibility="{Binding IsBuildingIpset, Converter={StaticResource BoolToVis}, ConverterParameter=invert}"/>
+                                                        <TextBlock Text="{loc:Loc 'Сбор…'}" Style="{StaticResource Muted}" VerticalAlignment="Center"
+                                                                   Visibility="{Binding IsBuildingIpset, Converter={StaticResource BoolToVis}}"/>
+                                                    </StackPanel>
+                                                    <TextBlock Text="{Binding IpsetStatus}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,10,0,0"/>
+                                                </StackPanel>
+                                            </Border>
+                                            <Border Style="{StaticResource Card}" Margin="0,14,0,0">
+                                                <StackPanel>
+                                                    <TextBlock Text="{loc:Loc 'Резервная копия'}" Style="{StaticResource H2}" Margin="0,0,0,8"/>
+                                                    <TextBlock Text="{Binding BackupStatus}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,10"/>
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <Button Content="{loc:Loc 'Сохранить в файл'}" Command="{Binding ExportBackupCommand}"
+                                                                Style="{StaticResource GhostButton}" Margin="0,0,8,0"/>
+                                                        <Button Content="{loc:Loc 'Восстановить из файла'}" Command="{Binding ImportBackupCommand}"
+                                                                Style="{StaticResource GhostButton}"/>
+                                                    </StackPanel>
+                                                </StackPanel>
+                                            </Border>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                                            <Border Style="{StaticResource Card}">
+                                                <StackPanel>
+                                                    <TextBlock Text="{loc:Loc 'Исключения (антивирус и брандмауэр)'}" Style="{StaticResource H2}" Margin="0,0,0,8"/>
+                                                    <TextBlock Text="{Binding ExclusionsStatus}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,10"/>
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <Button Content="{loc:Loc 'Добавить в исключения'}" Command="{Binding ApplyExclusionsCommand}"
+                                                                Style="{StaticResource GhostButton}"
+                                                                Visibility="{Binding IsApplyingExclusions, Converter={StaticResource BoolToVis}, ConverterParameter=invert}"/>
+                                                        <TextBlock Text="{loc:Loc 'Добавление…'}" Style="{StaticResource Muted}" VerticalAlignment="Center"
+                                                                   Visibility="{Binding IsApplyingExclusions, Converter={StaticResource BoolToVis}}"/>
+                                                    </StackPanel>
+                                                </StackPanel>
+                                            </Border>
+                                            <Border Style="{StaticResource Card}" Margin="0,14,0,0">
+                                                <StackPanel>
+                                                    <TextBlock Text="{loc:Loc 'Сброс настроек'}" Style="{StaticResource H2}" Margin="0,0,0,8"/>
+                                                    <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,10"
+                                                               Text="{loc:Loc 'Вернёт все настройки к значениям по умолчанию. Стратегии, хостлисты, язык и ссылка Telegram-прокси при этом сохраняются — удаляются только сами настройки.'}"/>
+                                                    <Button Content="{loc:Loc 'Сбросить настройки'}" Command="{Binding ResetSettingsCommand}"
+                                                            Style="{StaticResource GhostButton}" HorizontalAlignment="Left"/>
+                                                </StackPanel>
+                                            </Border>
+                                            <Border Style="{StaticResource Card}" Margin="0,14,0,0">
+                                                <StackPanel>
+                                                    <TextBlock Text="{loc:Loc 'Файлы логов'}" Style="{StaticResource H2}" Margin="0,0,0,8"/>
+                                                    <TextBlock Text="{Binding LogFilesStatus}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,10"/>
+                                                    <Button Content="{loc:Loc 'Очистить логи'}" Command="{Binding ClearLogFilesCommand}"
+                                                            Style="{StaticResource GhostButton}" HorizontalAlignment="Left"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </StackPanel>
+                                    </Grid>
+                                </ScrollViewer>
+                            </TabItem>
+                        </TabControl>
+                    </Grid>
                 </TabItem>
             </TabControl>
 
