@@ -28,12 +28,12 @@ public sealed partial class MainViewModel
     // survives verbatim).
     public string IpsetHelpDiag => Loc.T(
         "Если Discord режут по IP-адресам, обход по доменам не помогает. Соберите актуальные подсети "
-        + "Discord (резолв доменов) — список сохранится в ipset-discord.txt, его можно подключить в своём "
-        + "пресете через токен {IPSET}.");
+        + "Discord (через DNS) — список сохранится в ipset-discord.txt, его можно подключить в своей "
+        + "стратегии через токен {IPSET}.");
 
     public string IpsetHelpTelegram => Loc.T(
         "• Обход по IP — если ресурс режут по адресам, а не доменам: соберите подсети Discord "
-        + "(резолв доменов), список подключается через токен {IPSET}.");
+        + "(через DNS), список подключается через токен {IPSET}.");
 
     private async Task BuildIpsetAsync()
     {
@@ -41,7 +41,7 @@ public sealed partial class MainViewModel
         IsBuildingIpset = true;
         try
         {
-            IpsetStatus = Loc.T("Определяю IP-подсети Discord…");
+            IpsetStatus = Loc.T("Определение IP-подсетей Discord…");
             var domains = _hostlists.Exists("discord")
                 ? _hostlists.ReadDomains("discord")
                 : new List<string> { "discord.com", "gateway.discord.gg", "cdn.discordapp.com", "discord.media", "discordapp.net" };

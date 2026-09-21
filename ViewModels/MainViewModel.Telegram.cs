@@ -119,14 +119,14 @@ public sealed partial class MainViewModel
     }
 
     /// <summary>Label for the Telegram self-test button.</summary>
-    public string CheckTelegramProxyButtonText => _isCheckingTgProxy ? Loc.T("Проверяю…") : Loc.T("Проверить соединение");
+    public string CheckTelegramProxyButtonText => _isCheckingTgProxy ? Loc.T("Проверка…") : Loc.T("Проверить соединение");
 
     /// <summary>Run the built-in proxy's upstream self-test and show the verdict on the card; the
     /// step-by-step details go to the journal. Independent of the winws2 engine and needs no admin.</summary>
     private async Task CheckTelegramProxyAsync()
     {
         IsCheckingTelegramProxy = true;
-        TelegramProxyStatus = Loc.T("Проверяю соединение с Telegram…");
+        TelegramProxyStatus = Loc.T("Проверка соединения с Telegram…");
         try
         {
             TelegramProxyStatus = await _tgProxy.SelfTestAsync();

@@ -40,6 +40,37 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <!-- One step of a side-panel diagram — a link of the HMS chain, or one of the WARP tab's four
+             points: a numbered circle, a line down to the next one, and the words beside it. One template
+             for both, so the two tabs explain themselves the same way. The line sits in the step's own
+             second row and stretches through the text, so it meets the next circle without anything
+             being measured. -->
+        <DataTemplate x:Key="ChainStepTemplate">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="24"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <Border Width="24" Height="24" CornerRadius="12" Background="{StaticResource AccentSoftBrush}">
+                    <TextBlock Text="{Binding Number}" Foreground="{StaticResource AccentBrush}" FontWeight="Bold"
+                               FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+                <Rectangle Grid.Row="1" Width="2" RadiusX="1" RadiusY="1" Fill="#40A78BFA"
+                           HorizontalAlignment="Center" Margin="0,4,0,4"
+                           Visibility="{Binding ShowLine, Converter={StaticResource BoolToVis}}"/>
+                <StackPanel Grid.Column="1" Grid.RowSpan="2" Margin="12,3,0,16">
+                    <TextBlock Text="{Binding Title}" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap"
+                               Margin="0,0,0,3"
+                               Visibility="{Binding HasTitle, Converter={StaticResource BoolToVis}}"/>
+                    <TextBlock Text="{Binding Detail}" Style="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap"/>
+                </StackPanel>
+            </Grid>
+        </DataTemplate>
     </Window.Resources>
 
     <shell:WindowChrome.WindowChrome>
@@ -128,7 +159,7 @@
                          applied from ANY tab without returning to Главная. Shows only when pending. -->
                     <Button Command="{Binding ApplyStrategyCommand}" VerticalAlignment="Center" Margin="10,0,0,0"
                             Cursor="Hand" shell:WindowChrome.IsHitTestVisibleInChrome="True"
-                            ToolTip="{loc:Loc 'Перезапустить обход с выбранным пресетом'}"
+                            ToolTip="{loc:Loc 'Перезапустить обход с выбранной стратегией'}"
                             Visibility="{Binding IsStrategyChangePending, Converter={StaticResource BoolToVis}}">
                         <Button.Template>
                             <ControlTemplate TargetType="Button">
@@ -215,7 +246,7 @@
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Grid.Column="0" VerticalAlignment="Center" Margin="0,0,12,0"
                                                Style="{StaticResource Muted}" FontSize="11.5" TextWrapping="Wrap"
-                                               Text="{loc:Loc 'Чтобы применить выбранный пресет, нужно перезапустить движок.'}"/>
+                                               Text="{loc:Loc 'Чтобы применить выбранную стратегию, нужно перезапустить обход.'}"/>
                                     <Button Grid.Column="1" Content="{loc:Loc 'Сменить стратегию'}"
                                             Command="{Binding ApplyStrategyCommand}"
                                             Style="{StaticResource StartStopButton}" VerticalAlignment="Center"/>
@@ -620,7 +651,7 @@
                                                 <StackPanel>
                                                     <TextBlock Text="{loc:Loc 'Не заработало?'}" FontWeight="SemiBold"/>
                                                     <TextBlock Style="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap" Margin="0,4,0,0"
-                                                               Text="{loc:Loc 'Стратегии зависят от провайдера. Если этот пресет не пробивает — попробуйте другие из списка. Если ничего не заходит — вкладка «Диагностика» → «Подобрать лучшую» подберёт рабочую стратегию под вашего оператора.'}"/>
+                                                               Text="{loc:Loc 'Стратегии зависят от провайдера. Если эта стратегия не пробивает — попробуйте другие из списка. Если ничего не заходит — вкладка «Диагностика» → «Подобрать лучшую» подберёт рабочую стратегию под вашего оператора.'}"/>
                                                     <WrapPanel Margin="0,10,0,0">
                                                         <Button Command="{Binding OpenHowItWorksCommand}"
                                                                 Style="{StaticResource GhostButton}" Margin="0,0,8,0">
@@ -898,7 +929,7 @@
                                             Visibility="{Binding IsAutoSelecting, Converter={StaticResource BoolToVis}}"/>
                                     <Button Command="{Binding GenerateStrategyCommand}"
                                             Style="{StaticResource GhostButton}" Margin="0,0,8,8"
-                                            ToolTip="{loc:Loc 'Соберёт ПЕРСОНАЛЬНУЮ стратегию: тестирует компоненты и оптимизирует Discord и YouTube по отдельности, затем собирает в одно комбо (≈1 мин).'}"
+                                            ToolTip="{loc:Loc 'Сгенерирует персональную стратегию: проверит приёмы для Discord и YouTube по отдельности, объединит лучшие в одну стратегию и проверит её целиком. Дольше подбора.'}"
                                             Visibility="{Binding IsGenerating, Converter={StaticResource BoolToVis}, ConverterParameter=invert}">
                                         <emoji:TextBlock Text="{loc:Loc '✨ Сгенерировать стратегию'}"/>
                                     </Button>
@@ -913,7 +944,7 @@
                                             Visibility="{Binding IsDiagnosing, Converter={StaticResource BoolToVis}}"/>
                                     <Button Content="{loc:Loc 'Проверка DPI'}" Command="{Binding RunDpiCheckCommand}"
                                             Style="{StaticResource GhostButton}" Margin="0,0,8,8"
-                                            ToolTip="{loc:Loc 'Определяет, режет ли провайдер по имени сайта (обрыв/RST или заморозка) и душит ли соединение по объёму/пакетам (TCP 16-20) — а не просто «сайт недоступен». Точнее всего с ВЫКЛЮЧЕННЫМ обходом.'}"
+                                            ToolTip="{loc:Loc 'Определяет, режет ли провайдер по имени сайта (обрыв/RST или заморозка) и душит ли соединение по объёму/пакетам (TCP 16-20) — а не просто «сайт недоступен». Точнее всего с выключенным обходом.'}"
                                             Visibility="{Binding IsDpiChecking, Converter={StaticResource BoolToVis}, ConverterParameter=invert}"/>
                                     <Button Content="{loc:Loc 'Остановить'}" Command="{Binding StopDpiCheckCommand}"
                                             Style="{StaticResource GhostButton}" Margin="0,0,8,8"
@@ -1187,7 +1218,7 @@
                                     </StackPanel>
                                 </DockPanel>
                                 <TextBlock Style="{StaticResource Muted}" Margin="0,3,0,0" TextWrapping="Wrap"
-                                           Text="{loc:Loc 'Встроенный прокси проводит Telegram через WebSocket (Cloudflare) в обход блокировки по IP. Работает без прав администратора и не мешает основному обходу winws2 — Discord и YouTube по-прежнему обходит движок. Можно держать включённым всегда.'}"/>
+                                           Text="{loc:Loc 'Встроенный прокси проводит Telegram через WebSocket (Cloudflare) в обход блокировки по IP. Не мешает основному обходу winws2 — Discord и YouTube по-прежнему обходит движок. Можно держать включённым всегда.'}"/>
                             </StackPanel>
 
                             <Grid Grid.Row="1">
@@ -1206,7 +1237,7 @@
                                                     Style="{StaticResource StartStopButton}" HorizontalAlignment="Stretch"/>
                                             <Button Content="{Binding CheckTelegramProxyButtonText}" Command="{Binding CheckTelegramProxyCommand}"
                                                     Style="{StaticResource GhostButton}" HorizontalAlignment="Stretch" Margin="0,8,0,0"
-                                                    ToolTip="{loc:Loc 'Проверить, доходит ли прокси до Telegram (DoH, системный DNS, фронт-домены). Без прав администратора.'}"/>
+                                                    ToolTip="{loc:Loc 'Проверить, доходит ли прокси до Telegram (DoH, системный DNS, фронт-домены).'}"/>
                                             <TextBlock Style="{StaticResource Muted}" FontSize="11.5" TextWrapping="Wrap" Margin="0,10,0,0"
                                                        Text="{Binding TelegramProxyStatus}"/>
                                             <Border Background="#1FFFFFFF" CornerRadius="12" Padding="12,9" Margin="0,12,0,0">
@@ -1321,7 +1352,7 @@
                      The client is carried inside our exe, so there is no second program to meet. -->
                 <TabItem Header="WARP">
                     <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="24">
-                        <Grid MaxWidth="780" HorizontalAlignment="Left">
+                        <Grid MaxWidth="1240" HorizontalAlignment="Left">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
@@ -1341,163 +1372,367 @@
                                         <TextBlock Text="WARP" Style="{StaticResource H1}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </DockPanel>
-                                <TextBlock Style="{StaticResource Muted}" Margin="0,3,0,0" TextWrapping="Wrap"
-                                           Text="{loc:Loc 'Меняет адрес, с которого вас видят сайты. Нужен, когда сайт открывается, но не пускает именно вас: бесконечная капча, «доступ ограничен», отказ при регистрации или оплате. Клиент лежит внутри программы — ставить ничего не нужно, права администратора не требуются.'}"/>
+                                <TextBlock Style="{StaticResource Muted}" Margin="0,3,0,0" TextWrapping="Wrap" MaxWidth="860" HorizontalAlignment="Left"
+                                           Text="{loc:Loc 'Меняет адрес, с которого вас видят сайты. Нужен, когда сайт открывается, но не пускает именно вас: бесконечная капча, «доступ ограничен», отказ при регистрации или оплате. Клиент лежит внутри программы — ставить ничего не нужно.'}"/>
                             </StackPanel>
 
-                            <Grid Grid.Row="1">
+                            <!-- Controls in the middle, the explanation in the right-hand third that used to
+                                 stand empty. Folds underneath below 1000 px (see Controls/SidePanel). -->
+                            <Grid Grid.Row="1" ctl:SidePanel.CollapseBelow="1000" ctl:SidePanel.SideWidth="340">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="18"/>
-                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="340"/>
                                 </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
 
-                                <!-- Left column: the switch first, then what it is built from -->
-                                <StackPanel Grid.Column="0">
-                                    <Border Style="{StaticResource Card}" Padding="18">
-                                        <StackPanel>
-                                            <TextBlock Text="{loc:Loc 'Прокси'}" Style="{StaticResource H2}" Margin="0,0,0,12"/>
-                                            <CheckBox Content="{loc:Loc 'Прокси включён'}" IsChecked="{Binding IsMasqueEnabled, Mode=TwoWay}"
-                                                      IsEnabled="{Binding CanToggleMasque}" Style="{StaticResource ToggleSwitch}"/>
-                                            <TextBlock Style="{StaticResource Muted}" FontSize="11.5" TextWrapping="Wrap" Margin="0,10,0,0"
-                                                       Text="{Binding MasqueStatus}"/>
-                                            <!-- The one side effect of this switch that reaches outside the tab, so it
-                                                 is said here rather than left to be discovered. -->
-                                            <Border Background="#26F5A623" BorderBrush="{StaticResource WarnBrush}" BorderThickness="1"
-                                                    CornerRadius="12" Padding="12,9" Margin="0,12,0,0">
-                                                <TextBlock Style="{StaticResource Muted}" FontSize="11.5" TextWrapping="Wrap"
-                                                           Text="{loc:Loc 'Пока прокси включён, обход работает для всех сайтов, а не только для списков — иначе подключение к Cloudflare не встаёт. Программа или игра, которой нет в исключениях, может из-за этого сбоить. Когда прокси выключен, область обхода возвращается к вашей настройке.'}"/>
-                                            </Border>
-                                            <Border Background="#1FFFFFFF" CornerRadius="12" Padding="12,9" Margin="0,12,0,0">
-                                                <StackPanel>
-                                                    <DockPanel>
-                                                        <Button DockPanel.Dock="Right" Content="{loc:Loc 'Копировать'}"
-                                                                Command="{Binding CopyProxyAddressCommand}"
-                                                                Style="{StaticResource GhostButton}" Margin="8,0,0,0"
-                                                                ToolTip="{loc:Loc 'Скопировать адрес прокси в буфер обмена'}"/>
-                                                        <StackPanel>
-                                                            <TextBlock Text="{loc:Loc 'Адрес прокси (SOCKS5)'}" Style="{StaticResource Muted}" FontSize="11"/>
-                                                            <TextBlock Text="{Binding MasqueProxyAddress}" FontSize="14" FontWeight="SemiBold" Margin="0,2,0,0"/>
-                                                        </StackPanel>
-                                                    </DockPanel>
-                                                    <TextBlock Text="{loc:Loc 'Адрес выхода'}" Style="{StaticResource Muted}" FontSize="11" Margin="0,7,0,0"/>
-                                                    <TextBlock Text="{Binding MasqueExit}" FontSize="12.5" Margin="0,2,0,0"/>
-                                                </StackPanel>
-                                            </Border>
-                                        </StackPanel>
-                                    </Border>
+                                <Grid Grid.Column="0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="18"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
 
-                                    <Border Style="{StaticResource Card}" Padding="18" Margin="0,16,0,0">
-                                        <StackPanel>
-                                            <TextBlock Text="{loc:Loc 'Устройство'}" Style="{StaticResource H2}" Margin="0,0,0,8"/>
-                                            <TextBlock Style="{StaticResource Muted}" FontSize="11.5" TextWrapping="Wrap" Margin="0,0,0,12"
-                                                       Text="{loc:Loc 'Ключи создаются прямо здесь. Наружу уходит только открытый ключ — закрытый машину не покидает. Обход при этом должен быть запущен: имя api.cloudflareclient.com режется по SNI.'}"/>
-                                            <WrapPanel>
-                                                <Button Content="{loc:Loc 'Создать устройство'}" Command="{Binding RegisterMasqueCommand}"
-                                                        Style="{StaticResource PrimaryButton}" Margin="0,0,8,8"
-                                                        ToolTip="{loc:Loc 'Зарегистрировать устройство в Cloudflare'}"/>
-                                                <Button Content="{loc:Loc 'Пересоздать'}" Command="{Binding ResetMasqueCommand}"
-                                                        Style="{StaticResource GhostButton}" Margin="0,0,8,8"
-                                                        ToolTip="{loc:Loc 'Забыть устройство и зарегистрировать новое'}"/>
-                                            </WrapPanel>
-                                        </StackPanel>
-                                    </Border>
+                                    <!-- The switch first: it is what people come to this tab for. -->
+                                    <StackPanel Grid.Column="0">
+                                        <Border Style="{StaticResource Card}" Padding="18">
+                                            <StackPanel>
+                                                <TextBlock Text="{loc:Loc 'Прокси'}" Style="{StaticResource H2}" Margin="0,0,0,12"/>
+                                                <CheckBox Content="{loc:Loc 'Прокси включён'}" IsChecked="{Binding IsMasqueEnabled, Mode=TwoWay}"
+                                                          IsEnabled="{Binding CanToggleMasque}" Style="{StaticResource ToggleSwitch}"/>
+                                                <TextBlock Style="{StaticResource Muted}" FontSize="11.5" TextWrapping="Wrap" Margin="0,10,0,0"
+                                                           Text="{Binding MasqueStatus}"/>
+                                                <!-- The one side effect of this switch that reaches outside the tab, so it
+                                                     is said here rather than left to be discovered. -->
+                                                <Border Background="#26F5A623" BorderBrush="{StaticResource WarnBrush}" BorderThickness="1"
+                                                        CornerRadius="12" Padding="12,9" Margin="0,12,0,0">
+                                                    <TextBlock Style="{StaticResource Muted}" FontSize="11.5" TextWrapping="Wrap"
+                                                               Text="{loc:Loc 'Пока прокси включён, обход работает для всех сайтов, а не только для списков — иначе подключение к Cloudflare не встаёт. Программа или игра, которой нет в исключениях, может из-за этого сбоить. Когда прокси выключен — и цепочка HMS через Tor тоже, — область обхода возвращается к вашей настройке.'}"/>
+                                                </Border>
+                                                <Border Background="#1FFFFFFF" CornerRadius="12" Padding="12,9" Margin="0,12,0,0">
+                                                    <StackPanel>
+                                                        <DockPanel>
+                                                            <Button DockPanel.Dock="Right" Content="{loc:Loc 'Копировать'}"
+                                                                    Command="{Binding CopyProxyAddressCommand}"
+                                                                    Style="{StaticResource GhostButton}" Margin="8,0,0,0"
+                                                                    ToolTip="{loc:Loc 'Скопировать адрес прокси в буфер обмена'}"/>
+                                                            <StackPanel>
+                                                                <TextBlock Text="{loc:Loc 'Адрес прокси (SOCKS5)'}" Style="{StaticResource Muted}" FontSize="11"/>
+                                                                <TextBlock Text="{Binding MasqueProxyAddress}" FontSize="14" FontWeight="SemiBold" Margin="0,2,0,0"/>
+                                                            </StackPanel>
+                                                        </DockPanel>
+                                                        <TextBlock Text="{loc:Loc 'Адрес выхода'}" Style="{StaticResource Muted}" FontSize="11" Margin="0,7,0,0"/>
+                                                        <TextBlock Text="{Binding MasqueExit}" FontSize="12.5" Margin="0,2,0,0"/>
+                                                    </StackPanel>
+                                                </Border>
+                                            </StackPanel>
+                                        </Border>
 
-                                    <Border Style="{StaticResource Card}" Padding="18" Margin="0,16,0,0">
-                                        <StackPanel>
-                                            <TextBlock Text="{loc:Loc 'Параметры'}" Style="{StaticResource H2}" Margin="0,0,0,10"/>
-                                            <TextBlock Text="{loc:Loc 'Порт прокси'}" Style="{StaticResource Muted}" FontSize="11.5" Margin="0,0,0,4"/>
-                                            <TextBox Text="{Binding MasqueListenPort, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
-                                                     HorizontalAlignment="Left" MinWidth="110"/>
-                                            <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" FontSize="11" Margin="0,6,0,0"
-                                                       Text="{loc:Loc 'Прокси слушает только на этом компьютере — снаружи к нему не подключиться. Меняйте порт, если 1080 уже занят другой программой.'}"/>
-                                            <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" FontSize="11" Margin="0,10,0,0"
-                                                       Text="{loc:Loc 'Способ подключения к Cloudflare программа подбирает сама и запоминает тот, который сработал.'}"/>
+                                    </StackPanel>
 
-                                            <!-- Opt-out instead of opt-in: normally only what you point at the proxy uses
-                                                 it, this hands Windows' own proxy setting to it for everything. Applied
-                                                 only once the tunnel is up, and put back when it goes down. -->
-                                            <Separator Margin="0,14,0,10" Background="#22FFFFFF"/>
-                                            <CheckBox Content="{loc:Loc 'Направлять весь трафик системы'}"
-                                                      IsChecked="{Binding MasqueSystemProxy, Mode=TwoWay}"
-                                                      Style="{StaticResource ToggleSwitch}"
-                                                      ToolTip="{loc:Loc 'Прописать прокси в настройках Windows, пока WARP включён'}"/>
-                                            <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" FontSize="11" Margin="0,8,0,0"
-                                                       Text="{loc:Loc 'Обычно через прокси идёт только то, что вы в него направили. С этой галочкой адрес прописывается в настройках прокси Windows, и его подхватывают Chrome, Edge и большинство программ — вписывать ничего не нужно. Настройка ставится, только когда подключение проверено, и снимается при выключении WARP и при выходе из программы.'}"/>
-                                            <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" FontSize="11" Margin="0,8,0,0"
-                                                       Text="{loc:Loc 'Firefox системную настройку не читает — ему адрес нужно вписать вручную. И помните, что через Cloudflare пойдут игры, мессенджеры и загрузки: это лишний крюк там, где он не нужен.'}"/>
-                                        </StackPanel>
-                                    </Border>
-                                </StackPanel>
+                                    <StackPanel Grid.Column="2">
+                                        <Border Style="{StaticResource Card}" Padding="18">
+                                            <StackPanel>
+                                                <TextBlock Text="{loc:Loc 'Устройство'}" Style="{StaticResource H2}" Margin="0,0,0,8"/>
+                                                <TextBlock Style="{StaticResource Muted}" FontSize="11.5" TextWrapping="Wrap" Margin="0,0,0,12"
+                                                           Text="{loc:Loc 'Ключи создаются прямо здесь. Наружу уходит только открытый ключ — закрытый машину не покидает. Обход при этом должен быть запущен: имя api.cloudflareclient.com режется по SNI.'}"/>
+                                                <WrapPanel>
+                                                    <Button Content="{loc:Loc 'Создать устройство'}" Command="{Binding RegisterMasqueCommand}"
+                                                            Style="{StaticResource PrimaryButton}" Margin="0,0,8,8"
+                                                            ToolTip="{loc:Loc 'Зарегистрировать устройство в Cloudflare'}"/>
+                                                    <Button Content="{loc:Loc 'Пересоздать'}" Command="{Binding ResetMasqueCommand}"
+                                                            Style="{StaticResource GhostButton}" Margin="0,0,8,8"
+                                                            ToolTip="{loc:Loc 'Забыть устройство и зарегистрировать новое'}"/>
+                                                </WrapPanel>
+                                            </StackPanel>
+                                        </Border>
 
-                                <!-- Right column: what this is for. Mirrors the Telegram tab's guide, because the
-                                     question people arrive with is the same one: why would I turn this on? -->
-                                <Border Grid.Column="2" Style="{StaticResource Card}" Padding="18" VerticalAlignment="Top">
+                                        <Border Style="{StaticResource Card}" Padding="18" Margin="0,16,0,0">
+                                            <StackPanel>
+                                                <TextBlock Text="{loc:Loc 'Параметры'}" Style="{StaticResource H2}" Margin="0,0,0,10"/>
+                                                <TextBlock Text="{loc:Loc 'Порт прокси'}" Style="{StaticResource Muted}" FontSize="11.5" Margin="0,0,0,4"/>
+                                                <TextBox Text="{Binding MasqueListenPort, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
+                                                         HorizontalAlignment="Left" MinWidth="110"/>
+                                                <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" FontSize="11" Margin="0,6,0,0"
+                                                           Text="{loc:Loc 'Прокси слушает только на этом компьютере — снаружи к нему не подключиться. Меняйте порт, если 1080 уже занят другой программой.'}"/>
+                                                <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" FontSize="11" Margin="0,10,0,0"
+                                                           Text="{loc:Loc 'Способ подключения к Cloudflare программа подбирает сама и запоминает тот, который сработал.'}"/>
+
+                                                <!-- Opt-out instead of opt-in: normally only what you point at the proxy uses
+                                                     it, this hands Windows' own proxy setting to it for everything. Applied
+                                                     only once the tunnel is up, and put back when it goes down. -->
+                                                <Separator Margin="0,14,0,10" Background="#22FFFFFF"/>
+                                                <CheckBox Content="{loc:Loc 'Направлять весь трафик системы'}"
+                                                          IsChecked="{Binding MasqueSystemProxy, Mode=TwoWay}"
+                                                          Style="{StaticResource ToggleSwitch}"
+                                                          ToolTip="{loc:Loc 'Прописать прокси в настройках Windows, пока WARP включён'}"/>
+                                                <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" FontSize="11" Margin="0,8,0,0"
+                                                           Text="{loc:Loc 'Обычно через прокси идёт только то, что вы в него направили. С этой галочкой адрес прописывается в настройках прокси Windows, и его подхватывают Chrome, Edge и большинство программ — вписывать ничего не нужно. Настройка ставится, только когда подключение проверено, и снимается при выключении WARP и при выходе из программы.'}"/>
+                                                <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" FontSize="11" Margin="0,8,0,0"
+                                                           Text="{loc:Loc 'Firefox системную настройку не читает — ему адрес нужно вписать вручную. И помните, что через Cloudflare пойдёт всё, что слушается этой настройки, — мессенджеры, загрузки: это лишний крюк там, где он не нужен.'}"/>
+                                            </StackPanel>
+                                        </Border>
+
+                                    </StackPanel>
+                                </Grid>
+
+                                <!-- What this is for. The question people arrive with is «why would I turn
+                                     this on», and the four points answer it in order. -->
+                                <Border Grid.Column="2" ctl:SidePanel.IsSide="True" Style="{StaticResource Card}"
+                                        Padding="18" VerticalAlignment="Top">
                                     <StackPanel>
                                         <TextBlock Text="{loc:Loc 'Что это и зачем'}" Style="{StaticResource H2}" Margin="0,0,0,14"/>
-
-                                        <Grid Margin="0,0,0,13">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="Auto"/>
-                                                <ColumnDefinition Width="*"/>
-                                            </Grid.ColumnDefinitions>
-                                            <Border Grid.Column="0" Width="22" Height="22" CornerRadius="11" VerticalAlignment="Top"
-                                                    Background="{StaticResource AccentSoftBrush}">
-                                                <TextBlock Text="1" Foreground="{StaticResource AccentBrush}" FontWeight="Bold" FontSize="12"
-                                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                            </Border>
-                                            <TextBlock Grid.Column="1" Margin="10,0,0,0" Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap"
-                                                       Text="{loc:Loc 'Преграды две, и они разные. Обход снимает первую: провайдер не даёт достучаться до сайта. Пакеты переписываются, соединение проходит. Адрес, с которого вы приходите, при этом остаётся вашим.'}"/>
-                                        </Grid>
-
-                                        <Grid Margin="0,0,0,13">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="Auto"/>
-                                                <ColumnDefinition Width="*"/>
-                                            </Grid.ColumnDefinitions>
-                                            <Border Grid.Column="0" Width="22" Height="22" CornerRadius="11" VerticalAlignment="Top"
-                                                    Background="{StaticResource AccentSoftBrush}">
-                                                <TextBlock Text="2" Foreground="{StaticResource AccentBrush}" FontWeight="Bold" FontSize="12"
-                                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                            </Border>
-                                            <TextBlock Grid.Column="1" Margin="10,0,0,0" Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap"
-                                                       Text="{loc:Loc 'Вторая преграда — сам сайт. Он смотрит, с какого адреса вы пришли, и сверяется с репутацией. Домашние российские диапазоны у антифрод-систем на плохом счету: оттуда идёт много ботов и злоупотреблений, и низкое доверие получает весь диапазон разом, а не отдельный нарушитель.'}"/>
-                                        </Grid>
-
-                                        <Grid Margin="0,0,0,13">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="Auto"/>
-                                                <ColumnDefinition Width="*"/>
-                                            </Grid.ColumnDefinitions>
-                                            <Border Grid.Column="0" Width="22" Height="22" CornerRadius="11" VerticalAlignment="Top"
-                                                    Background="{StaticResource AccentSoftBrush}">
-                                                <TextBlock Text="3" Foreground="{StaticResource AccentBrush}" FontWeight="Bold" FontSize="12"
-                                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                            </Border>
-                                            <TextBlock Grid.Column="1" Margin="10,0,0,0" Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap"
-                                                       Text="{loc:Loc 'Адреса WARP принадлежат Cloudflare, а через неё проходит заметная часть всего веба — в списках доверия её адреса стоят совсем иначе. С включённым прокси вы приходите не из подозрительного пула, а как клиент Cloudflare, и та же самая проверка вас пропускает.'}"/>
-                                        </Grid>
-
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="Auto"/>
-                                                <ColumnDefinition Width="*"/>
-                                            </Grid.ColumnDefinitions>
-                                            <Border Grid.Column="0" Width="22" Height="22" CornerRadius="11" VerticalAlignment="Top"
-                                                    Background="{StaticResource AccentSoftBrush}">
-                                                <TextBlock Text="4" Foreground="{StaticResource AccentBrush}" FontWeight="Bold" FontSize="12"
-                                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                            </Border>
-                                            <TextBlock Grid.Column="1" Margin="10,0,0,0" Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap"
-                                                       Text="{loc:Loc 'Страну он не меняет. Бесплатный WARP выводит через ближайший узел, и из России адрес будет российским. Меняется репутация адреса, а не страна: «недоступно в вашем регионе» так не обойти.'}"/>
-                                        </Grid>
-
-                                        <Border Background="#1FFFFFFF" CornerRadius="12" Padding="12,9" Margin="0,14,0,0">
+                                        <ItemsControl ItemsSource="{Binding WarpSteps}" ItemTemplate="{StaticResource ChainStepTemplate}"
+                                                      Focusable="False"/>
+                                        <Border Background="#1FFFFFFF" CornerRadius="12" Padding="12,9" Margin="0,2,0,0">
                                             <TextBlock Style="{StaticResource Muted}" FontSize="11.5" TextWrapping="Wrap"
                                                        Text="{loc:Loc 'Через прокси идёт только то, что вы в него направили: браузер, мессенджер. Остальное пойдёт напрямую — или включите в «Параметрах» пункт «Направлять весь трафик системы». И держите обход запущенным: до Cloudflare тоже надо ещё дойти, с обходом подключение встаёт с первой попытки, без него — через раз.'}"/>
                                         </Border>
                                     </StackPanel>
                                 </Border>
+                            </Grid>
+                        </Grid>
+                    </ScrollViewer>
+                </TabItem>
+
+                <!-- HMS — «Hide My Ass», the name the community settled on. The tab is about the
+                     CONNECTION and not about any one kind of site: several links in a row, of which the
+                     entrance decides the country. The AI sites are only the list it ships with, because
+                     they are what refuses by country today.
+
+                     The diagram at the top carries the explanation that used to be four numbered
+                     paragraphs down the right-hand side. It is built from the live settings, so it shows
+                     the chain the user actually has rather than the one the manual describes. -->
+                <TabItem Header="HMS">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="24">
+                        <Grid MaxWidth="1240" HorizontalAlignment="Left">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <StackPanel Grid.Row="0" Margin="2,0,0,16">
+                                <DockPanel>
+                                    <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" VerticalAlignment="Center"
+                                            Command="{Binding OpenLinkCommand}"
+                                            CommandParameter="{loc:Loc 'https://github.com/Asterlike/zapret2UI/blob/main/manual_zapret2UI.md#hms-смена-страны'}"
+                                            ToolTip="{loc:Loc 'Открыть раздел «HMS: смена страны» в инструкции'}">
+                                        <emoji:TextBlock Text="{loc:Loc '📖  Инструкция'}"/>
+                                    </Button>
+                                    <TextBlock Text="{loc:Loc 'HMS — Hide My Ass'}" Style="{StaticResource H1}" VerticalAlignment="Center"/>
+                                </DockPanel>
+                                <TextBlock Style="{StaticResource Muted}" Margin="0,3,0,0" TextWrapping="Wrap"
+                                           MaxWidth="860" HorizontalAlignment="Left"
+                                           Text="{loc:Loc 'Несколько звеньев подряд. Обход доводит до входа, вход задаёт страну, Cloudflare выдаёт адрес, которому доверяют. Сервис видит страну входа, а не вашу — и этим лечится «недоступно в вашем регионе», против которого обход бессилен.'}"/>
+                            </StackPanel>
+
+                            <!-- Controls in the middle, how the chain is built in the right-hand third that
+                                 used to stand empty. Folds underneath below 1000 px (see Controls/SidePanel). -->
+                            <Grid Grid.Row="1" ctl:SidePanel.CollapseBelow="1000" ctl:SidePanel.SideWidth="340">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="18"/>
+                                    <ColumnDefinition Width="340"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <Grid Grid.Column="0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="18"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel Grid.Column="0">
+                                        <Border Style="{StaticResource Card}" Padding="18">
+                                            <StackPanel>
+                                                <TextBlock Text="{loc:Loc 'Цепочка'}" Style="{StaticResource H2}" Margin="0,0,0,12"/>
+                                                <CheckBox Content="{loc:Loc 'Цепочка включена'}" IsChecked="{Binding IsChainEnabled, Mode=TwoWay}"
+                                                          IsEnabled="{Binding CanToggleChain}" Style="{StaticResource ToggleSwitch}"
+                                                          ToolTip="{loc:Loc 'Второе подключение к WARP — через выбранный вход'}"/>
+                                                <TextBlock Style="{StaticResource Muted}" FontSize="11.5" TextWrapping="Wrap" Margin="0,10,0,0"
+                                                           Visibility="{Binding HasChainStatus, Converter={StaticResource BoolToVis}}"
+                                                           Text="{Binding ChainStatus}"/>
+                                                <Border Background="#1FFFFFFF" CornerRadius="12" Padding="12,9" Margin="0,12,0,0">
+                                                    <StackPanel>
+                                                        <TextBlock Text="{loc:Loc 'Адрес выхода'}" Style="{StaticResource Muted}" FontSize="11"/>
+                                                        <TextBlock Text="{Binding ChainExit}" FontSize="12.5" Margin="0,2,0,0"/>
+                                                    </StackPanel>
+                                                </Border>
+                                                <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" FontSize="11" Margin="0,10,0,0"
+                                                           Text="{loc:Loc 'Отдельный выключатель: обычный прокси WARP на соседней вкладке работает сам по себе, на полной скорости, и через цепочку не идёт.'}"/>
+                                                <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" FontSize="11" Margin="0,8,0,0"
+                                                           Visibility="{Binding IngressIsDirect, Converter={StaticResource BoolToVis}}"
+                                                           Text="{loc:Loc 'Сейчас выбран вход «Напрямую» — цепочки нет, и страна не изменится: сайты из списка пойдут через обычный прокси WARP, если он включён. Для другой страны выберите «Свой прокси» или «Tor».'}"/>
+                                                <Button Content="{loc:Loc 'Открыть вкладку WARP'}" Command="{Binding GoToWarpTabCommand}"
+                                                        Style="{StaticResource GhostButton}" HorizontalAlignment="Left" Margin="0,8,0,0"/>
+                                            </StackPanel>
+                                        </Border>
+
+                                        <!-- Вход. Три варианта чипами — теми же, что на «Главной» и в «Настройках»,
+                                             чтобы не заводить новый стиль контрола ради трёх кнопок. -->
+                                        <Border Style="{StaticResource Card}" Padding="18" Margin="0,16,0,0">
+                                            <StackPanel>
+                                                <TextBlock Text="{loc:Loc 'Вход'}" Style="{StaticResource H2}" Margin="0,0,0,8"/>
+                                                <TextBlock Style="{StaticResource Muted}" FontSize="11.5" TextWrapping="Wrap" Margin="0,0,0,12"
+                                                           Text="{loc:Loc 'Звено, которое задаёт страну. Свой прокси — если он есть, Tor — если его нет.'}"/>
+
+                                                <WrapPanel Margin="0,0,0,4">
+                                                    <RadioButton Style="{StaticResource ChipButton}" GroupName="MasqueIngress"
+                                                                 Content="{loc:Loc 'Напрямую'}" Margin="0,0,0,8"
+                                                                 IsChecked="{Binding IngressIsDirect, Mode=TwoWay}"
+                                                                 ToolTip="{loc:Loc 'Без цепочки: выход в вашей стране'}"/>
+                                                    <RadioButton Style="{StaticResource ChipButton}" GroupName="MasqueIngress"
+                                                                 Content="{loc:Loc 'Свой прокси'}" Margin="0,0,0,8"
+                                                                 IsChecked="{Binding IngressIsProxy, Mode=TwoWay}"
+                                                                 ToolTip="{loc:Loc 'SOCKS5-порт вашего клиента VLESS или Shadowsocks'}"/>
+                                                    <RadioButton Style="{StaticResource ChipButton}" GroupName="MasqueIngress"
+                                                                 Content="Tor" Margin="0,0,0,8"
+                                                                 IsChecked="{Binding IngressIsTor, Mode=TwoWay}"
+                                                                 ToolTip="{loc:Loc 'Бесплатный вход: Tor с выходом в выбранной стране'}"/>
+                                                </WrapPanel>
+
+                                                <StackPanel Visibility="{Binding IngressIsProxy, Converter={StaticResource BoolToVis}}">
+                                                    <TextBlock Text="{loc:Loc 'Прокси входа (SOCKS5)'}" Style="{StaticResource Muted}" FontSize="11.5" Margin="0,6,0,4"/>
+                                                    <TextBox Text="{Binding MasqueIngressProxy, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
+                                                             HorizontalAlignment="Left" MinWidth="240"
+                                                             ToolTip="{loc:Loc 'Адрес и порт SOCKS5, например 127.0.0.1:10808'}"/>
+                                                    <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" FontSize="11" Margin="0,6,0,0"
+                                                               Text="{loc:Loc 'Например: 127.0.0.1:10808. С логином — socks5://логин:пароль@адрес:порт.'}"/>
+                                                </StackPanel>
+
+                                                <StackPanel Visibility="{Binding IngressIsTor, Converter={StaticResource BoolToVis}}">
+                                                    <TextBlock Text="{loc:Loc 'Страна выхода Tor'}" Style="{StaticResource Muted}" FontSize="11.5" Margin="0,6,0,4"/>
+                                                    <TextBox Text="{Binding MasqueTorCountry, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
+                                                             HorizontalAlignment="Left" MinWidth="70"
+                                                             ToolTip="{loc:Loc 'Двухбуквенный код страны'}"/>
+                                                    <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" FontSize="11" Margin="0,6,0,0"
+                                                               Text="{Binding TorCountriesHint}"/>
+                                                    <TextBlock Text="{loc:Loc 'Мосты, по одному в строке'}" Style="{StaticResource Muted}" FontSize="11.5" Margin="0,10,0,4"/>
+                                                    <TextBox Text="{Binding MasqueTorBridges, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
+                                                             AcceptsReturn="True" TextWrapping="Wrap" MinHeight="56" MaxHeight="96"
+                                                             VerticalScrollBarVisibility="Auto" FontFamily="{StaticResource MonoFont}" FontSize="11"
+                                                             ToolTip="{loc:Loc 'Строки вида webtunnel …, obfs4 … или адрес:порт отпечаток — обычное реле'}"/>
+                                                    <!-- Две кнопки, обе по нажатию и обе только дополняют поле:
+                                                         список остаётся тем, что человек ведёт сам. -->
+                                                    <WrapPanel Margin="0,8,0,0">
+                                                        <Button Content="{loc:Loc 'Получить мосты'}" Command="{Binding FetchBridgesCommand}"
+                                                                Style="{StaticResource GhostButton}" Margin="0,0,8,4"
+                                                                ToolTip="{loc:Loc 'Спросить мосты у Tor Project и найти обычные реле, до которых отсюда есть связь'}"/>
+                                                        <Button Content="{loc:Loc 'Проверить скорость'}" Command="{Binding TestBridgesCommand}"
+                                                                Style="{StaticResource GhostButton}" Margin="0,0,8,4"
+                                                                ToolTip="{loc:Loc 'Поднять каждый мост по очереди и замерить. Цепочка при этом должна быть выключена.'}"/>
+                                                    </WrapPanel>
+                                                    <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" FontSize="11" Margin="0,2,0,0"
+                                                               Visibility="{Binding HasBridgeStatus, Converter={StaticResource BoolToVis}}"
+                                                               Text="{Binding BridgeStatus}"/>
+                                                    <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" FontSize="11" Margin="0,6,0,0"
+                                                               Text="{loc:Loc 'Кнопка берёт мосты у Tor Project и заодно ищет обычные реле, отвечающие с вашей сети: они без маскировки и часто быстрее мостов. Свои строки можно вставить руками — их выдаёт бот @GetBridgesBot.'}"/>
+
+                                                    <!-- Закрепление выхода. Главное здесь не скорость, а то,
+                                                         что адрес перестаёт меняться при каждом
+                                                         переподключении. -->
+                                                    <TextBlock Text="{loc:Loc 'Выходной узел'}" Style="{StaticResource Muted}" FontSize="11.5" Margin="0,14,0,4"/>
+                                                    <WrapPanel>
+                                                        <Button Content="{loc:Loc 'Подобрать выход'}" Command="{Binding PickExitCommand}"
+                                                                Style="{StaticResource GhostButton}" Margin="0,0,8,4"
+                                                                ToolTip="{loc:Loc 'Замерить самые быстрые узлы выбранной страны и закрепить лучший. Цепочка при этом должна быть выключена.'}"/>
+                                                        <Button Content="{loc:Loc 'Снять закрепление'}" Command="{Binding ClearExitCommand}"
+                                                                Style="{StaticResource GhostButton}" Margin="0,0,8,4"
+                                                                Visibility="{Binding HasPinnedExit, Converter={StaticResource BoolToVis}}"
+                                                                ToolTip="{loc:Loc 'Вернуться к любому узлу в выбранной стране'}"/>
+                                                    </WrapPanel>
+                                                    <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" FontSize="11" Margin="0,2,0,0"
+                                                               Visibility="{Binding HasPinnedExit, Converter={StaticResource BoolToVis}}"
+                                                               Text="{Binding PinnedExitLine}"/>
+                                                    <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" FontSize="11" Margin="0,6,0,0"
+                                                               Text="{loc:Loc 'Без закрепления Tor берёт новый узел на каждое соединение — для сервиса это каждый раз новый посетитель. Закрепление к тому же разрешает второе соединение с Cloudflare: адрес у них общий. Замерено: у узлов с близкой полосой по консенсусу скорость различалась в 15 раз.'}"/>
+                                                    <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" FontSize="11" Margin="0,8,0,0"
+                                                               Text="{loc:Loc 'При первом включении программа скачает Tor — 21 МБ, через сам WARP: сайт Tor в России блокируют. Обход на «Главной» должен быть запущен — пока цепочка через Tor включена, он работает для всех сайтов, а не только для списков, иначе мосты не подключаются.'}"/>
+                                                </StackPanel>
+
+                                            </StackPanel>
+                                        </Border>
+                                    </StackPanel>
+
+                                    <!-- Что вести этим путём. Список правится руками: «через цепочку идут
+                                         только эти сайты» — обещание, которое пользователь должен видеть
+                                         целиком, а не принимать на слово. -->
+                                    <StackPanel Grid.Column="2">
+                                        <Border Style="{StaticResource Card}" Padding="18">
+                                            <StackPanel>
+                                                <TextBlock Text="{loc:Loc 'Что идёт этим путём'}" Style="{StaticResource H2}" Margin="0,0,0,10"/>
+                                                <CheckBox Content="{loc:Loc 'Вести эти сайты через цепочку'}"
+                                                          IsChecked="{Binding MasqueAiRouting, Mode=TwoWay}"
+                                                          Style="{StaticResource ToggleSwitch}"
+                                                          ToolTip="{loc:Loc 'Правило в настройках Windows: эти сайты — через выбранный вход, остальные — мимо него'}"/>
+                                                <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" FontSize="11" Margin="0,8,0,0"
+                                                           Text="{loc:Loc 'Правило подхватывают Chrome, Edge, Brave и программы на их основе — на них и проверено; Firefox не проверялся. В комплекте — сайты ИИ, потому что именно они отказывают по стране, но список ваш: пишите что угодно.'}"/>
+                                                <TextBlock Text="{loc:Loc 'Список сайтов, по одному в строке'}" Style="{StaticResource Muted}" FontSize="11.5" Margin="0,12,0,4"/>
+                                                <TextBox Text="{Binding MasqueAiDomainsText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
+                                                         AcceptsReturn="True" TextWrapping="NoWrap" MinHeight="120" MaxHeight="180"
+                                                         VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+                                                         FontFamily="{StaticResource MonoFont}" FontSize="11.5"
+                                                         ToolTip="{loc:Loc 'Домен и всё, что под ним: openai.com покрывает и api.openai.com'}"/>
+                                                <Button Content="{loc:Loc 'Вернуть список по умолчанию'}" Command="{Binding ResetAiDomainsCommand}"
+                                                        Style="{StaticResource GhostButton}" HorizontalAlignment="Left" Margin="0,8,0,0"
+                                                        ToolTip="{loc:Loc 'Заменить список тем, что идёт в комплекте'}"/>
+                                                <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" FontSize="11" Margin="0,10,0,0"
+                                                           Text="{loc:Loc 'Пока цепочка включена, эти сайты идут только через неё: оборвётся вход — они перестанут открываться, а не уйдут с вашего адреса. Выключите цепочку — правило снимется, и они пойдут как обычно, с вашего адреса: в аккаунт, привязанный к другой стране, тогда лучше не заходить.'}"/>
+
+                                                <!-- Исключения. Нужны ровно для поддоменов: список выше ловит
+                                                     по суффиксу, поэтому cdn.grok.com иначе из цепочки не
+                                                     вынуть — его накрывает grok.com. -->
+                                                <TextBlock Text="{loc:Loc 'Исключения — мимо цепочки, на полной скорости'}"
+                                                           Style="{StaticResource Muted}" FontSize="11.5" Margin="0,14,0,4"/>
+                                                <TextBox Text="{Binding MasqueAiBypassText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
+                                                         AcceptsReturn="True" TextWrapping="NoWrap" MinHeight="46" MaxHeight="90"
+                                                         VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+                                                         FontFamily="{StaticResource MonoFont}" FontSize="11.5"
+                                                         ToolTip="{loc:Loc 'Эти имена идут мимо цепочки, даже если список выше их покрывает'}"/>
+                                                <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" FontSize="11" Margin="0,8,0,0"
+                                                           Text="{loc:Loc 'Сюда — адреса, с которых грузятся только картинки и скрипты. Замерено: страница grok.com делает 219 запросов, и 188 из них — на cdn.grok.com, где стране взяться неоткуда. Перечисленное здесь идёт мимо цепочки, как обычно; сам сайт остаётся в ней.'}"/>
+                                            </StackPanel>
+                                        </Border>
+
+                                    </StackPanel>
+                                </Grid>
+
+                                <!-- The chain itself, link by link, built from the live settings: pick
+                                     «Напрямую» and it loses its middle, which is the honest way to say that
+                                     this entrance changes no country. -->
+                                <StackPanel Grid.Column="2" ctl:SidePanel.IsSide="True" VerticalAlignment="Top">
+                                    <Border Style="{StaticResource Card}" Padding="18">
+                                        <StackPanel>
+                                            <TextBlock Text="{loc:Loc 'Как устроено подключение'}" Style="{StaticResource H2}" Margin="0,0,0,14"/>
+                                            <ItemsControl ItemsSource="{Binding ChainSteps}" ItemTemplate="{StaticResource ChainStepTemplate}"
+                                                          Focusable="False"/>
+                                            <Border Background="#1FFFFFFF" CornerRadius="12" Padding="12,9" Margin="0,2,0,0">
+                                                <StackPanel>
+                                                    <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" FontSize="11.5"
+                                                               Text="{loc:Loc 'Замерено: страну выхода Cloudflare выбирает по тому, откуда к нему пришли, — устройство и ключи при этом те же. Поэтому всё решает вход. Один Tor без Cloudflare так не сработает: его выходные адреса сервисы знают и режут сами.'}"/>
+                                                    <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" FontSize="11.5" Margin="0,6,0,0"
+                                                               Text="{loc:Loc 'Длинным путём идут только сайты из списка. Всё остальное — видео, игры, загрузки — идёт как обычно, на полной скорости.'}"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </StackPanel>
+                                    </Border>
+                                    <Border Style="{StaticResource Card}" Padding="18" Margin="0,16,0,0">
+                                        <StackPanel>
+                                            <TextBlock Text="{loc:Loc 'Чего это не делает'}" Style="{StaticResource H2}" Margin="0,0,0,10"/>
+                                            <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" FontSize="11.5"
+                                                       Text="{loc:Loc 'Не страхует аккаунт. Правила сервисов никто не отменял, регистрация в Claude просит телефон поддерживаемой страны, а за резкую смену страны аккаунт могут проверить. Смена адреса решает «не пускают», а не «разрешено ли».'}"/>
+                                            <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" FontSize="11.5" Margin="0,8,0,0"
+                                                       Text="{loc:Loc 'И не делает быстро. Через Tor замерено 2–6 Мбит/с и задержка около секунды: для переписки нормально, для файлов заметно. Поэтому список и держат коротким.'}"/>
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
                             </Grid>
                         </Grid>
                     </ScrollViewer>
@@ -1639,13 +1874,13 @@
                                                     <CheckBox Content="{loc:Loc 'Обходить все сайты, а не только из списков'}"
                                                               IsChecked="{Binding BypassAllSites}" Style="{StaticResource ToggleSwitch}"
                                                               Margin="0,4"/>
-                                                    <!-- The switch shows the saved preference; WARP overrides it while it runs. Without
+                                                    <!-- The switch shows the saved preference; WARP, or a chain through Tor, overrides it while it runs. Without
                                                          this line the two would simply disagree and neither would explain itself. -->
                                                     <Border Background="#26F5A623" BorderBrush="{StaticResource WarnBrush}" BorderThickness="1"
                                                             CornerRadius="12" Padding="12,9" Margin="0,10,0,0"
-                                                            Visibility="{Binding IsMasqueOn, Converter={StaticResource BoolToVis}}">
+                                                            Visibility="{Binding ScopeWidenedByWarp, Converter={StaticResource BoolToVis}}">
                                                         <TextBlock Style="{StaticResource Muted}" FontSize="11.5" TextWrapping="Wrap"
-                                                                   Text="{loc:Loc 'Сейчас включён прокси WARP, и обход распространён на все сайты независимо от этой настройки — иначе подключение к Cloudflare не встаёт. Ваш выбор сохранён и вернётся, когда прокси будет выключен.'}"/>
+                                                                   Text="{loc:Loc 'Сейчас включён WARP или цепочка HMS через Tor, и обход распространён на все сайты независимо от этой настройки — иначе подключение не встаёт. Ваш выбор сохранён и вернётся, когда они будут выключены.'}"/>
                                                     </Border>
                                                 </StackPanel>
                                             </Border>
@@ -1653,7 +1888,7 @@
                                                 <StackPanel>
                                                     <TextBlock Text="{loc:Loc 'Игровой фильтр'}" Style="{StaticResource H2}" Margin="0,0,0,8"/>
                                                     <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,10"
-                                                               Text="{loc:Loc 'По умолчанию ВЫКЛ — обход не трогает игровой трафик (высокие порты), игры работают напрямую. Включите, только если душат саму игру: обход распространится на все порты выше 1023 (заодно покроет Discord-медиа на высоких портах). Меняется на лету — движок перезапустится.'}"/>
+                                                               Text="{loc:Loc 'По умолчанию выключено — обход не трогает игровой трафик (высокие порты), игры работают напрямую. Включите, только если душат саму игру: обход распространится на все порты выше 1023 (заодно покроет Discord-медиа на высоких портах). Меняется на лету — движок перезапустится.'}"/>
                                                     <CheckBox Content="{loc:Loc 'Распространять обход на игровые порты (>1023)'}"
                                                               IsChecked="{Binding GameFilter}" Style="{StaticResource ToggleSwitch}"
                                                               Margin="0,4"/>
@@ -1876,18 +2111,20 @@
                             <TextBlock Text="{loc:Loc '2. Два режима'}" FontWeight="Bold" Margin="0,14,0,4"
                                        FontFamily="{StaticResource DisplayFont}"/>
                             <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap"
-                                       Text="{loc:Loc 'Переключатель «Простой / Расширенный» вверху по центру. В простом режиме — только «Главная»: кнопка вкл/выкл, выбор цели, «Подобрать»/«Сгенерировать» стратегию, тумблер Telegram и карточка подключения. В расширенном открываются вкладки сверху: Главная, Стратегии, Хостлисты, Диагностика, Журнал, Telegram, Настройки.'}"/>
+                                       Text="{loc:Loc 'Переключатель «Простой / Расширенный» вверху по центру. В простом режиме — только «Главная»: кнопка вкл/выкл, выбор цели, «Подобрать»/«Сгенерировать» стратегию, тумблер Telegram и карточка подключения. В расширенном открываются вкладки сверху: Главная, Стратегии, Хостлисты, Диагностика, Журнал, Telegram, WARP, HMS, Настройки.'}"/>
 
                             <!-- 3. Вкладки -->
                             <TextBlock Text="{loc:Loc '3. Что где находится'}" FontWeight="Bold" Margin="0,14,0,6"
                                        FontFamily="{StaticResource DisplayFont}"/>
                             <StackPanel>
                                 <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap" Text="{loc:Loc '• Главная — статус, большая кнопка вкл/выкл, выбор цели, кнопки «Подобрать» и «Сгенерировать» стратегию.'}"/>
-                                <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap" Margin="0,3,0,0" Text="{loc:Loc '• Стратегии — готовые стратегии по группам (Основные, Личные/Сгенерированные). Справа — описание, подключённые хостлисты и «терминал» аргументов winws2. Кнопки: Применить, Дублировать (чтобы править копию), Сохранить, Удалить.'}"/>
+                                <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap" Margin="0,3,0,0" Text="{loc:Loc '• Стратегии — готовые стратегии по группам (Основные, Личные/Сгенерированные). Справа — описание, подключённые хостлисты и «терминал» аргументов winws2. Кнопки: Сменить стратегию, Дублировать (чтобы править копию), Сохранить, Удалить.'}"/>
                                 <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap" Margin="0,3,0,0" Text="{loc:Loc '• Хостлисты — списки доменов, к которым применяется обход (один домен = одна строка).'}"/>
                                 <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap" Margin="0,3,0,0" Text="{loc:Loc '• Диагностика — подбор/генерация стратегии и матрица доступности сервисов (см. ниже).'}"/>
                                 <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap" Margin="0,3,0,0" Text="{loc:Loc '• Журнал — живой вывод движка (для диагностики проблем).'}"/>
                                 <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap" Margin="0,3,0,0" Text="{loc:Loc '• Telegram — встроенный прокси: включение, адрес/секрет, порт и краткое руководство.'}"/>
+                                <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap" Margin="0,3,0,0" Text="{loc:Loc '• WARP — прокси Cloudflare: меняет адрес, с которого вас видят сайты.'}"/>
+                                <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap" Margin="0,3,0,0" Text="{loc:Loc '• HMS — цепочка через свой прокси или Tor: сайты из списка видят другую страну.'}"/>
                                 <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap" Margin="0,3,0,0" Text="{loc:Loc '• Настройки — обновление движка, автозапуск, авто-починка, QUIC, игровой фильтр, обход по IP, исключения (антивирус/брандмауэр).'}"/>
                             </StackPanel>
 
@@ -1895,10 +2132,10 @@
                             <TextBlock Text="{loc:Loc '4. Диагностика, подбор и генерация'}" FontWeight="Bold" Margin="0,14,0,4"
                                        FontFamily="{StaticResource DisplayFont}"/>
                             <StackPanel>
-                                <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap" Text="{loc:Loc '• «Подобрать лучшую» — быстро: перебирает готовые стратегии и оставляет одну, общую для всех сервисов. Если Discord и YouTube требуют РАЗНЫХ обходов, одной общей может не хватить — тогда используйте «Сгенерировать».'}"/>
+                                <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap" Text="{loc:Loc '• «Подобрать лучшую» — быстро: перебирает готовые стратегии и оставляет одну, общую для всех сервисов. Если Discord и YouTube требуют разных обходов, одной общей может не хватить — тогда используйте «Сгенерировать».'}"/>
                                 <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap" Margin="0,3,0,0" Text="{loc:Loc '• «Сгенерировать стратегию» — собирает персональную стратегию под «всё сразу»: подбирает лучший обход отдельно для Discord и для YouTube, затем объединяет их в одну стратегию и проверяет её целиком — чтобы сервисы работали вместе, а не только по отдельности. Медленнее, но именно это даёт рабочую стратегию под всё.'}"/>
                                 <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap" Margin="0,3,0,0" Text="{loc:Loc '• «Диагностика» — просто показывает текущую доступность (HTTP / TLS 1.2 / TLS 1.3 / пинг) по сервисам, без подбора. По упавшей ячейке видно, что именно режет провайдер.'}"/>
-                                <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap" Margin="0,3,0,0" Text="{loc:Loc '• После подбора/генерации список «Успешные стратегии» позволяет сохранить любые рабочие варианты в пресеты (не только лучший).'}"/>
+                                <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap" Margin="0,3,0,0" Text="{loc:Loc '• После подбора и генерации в списке «Прошли проверку» можно сохранить любой рабочий вариант в свои стратегии, не только лучший.'}"/>
                                 <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap" Margin="0,3,0,0" Text="{loc:Loc '• «Свои цели» — добавьте свой сайт: приложение найдёт его поддомены и домены того же бренда в других зонах (yandex.ru → yandex.kz/md…), будет проверять их в диагностике, учитывать при подборе/генерации и применять к ним обход.'}"/>
                             </StackPanel>
 
@@ -1907,22 +2144,22 @@
                                        FontFamily="{StaticResource DisplayFont}"/>
                             <StackPanel>
                                 <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap" Text="{loc:Loc '• Авто-починка — фоном следит за Discord и YouTube; если обход сломался, сам переподбирает рабочую стратегию.'}"/>
-                                <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap" Margin="0,3,0,0" Text="{loc:Loc '• Игровой фильтр — по умолчанию ВЫКЛ, обход не трогает игровой трафик. Включайте, только если душат саму игру.'}"/>
+                                <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap" Margin="0,3,0,0" Text="{loc:Loc '• Игровой фильтр — по умолчанию выключен, обход не трогает игровой трафик. Включайте, только если душат саму игру.'}"/>
                                 <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap" Margin="0,3,0,0" Text="{Binding IpsetHelpTelegram}"/>
-                                <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap" Margin="0,3,0,0" Text="{loc:Loc '• Движок и приложение обновляются с GitHub; если api недоступен у провайдера — проверка идёт и через обычный github.com.'}"/>
+                                <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap" Margin="0,3,0,0" Text="{loc:Loc '• Движок обновляется с GitHub сам, о новой версии приложения появится уведомление; если api недоступен у провайдера — проверка идёт и через обычный github.com.'}"/>
                             </StackPanel>
 
                             <!-- 6. Telegram (встроенный прокси) -->
                             <TextBlock Text="{loc:Loc '6. Telegram — встроенный прокси'}" FontWeight="Bold" Margin="0,14,0,4"
                                        FontFamily="{StaticResource DisplayFont}"/>
                             <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap"
-                                       Text="{loc:Loc 'Telegram в РФ часто режут по IP дата-центров — обычный десинк тут не помогает. Поэтому в приложении есть свой локальный MTProto-прокси (карточка «Telegram» на «Главной»): он проводит трафик Telegram через WebSocket к серверам, до которых блокировка не дотягивается. Нажмите «Включить для Telegram», затем «Открыть в Telegram» — прокси пропишется в настройках автоматически (или введите адрес 127.0.0.1 и порт вручную). Свой сторонний MTProxy больше не нужен.'}"/>
+                                       Text="{loc:Loc 'Telegram в РФ часто режут по IP дата-центров — обычный обход тут не помогает. Поэтому в приложении есть свой локальный MTProto-прокси (карточка «Telegram» на «Главной»): он проводит трафик Telegram через WebSocket к серверам, до которых блокировка не дотягивается. Включите тумблер на этой карточке и нажмите «Открыть» — прокси пропишется в настройках автоматически (или введите адрес 127.0.0.1 и порт вручную). Свой сторонний MTProxy больше не нужен.'}"/>
 
                             <!-- 7. Если не работает -->
                             <TextBlock Text="{loc:Loc '7. Если не работает'}" FontWeight="Bold" Margin="0,14,0,4"
                                        FontFamily="{StaticResource DisplayFont}"/>
                             <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap"
-                                       Text="{loc:Loc 'Стратегии зависят от оператора связи — одна и та же не работает у всех одинаково. Порядок действий: попробуйте другой пресет из списка → «Подобрать лучшую» → «Сгенерировать стратегию». Если совсем ничего не пробивает — это, скорее всего, сторона регулятора. Для Telegram используйте встроенный прокси (пункт 6).'}"/>
+                                       Text="{loc:Loc 'Стратегии зависят от оператора связи — одна и та же не работает у всех одинаково. Порядок действий: попробуйте другую стратегию из списка → «Подобрать лучшую» → «Сгенерировать стратегию». Если совсем ничего не пробивает — это, скорее всего, сторона регулятора. Для Telegram используйте встроенный прокси (пункт 6).'}"/>
 
                             <!-- 8. Документация -->
                             <TextBlock Text="{loc:Loc '8. Документация и ссылки'}" FontWeight="Bold" Margin="0,14,0,4"
@@ -1996,7 +2233,7 @@
                             <TextBlock Text="{loc:Loc '4. Telegram — отдельная история'}" FontWeight="Bold" Margin="0,14,0,4"
                                        FontFamily="{StaticResource DisplayFont}"/>
                             <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap"
-                                       Text="{loc:Loc 'Telegram блокируют по адресам дата-центров, и обход DPI тут бессилен — поэтому для него внутри есть свой прокси. Включите тумблер «Telegram» на «Главной» и нажмите «Открыть в Telegram»: настройки пропишутся сами. Прав администратора он не требует, от основного обхода не зависит и может быть включён всегда.'}"/>
+                                       Text="{loc:Loc 'Telegram блокируют по адресам дата-центров, и обход DPI тут бессилен — поэтому для него внутри есть свой прокси. Включите тумблер «Telegram» на «Главной» и нажмите «Открыть»: настройки пропишутся сами. От основного обхода прокси не зависит и может быть включён всегда.'}"/>
 
                             <TextBlock Text="{loc:Loc '5. Если ничего не помогло'}" FontWeight="Bold" Margin="0,14,0,4"
                                        FontFamily="{StaticResource DisplayFont}"/>
@@ -2070,7 +2307,7 @@
                                             <Setter Property="Text" Value="{loc:Loc 'Найти домены'}"/>
                                             <Style.Triggers>
                                                 <DataTrigger Binding="{Binding IsExpandingTarget}" Value="True">
-                                                    <Setter Property="Text" Value="{loc:Loc 'Ищу…'}"/>
+                                                    <Setter Property="Text" Value="{loc:Loc 'Поиск…'}"/>
                                                 </DataTrigger>
                                             </Style.Triggers>
                                         </Style>

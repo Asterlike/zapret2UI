@@ -62,17 +62,42 @@ public static class AppPaths
     /// of desync repairs that. MASQUE is Cloudflare's own second transport and looks like ordinary
     /// HTTP/3 or HTTPS on 443.</para>
     ///
-    /// <para>Nothing here is locked down, and that is deliberate: the WireGuard folder had to be
-    /// SYSTEM-only because a SYSTEM service executed out of it. usque runs as a plain child process of
-    /// this app in proxy mode, so the same lock would protect nothing and only make the folder
-    /// unreadable to its owner. The config does hold a private key, which is why it lives under the
-    /// user's profile rather than anywhere shared.</para></summary>
+    /// <para>Nothing here is locked down. usque runs as a child process of this app and so with its
+    /// rights, which are administrator's — see the note on <c>MasqueRuntime.EnsureReady</c>. The config
+    /// holds a private key, which is why it lives under the user's profile rather than anywhere
+    /// shared.</para></summary>
     public static string MasqueDir => Path.Combine(Root, "masque");
     public static string MasqueExe => Path.Combine(MasqueDir, "usque.exe");
 
     /// <summary>The registered MASQUE device: an ECDSA P-256 key plus the licence, id and access token
     /// Cloudflare hands back.</summary>
     public static string MasqueConfigFile => Path.Combine(MasqueDir, "config.json");
+
+    /// <summary>Tor, when the user picks it as the way in to Cloudflare: the Expert Bundle unpacked on
+    /// demand rather than carried inside our exe.
+    ///
+    /// <para>Downloaded rather than embedded on purpose. The three files that matter come to ~53 MB —
+    /// a third of the whole application — and antivirus vendors treat a bundled tor.exe far more harshly
+    /// than one the user asked for. The engine is downloaded for the same reasons, so this is the
+    /// established shape rather than a new one.</para></summary>
+    public static string TorDir => Path.Combine(Root, "tor");
+    public static string TorExe => Path.Combine(TorDir, "tor.exe");
+
+    /// <summary>The pluggable transport (lyrebird) and the bundle's own list of built-in bridges.</summary>
+    public static string TorTransportDir => Path.Combine(TorDir, "pt");
+    public static string TorTransportExe => Path.Combine(TorTransportDir, "lyrebird.exe");
+    public static string TorTransportConfig => Path.Combine(TorTransportDir, "pt_config.json");
+
+    /// <summary>Country codes need these, and they are most of the bundle's size.</summary>
+    public static string TorGeoIpFile => Path.Combine(TorDir, "geoip");
+    public static string TorGeoIp6File => Path.Combine(TorDir, "geoip6");
+
+    /// <summary>Tor's own state: the consensus it caches between runs, which is what makes the second
+    /// start much faster than the first.</summary>
+    public static string TorDataDir => Path.Combine(TorDir, "data");
+
+    /// <summary>Which bundle version is unpacked, so a pinned newer one replaces it.</summary>
+    public static string TorVersionFile => Path.Combine(TorDir, "installed_version.txt");
 
     // User data
     public static string ListsDir => Path.Combine(Root, "lists");

@@ -164,14 +164,6 @@ internal sealed class TgWebSocket : IDisposable
         finally { _writeLock.Release(); }
     }
 
-    /// <summary>Sends a WebSocket ping (keepalive): the write fails on a dead peer, which lets the
-    /// bridge notice and tear the connection down.</summary>
-    public async Task PingAsync(CancellationToken ct)
-    {
-        if (_closed) throw new IOException("WebSocket closed");
-        await WriteLockedAsync(BuildFrame(OpPing, Array.Empty<byte>()), ct);
-    }
-
     private async Task WriteLockedAsync(byte[] frame, CancellationToken ct)
     {
         await _writeLock.WaitAsync(ct);

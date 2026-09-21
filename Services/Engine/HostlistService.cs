@@ -83,9 +83,6 @@ public sealed class HostlistService
         }
     }
 
-    /// <summary>The bundled "authored" lists, kept in sync with the code below.</summary>
-    public static readonly string[] BundledListNames = { "youtube", "discord", "exclude", "general" };
-
     /// <summary>Re-sync the bundled lists from code on EVERY launch, so domain updates reach existing
     /// installs (the user shouldn't be stuck on an old 4-host version). These are app-managed;
     /// user-created lists are never touched here.</summary>

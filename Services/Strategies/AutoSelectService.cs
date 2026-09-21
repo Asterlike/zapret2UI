@@ -58,7 +58,7 @@ public sealed class AutoSelectService : IDisposable
             ct.ThrowIfCancellationRequested();
             var cand = candidates[i];
             CandidateStarted?.Invoke(cand.Name);
-            Status?.Invoke(Loc.T("[{0}/{1}] Пробую: {2}…", i + 1, candidates.Count, Loc.T(cand.Name)));
+            Status?.Invoke(Loc.T("[{0}/{1}] Проверка: {2}…", i + 1, candidates.Count, Loc.T(cand.Name)));
 
             AutoScore score;
             try

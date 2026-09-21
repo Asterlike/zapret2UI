@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Windows;
+using Zapret2UI.Services.Infrastructure;
 using Zapret2UI.Services.Warp;
 
 namespace Zapret2UI.Harness;
@@ -14,12 +15,16 @@ namespace Zapret2UI.Harness;
 /// </summary>
 internal static class MasqueSelfTest
 {
-    /// <summary><c>--masquetest [exitPort]</c>: register a device if needed, raise the local proxy and
-    /// ask Cloudflare — THROUGH that proxy — where it thinks we are.
+    /// <summary><c>--masquetest [exitPort] [--via host:port]</c>: register a device if needed, raise
+    /// the local proxy and ask Cloudflare — THROUGH that proxy — where it thinks we are.
     ///
     /// <para>Walks the rest of the MASQUE ports on failure, because which port survives is exactly what
-    /// differs between networks, and a single "no" would say nothing.</para></summary>
-    internal static async Task RunAsync(int exitPort)
+    /// differs between networks, and a single "no" would say nothing.</para>
+    ///
+    /// <para><c>--via host:port</c> dials Cloudflare through a SOCKS5 proxy of your own, and
+    /// <c>--via tor</c> (or <c>tor:nl</c>) through Tor with the exit pinned to that country. Both are the
+    /// shipped path, not a parallel one: the same entrance the HMS tab hands the service.</para></summary>
+    internal static async Task RunAsync(int exitPort, string via = "")
     {
         var sb = new StringBuilder();
         var masque = new MasqueService();
@@ -40,7 +45,12 @@ internal static class MasqueSelfTest
 
             // Drive the SAME sweep the button will, so this harness keeps testing the shipped path rather
             // than a parallel one that could quietly drift away from it.
-            var (result, winner) = await masque.ConnectAsync(FreeLoopbackPort(), preferHttp2: true, exitPort);
+            MasqueEntrance entrance = ParseEntrance(via);
+            if (entrance.Kind != MasqueEntranceKind.Direct)
+                sb.AppendLine($"ingress: {entrance.Kind} {entrance.Proxy}{entrance.Country}");
+
+            var (result, winner) = await masque.ConnectAsync(
+                FreeLoopbackPort(), preferHttp2: true, exitPort, entrance);
             masque.Stop();
 
             sb.AppendLine();
@@ -88,7 +98,9 @@ internal static class MasqueSelfTest
 
             foreach (var t in pool)
             {
-                var r = await masque.StartAsync(FreeLoopbackPort(), t);
+                // One session per entry point: this scan asks each of them where it comes out, and two
+                // more sessions would answer the same question three times over.
+                var r = await masque.StartAsync(FreeLoopbackPort(), t, sessions: 1);
                 var x = masque.LastExit;
                 sb.AppendLine(r.Ok && x is { } e
                     ? $"{t.Endpoint,-22} {e.Location,-9} {e.Colo,-6} {e.Ip}"
@@ -98,6 +110,27 @@ internal static class MasqueSelfTest
         }
         catch (Exception ex) { sb.AppendLine("EXC: " + ex); }
         finally { Finish(masque, "masqueregion.txt", "MASQUE region scan", sb); }
+    }
+
+    /// <summary><c>--via</c> in words: empty is direct, «tor» or «tor:de» is Tor with a country, and
+    /// anything else is a SOCKS5 address. Bridges and the pinned exit come from the saved settings when
+    /// Tor is asked for, so the headless run tests exactly what the tab would do — the pin included,
+    /// since it is what decides how many sessions open.</summary>
+    private static MasqueEntrance ParseEntrance(string via)
+    {
+        string text = via.Trim();
+        if (text.Length == 0) return MasqueEntrance.Straight;
+
+        if (text.StartsWith("tor", StringComparison.OrdinalIgnoreCase)
+            && (text.Length == 3 || text[3] is ':' or '='))
+        {
+            string country = text.Length > 4 ? text[4..] : "de";
+            var saved = new SettingsService().Settings;
+            return new MasqueEntrance(MasqueEntranceKind.Tor, "", country, saved.MasqueTorBridges,
+                                      saved.MasqueTorExit);
+        }
+
+        return new MasqueEntrance(MasqueEntranceKind.Proxy, text);
     }
 
     /// <summary>A loopback port nothing is listening on. Asked of the OS rather than guessed: 1080 is the

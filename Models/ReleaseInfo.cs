@@ -7,14 +7,5 @@ public sealed record ReleaseInfo(
     string? Sha256Url,
     long ZipSize);
 
-public enum UpdatePhase
-{
-    Checking,
-    Downloading,
-    Verifying,
-    Extracting,
-    Done
-}
-
 /// <summary>Progress report pushed from <c>UpdaterService</c> to the UI.</summary>
-public sealed record UpdateProgress(UpdatePhase Phase, double Fraction, string Message);
+public sealed record UpdateProgress(double Fraction, string Message);

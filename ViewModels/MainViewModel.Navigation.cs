@@ -38,7 +38,7 @@ public sealed partial class MainViewModel
         set => SetField(ref _selectedTabIndex, value);
     }
 
-    // Tab order: Главная, Стратегии, Хостлисты, Диагностика, Журнал, Telegram, WARP, Настройки.
+    // Tab order: Главная, Стратегии, Хостлисты, Диагностика, Журнал, Telegram, WARP, HMS, Настройки.
     // These indexes and the TabItem order in MainWindow.xaml must agree: inserting a tab means bumping
     // every index after it, or the Home shortcuts land on the wrong page.
 
@@ -46,7 +46,7 @@ public sealed partial class MainViewModel
     internal const int WarpTabIndex = 6;
 
     /// <summary>Index of the Настройки tab.</summary>
-    internal const int SettingsTabIndex = 7;
+    internal const int SettingsTabIndex = 8;
 
     /// <summary>The preset the Simple-mode one-click button applies (combined Discord+YouTube).</summary>
     public Preset? RecommendedPreset =>
@@ -139,7 +139,7 @@ public sealed partial class MainViewModel
     {
         if (score?.Strategy is null) return;
         var preset = SaveOrSelectAutoWinner(score.Strategy);
-        SetAutoStatus(Loc.T("Сохранено как стратегия «{0}». Нажмите «Запустить».", Loc.T(preset.Name)));
+        SetAutoStatus(Loc.T("Сохранено как стратегия «{0}». Запустить её — кнопка ▶.", Loc.T(preset.Name)));
     }
 
     /// <summary>Save a candidate as a preset AND start it (or restart with it if already running) —

@@ -24,9 +24,6 @@ public static class Loc
     private static string _lang = Russian;
     private static IReadOnlyDictionary<string, string> _map = EmptyMap;
 
-    /// <summary>The active UI language: "ru" (default) or "en".</summary>
-    public static string Lang => _lang;
-
     /// <summary>True when the app is running in English (the RU→EN table is loaded).</summary>
     public static bool IsEnglish => _lang == English;
 

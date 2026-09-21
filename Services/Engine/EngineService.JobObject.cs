@@ -44,8 +44,8 @@ public sealed partial class EngineService
             }
 
             if (_job != IntPtr.Zero && !AssignProcessToJobObject(_job, proc.Handle))
-                Emit(Loc.T("Предупреждение: не удалось привязать движок к job-объекту — ") +
-                     "автозакрытие при падении приложения может не сработать.");
+                Emit(Loc.T("Предупреждение: не удалось привязать движок к job-объекту — автозакрытие при "
+                           + "падении приложения может не сработать."));
         }
         catch { /* best-effort; graceful Stop() still handles a clean exit */ }
     }

@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>WARP and changing your address — Zapret2UI documentation</title>
-<meta name="description" content="The built-in Cloudflare WARP in Zapret2UI: a local proxy over MASQUE, with no administrator rights and no changes to your network. What it changes, what it cannot do, and where to point its address.">
+<title>WARP and HMS — Zapret2UI documentation</title>
+<meta name="description" content="The built-in Cloudflare WARP in Zapret2UI: a local proxy over MASQUE, with no changes to your network. What it changes, what it cannot do, and where to point its address.">
 <link rel="icon" href="../assets/logo.png">
 <link rel="stylesheet" href="../assets/site.css">
 </head>
@@ -20,7 +20,7 @@
     <a href="quickstart.html">Quick start</a>
     <a href="interface.html">Interface</a>
     <a href="strategies.html">Strategies</a>
-    <a href="warp.html" aria-current="page">WARP</a>
+    <a href="warp.html" aria-current="page">WARP &amp; HMS</a>
     <a href="reference.html">Reference</a>
     <a href="troubleshooting.html">Troubleshooting</a>
   </nav>
@@ -55,7 +55,7 @@
       <ul>
         <li><a href="interface.html">Interface</a></li>
         <li><a href="strategies.html">Strategies explained</a></li>
-        <li><a href="warp.html" aria-current="page">WARP and changing your address</a></li>
+        <li><a href="warp.html" aria-current="page">WARP and HMS</a></li>
       </ul>
       <h5>Advanced</h5>
       <ul>
@@ -79,6 +79,9 @@
       <li><a href="#kuda">Where to point it</a></li>
       <li><a href="#vnutri">What happens inside</a></li>
       <li><a href="#parametry">Options</a></li>
+      <li><a href="#hms">HMS: changing the country</a></li>
+      <li><a href="#hms-vhod">Bridges and the exit node</a></li>
+      <li><a href="#hms-sayty">Which sites take the chain</a></li>
       <li><a href="#fayly">Where things live</a></li>
       <li><a href="#problemy">If it does not work</a></li>
     </ul>
@@ -88,16 +91,16 @@
 
     <div class="page-head">
       <p class="kicker">The program</p>
-      <h1>WARP and changing your address</h1>
+      <h1>WARP and HMS</h1>
       <p class="lede">There are two different obstacles between you and a site. The provider that will not
         let you reach it — that is the bypass. And the site itself, which does not trust your address —
-        that is WARP.</p>
+        that is WARP. And if the site refuses you by country, that is HMS: a chain that brings you out in
+        another country.</p>
     </div>
 
     <figure>
       <img src="warp.png" alt="The WARP tab: the proxy switch, the proxy address and the exit address, device buttons and the &quot;What this is for&quot; column" loading="lazy">
-      <figcaption>The WARP tab. The client is carried inside the program — there is nothing to install
-        and no administrator rights are needed.</figcaption>
+      <figcaption>The WARP tab. The client is carried inside the program — there is nothing to install.</figcaption>
     </figure>
 
     <h2 id="zachem">What it gives you</h2>
@@ -139,7 +142,7 @@
         <tbody>
           <tr><td>The site does not open at all, the connection drops</td><td><b>The bypass</b></td></tr>
           <tr><td>The site opens but will not let you in: captcha, refusal, "access restricted"</td><td><b>WARP</b></td></tr>
-          <tr><td>"Not available in your country or region"</td><td>Neither will help</td></tr>
+          <tr><td>"Not available in your country or region"</td><td><b>HMS</b> — <a href="#hms">a chain through Tor or your own proxy</a></td></tr>
         </tbody>
       </table>
     </div>
@@ -153,7 +156,7 @@
 
     <h2 id="strana">What it does not</h2>
 
-    <p><b>WARP does not change your country.</b> What changes is the address's reputation, not the
+    <p><b>WARP by itself does not change your country.</b> What changes is the address's reputation, not the
       country. Free WARP is anycast: you land on the nearest Cloudflare node, not one you chose. From
       Russia the nearest node is Russian, and so is the exit address.</p>
 
@@ -164,9 +167,10 @@
         Russia, and a service that blocks VPNs will see the proxy flag.</p>
     </div>
 
-    <p>No setting or entry point changes this: MASQUE has only two IPv4 entry points
+    <p>No setting and no other entry point picks the country: MASQUE has only two IPv4 entry points
       (<code>162.159.198.1</code> and <code>162.159.198.2</code>) plus four over IPv6, and they all land
-      on the same nearest node. That is a Cloudflare limitation, not a limitation of this program.</p>
+      on the same nearest node. But the exit country follows <b>wherever the connection to Cloudflare came
+      from</b> — and <a href="#hms">HMS</a> is built on that.</p>
 
     <h2 id="vklyuchit">Turning it on</h2>
 
@@ -311,15 +315,133 @@
         downloads. That is a detour where none is needed, which is why the switch is off by default.</p>
     </div>
 
+    <h2 id="hms">HMS: changing the country</h2>
+
+    <p><b>HMS</b> is the tab between WARP and Settings; the community picked the name: Hide My Ass. It is
+      a second connection to WARP, dialled not directly but through an entrance in another country.
+      Measured: Cloudflare picks the exit country from <b>wherever the connection came from</b> — the
+      device and the keys stay the same. Connect from Germany and the exit is German. That is what cures
+      "not available in your region", against which both the bypass and plain WARP are powerless.</p>
+
+    <figure>
+      <img src="hms.png" alt="The HMS tab: the chain switch and the entrance on the left, the site list in the middle, the connection diagram on the right" loading="lazy">
+      <figcaption>The HMS tab. On the right, the connection diagram: it is built from your settings, and
+        with the "Direct" entrance it loses its middle — that entrance changes no country.</figcaption>
+    </figure>
+
+    <ol class="step-list">
+      <li>
+        <h3>Your browser</h3>
+        <p>By a Windows rule only the listed sites go into the chain. Everything else goes as usual, at
+          full speed.</p>
+      </li>
+      <li>
+        <h3>Zapret2UI</h3>
+        <p>Takes these sites and passes them on. With Tor it also helps the bridges through with the
+          bypass — the provider cuts them; your own proxy reaches its server by itself.</p>
+      </li>
+      <li>
+        <h3>The entrance</h3>
+        <p>A bridge and Tor exiting in the chosen country — or your own SOCKS5 proxy (a VLESS or
+          Shadowsocks client). This is the link that sets the country.</p>
+      </li>
+      <li>
+        <h3>Cloudflare WARP</h3>
+        <p>An address that is trusted: the service sees a Cloudflare client, not a Tor exit it knows and
+          refuses.</p>
+      </li>
+      <li>
+        <h3>The site</h3>
+        <p>Sees the entrance's country, not yours.</p>
+      </li>
+    </ol>
+
+    <p><b>Turning it on.</b> Create a device on the WARP tab — one serves both tabs. On the HMS tab choose
+      the entrance: "Свой прокси" (Your proxy — a SOCKS5 address such as <code>127.0.0.1:10808</code>,
+      with a login <code>socks5://user:password@host:port</code>) or "Tor" (a country code such as
+      <code>de</code>). For Tor press "Получить мосты" (Get bridges) and "Проверить скорость" (Check
+      speed), and optionally "Подобрать выход" (Choose an exit). Then turn on "Цепочка включена" (Chain
+      on) and "Вести эти сайты через цепочку" (Send these sites through the chain).</p>
+
+    <div class="note">
+      <p>The first time, the program downloads Tor — 21 MB, checked against its checksum. The Tor site is
+        blocked in Russia, so it is fetched through WARP itself: WARP is raised directly, the download
+        goes through it, and only then does the chain go through Tor. The bypass on the Home tab has to
+        be running — while a chain through Tor is on it covers every site rather than just the lists, or
+        the bridges do not connect.</p>
+    </div>
+
+    <h2 id="hms-vhod">Bridges and the exit node</h2>
+
+    <p>Bridges come with one button or from the @GetBridgesBot bot in Telegram; a fast exit node
+      is measured and pinned by the program itself.</p>
+
+    <p><b>"Получить мосты"</b> asks the Tor Project for bridges — no captcha, the same request Tor
+      Browser's "Connection Assist" makes — and also looks for <b>ordinary Tor relays</b> that answer
+      from your network. Any relay can be named as a bridge (the ValdikSS/tor-relay-scanner idea). Such
+      relays carry no obfuscation and are often faster than bridges: measured, 9 of 9 brought Tor up, median
+      5.4 Mbit/s, best 20.6 — against 3.2 for a live obfs4 bridge. Where the provider blocks Tor by
+      protocol they will not get through, and obfs4 and webtunnel are the fallback.</p>
+
+    <p><b>"Проверить скорость"</b> brings up every line of the box in turn, however many there are, and
+      rewrites the box: the fast ones on top, each with a comment such as
+      <code># 12.5 Mbit/s, first byte 1.2 s</code>, the dead ones at the bottom with the reason. Nothing is
+      deleted. Tor takes the first 12 lines of the box — which is why the fast ones move to the top. You can still paste your own lines — the
+      <b>@GetBridgesBot</b> bot in Telegram hands them out, command <code>/webtunnel</code>.</p>
+
+    <p><b>"Подобрать выход"</b> measures the country's ten widest exits by the consensus and pins the best
+      one by address. Without a pin Tor takes a new node for every connection, and the WARP address moves
+      with it — to a service that is a new visitor every time.</p>
+
+    <div class="note">
+      <p>Measured: exits with nearly identical advertised bandwidth differed fifteenfold in real speed —
+        11.0 against 0.7 Mbit/s. With a pinned exit the program opens a second connection to Cloudflare:
+        both share one address, so the country cannot drift — 3.6 → 5.5 Mbit/s. If the pinned node stops
+        answering, the program falls back to any node in the country, opens one connection instead of two
+        and says so in the journal.</p>
+    </div>
+
+    <h2 id="hms-sayty">Which sites take the chain</h2>
+
+    <p>The list is edited by hand, one domain per line. The shipped one is ChatGPT, Gemini and Grok: those
+      are the ones that refuse by country. A domain covers everything under it: <code>openai.com</code> is
+      also <code>api.openai.com</code>. The rule is written into Windows' settings while the chain is on;
+      Chrome, Edge, Brave and anything built on them pick it up — that is what it was checked on; Firefox
+      has not been tested.</p>
+
+    <ul>
+      <li><b>While the chain is on, these sites go through it and nowhere else.</b> If the entrance drops
+        they stop opening rather than leave from your own address. Switch the chain off and the rule is
+        removed — they go out as usual, from your own address, so better stay out of an account tied to
+        another country then.</li>
+      <li><b>Exceptions</b> go around the chain even when the list covers them. Measured: the
+        <code>grok.com</code> page makes 219 requests, and 188 of them go to <code>cdn.grok.com</code>,
+        where a country means nothing.</li>
+      <li><b>Speed:</b> through Tor it measured 2–6 Mbit/s with about a second of latency. Fine for a
+        conversation, noticeable for files — which is why the list is kept short.</li>
+    </ul>
+
+    <div class="note warn">
+      <p>This does not insure an account. The services' own rules still apply, signing up for Claude asks
+        for a phone number from a supported country, and a sudden change of country can get an account
+        reviewed. Changing the address answers "they will not let me in", not "am I allowed".</p>
+    </div>
+
     <h2 id="fayly">Where things live</h2>
 
     <p>Everything sits in <code>%LOCALAPPDATA%\Zapret2UI\masque</code>: the unpacked
       <code>usque.exe</code> client and <code>config.json</code> with the device key, its licence and
       token. The folder is inside your own profile, alongside the program's other data.</p>
 
+    <p>Tor for HMS lives in <code>%LOCALAPPDATA%\Zapret2UI\tor</code>: <code>tor.exe</code>, the
+      <code>pt\lyrebird.exe</code> transport with <code>pt_config.json</code>, the <code>geoip</code> and
+      <code>geoip6</code> databases, <code>torrc</code>, and the <code>data</code> folder with the cached
+      consensus — which is also where exits and ordinary relays are picked from. It is downloaded the
+      first time the chain is switched on through Tor.</p>
+
     <div class="note">
-      <p>The client runs as an ordinary child process under your account, with no elevation. If the
-        program crashes, a proxy left behind is cleared away on the next start.</p>
+      <p>The client runs as a child process of the program. If the program crashes, a proxy left behind
+        is cleared away on the next start.</p>
     </div>
 
     <h2 id="problemy">If it does not work</h2>
@@ -353,7 +475,29 @@
           </tr>
           <tr>
             <td>The proxy is on but a site still says «not available in your region»</td>
-            <td>Expected: free WARP exits in Russia. See <a href="#strana">What it does not</a>.</td>
+            <td>Expected: free WARP exits in Russia. The country is changed by <a href="#hms">HMS</a>.</td>
+          </tr>
+          <tr>
+            <td>HMS: Tor does not come up, or stalls on one percentage</td>
+            <td>The bridges are not answering. Press "Получить мосты", then "Проверить скорость"; the
+              bypass on the Home tab has to be running. A stalled Tor is restarted once by the program
+              itself.</td>
+          </tr>
+          <tr>
+            <td>HMS: «the exit came out in … but you asked for …»</td>
+            <td>Tor did not hold the country, and the proxy was stopped rather than take you somewhere you
+              did not choose. Try again or pick another country.</td>
+          </tr>
+          <tr>
+            <td>HMS: «the pinned Tor exit is not answering — taking any one in that country»</td>
+            <td>The pinned node went away. The chain carries on through any node in the country, over one
+              connection; press "Подобрать выход" again.</td>
+          </tr>
+          <tr>
+            <td>HMS: the listed sites do not open</td>
+            <td>The chain is on but its entrance stopped answering (Tor or your proxy), and these sites are
+              not let around the chain. Switch the chain off and on. If the program crashed, start it again:
+              it puts the Windows setting back.</td>
           </tr>
           <tr>
             <td>The browser ignores the proxy</td>
@@ -397,7 +541,7 @@
       <a href="quickstart.html">Quick start</a>
       <a href="interface.html">Interface</a>
       <a href="strategies.html">Strategies explained</a>
-      <a href="warp.html">WARP and changing your address</a>
+      <a href="warp.html">WARP and HMS</a>
     </nav>
     <nav>
       <a href="reference.html">Reference</a>

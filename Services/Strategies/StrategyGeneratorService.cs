@@ -175,7 +175,7 @@ public sealed class StrategyGeneratorService : IDisposable
             ct.ThrowIfCancellationRequested();
             var cand = Candidates[i];
             CandidateStarted?.Invoke(cand.Name);
-            Status?.Invoke(Loc.T("[{0}/{1}] Генерирую и тестирую: {2}…", i + 1, Candidates.Count, Loc.T(cand.Name)));
+            Status?.Invoke(Loc.T("[{0}/{1}] Генерация и проверка: {2}…", i + 1, Candidates.Count, Loc.T(cand.Name)));
 
             var args = PresetService.BuildComboArgs(cand.Tls, cand.Tls, cand.Tls, voiceDesync: VoiceDesync);
             var rows = await ProbeStrategyAsync(args, allHosts, gameFilter, reportHosts: true, ct);
@@ -235,7 +235,7 @@ public sealed class StrategyGeneratorService : IDisposable
                 if (attempts >= MaxAssemblyTests) { done = true; break; }
                 attempts++;
                 ct.ThrowIfCancellationRequested();
-                Status?.Invoke(Loc.T("Проверяю сборку [{0}]: Discord «{1}» + YouTube «{2}»…", attempts, Loc.T(d.Name), Loc.T(y.Name)));
+                Status?.Invoke(Loc.T("Проверка сочетания [{0}]: Discord «{1}» + YouTube «{2}»…", attempts, Loc.T(d.Name), Loc.T(y.Name)));
 
                 var asmArgs = PresetService.BuildComboArgs(d.Tls, y.Tls, d.Tls);
                 var rows = await ProbeStrategyAsync(asmArgs, allHosts, gameFilter, reportHosts: false, ct);
@@ -261,8 +261,8 @@ public sealed class StrategyGeneratorService : IDisposable
 
         // Final validation pass: run the assembled combo once more and report the rows live, so the
         // popup's target panel + the per-service verdict reflect the actual artifact we're shipping.
-        Status?.Invoke(Loc.T("Проверяю итоговую сборку…"));
-        CandidateStarted?.Invoke(Loc.T("Итоговая сборка"));
+        Status?.Invoke(Loc.T("Проверка итоговой стратегии…"));
+        CandidateStarted?.Invoke(Loc.T("Итоговая стратегия"));
         var finalRows = await ProbeStrategyAsync(finalArgs, allHosts, gameFilter, reportHosts: true, ct);
 
         string jointNote = bestMin < 0 ? ""
@@ -270,8 +270,8 @@ public sealed class StrategyGeneratorService : IDisposable
         var preset = new Preset
         {
             Name = Loc.T("✨ Сгенерировано {0:dd.MM HH:mm}", DateTime.Now),
-            Description = Loc.T("Персональная стратегия под вашего провайдера, собрана и ПРОВЕРЕНА как единое ") +
-                          Loc.T("комбо: Discord ← «{0}», YouTube ← «{1}».{2}", Loc.T(finalD.Name), Loc.T(finalY.Name), jointNote),
+            Description = Loc.T("Персональная стратегия под вашего провайдера, сгенерирована и проверена целиком: ") +
+                          Loc.T("Discord ← «{0}», YouTube ← «{1}».{2}", Loc.T(finalD.Name), Loc.T(finalY.Name), jointNote),
             Args = new List<string>(finalArgs),
             IsBuiltIn = false,
             IsGenerated = true,

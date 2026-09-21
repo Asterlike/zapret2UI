@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Interface — Zapret2UI documentation</title>
-<meta name="description" content="Every Zapret2UI screen with a screenshot: the eight tabs, diagnostics and the DPI check, host lists, the journal, the Telegram proxy, every setting, and the files on disk.">
+<meta name="description" content="Every Zapret2UI screen with a screenshot: the nine tabs, diagnostics and the DPI check, host lists, the journal, the Telegram proxy, every setting, and the files on disk.">
 <link rel="icon" href="../assets/logo.png">
 <link rel="stylesheet" href="../assets/site.css">
 </head>
@@ -20,7 +20,7 @@
     <a href="quickstart.html">Quick start</a>
     <a href="interface.html" aria-current="page">Interface</a>
     <a href="strategies.html">Strategies</a>
-    <a href="warp.html">WARP</a>
+    <a href="warp.html">WARP &amp; HMS</a>
     <a href="reference.html">Reference</a>
     <a href="troubleshooting.html">Troubleshooting</a>
   </nav>
@@ -55,7 +55,7 @@
       <ul>
         <li><a href="interface.html" aria-current="page">Interface</a></li>
         <li><a href="strategies.html">Strategies explained</a></li>
-        <li><a href="warp.html">WARP and changing your address</a></li>
+        <li><a href="warp.html">WARP and HMS</a></li>
       </ul>
       <h5>Advanced</h5>
       <ul>
@@ -81,6 +81,7 @@
       <li><a href="#zhurnal">Journal</a></li>
       <li><a href="#telegram">Telegram</a></li>
       <li><a href="#warp-vkladka">WARP</a></li>
+      <li><a href="#hms-vkladka">HMS</a></li>
       <li><a href="#nastroyki">Settings</a></li>
       <li><a href="#obsluzhivanie">Backup, reset and logs</a></li>
       <li><a href="#oblast">Bypass scope and QUIC</a></li>
@@ -93,12 +94,12 @@
     <div class="page-head">
       <p class="kicker">The program</p>
       <h1>Interface</h1>
-      <p class="lede">The eight tabs of advanced mode: what each button does, what the colours mean, and where to look when something has gone wrong.</p>
+      <p class="lede">The nine tabs of advanced mode: what each button does, what the colours mean, and where to look when something has gone wrong.</p>
     </div>
 
     <p>At the top centre of the window is the <b>Simple / Advanced</b> switch. Simple mode leaves one
       toggle button, the Telegram and WARP cards, and the target selector. Advanced adds tabs: <b>Home,
-      Strategies, Host lists, Diagnostics, Journal, Telegram, WARP, Settings</b>.</p>
+      Strategies, Host lists, Diagnostics, Journal, Telegram, WARP, HMS, Settings</b>.</p>
 
     <h2 id="glavnaya">Home</h2>
 
@@ -453,8 +454,7 @@ gateway.discord.gg</code></pre>
 
     <figure>
       <img src="telegram.png" alt="The Telegram tab: turning the built-in proxy on, the address and secret, the Open in Telegram button, the port selector" loading="lazy">
-      <figcaption>The built-in MTProto proxy. It works independently of the main bypass button and without
-        administrator rights.</figcaption>
+      <figcaption>The built-in MTProto proxy. It works independently of the main bypass button.</figcaption>
     </figure>
 
     <p>Telegram is not blocked the way websites are: more often by IP address. DPI bypass is powerless
@@ -465,8 +465,7 @@ gateway.discord.gg</code></pre>
         connection to Telegram's data centres over WebSocket on top of TLS. When the direct path is closed,
         it goes through domains behind Cloudflare. That is how the connection survives address-based
         blocking.</li>
-      <li><b>Rights.</b> No administrator needed: this is a local listener and an outgoing TLS connection.
-        It keeps working even when the window is minimised to the tray.</li>
+      <li><b>Running.</b> It keeps working even when the window is minimised to the tray.</li>
       <li><b>Port and secret.</b> Port <code>1443</code> by default; if it is taken, the nearest free one is
         used. A 32-character hexadecimal secret is saved so the link does not change between launches.</li>
       <li><b>How to connect it.</b> The "Open in Telegram" button sets everything up. By hand: Settings,
@@ -533,20 +532,47 @@ gateway.discord.gg</code></pre>
       where a site opens but refuses you or your whole network.</p>
 
     <ul>
-      <li><b>Nothing to install</b> and no administrator rights needed: the client is carried inside the
-        program and runs as an ordinary child process.</li>
+      <li><b>Nothing to install</b>: the client is carried inside the program and runs as its child
+        process.</li>
       <li><b>It is a proxy, not a tunnel.</b> No adapter, no routes, nothing changed in the system — so a
         failure cannot leave you without internet. Only what you point at it goes through it.</li>
       <li><b>The keys are made on your computer.</b> Only the public key leaves; no email, password or
         account is involved.</li>
       <li><b>Success is not taken on trust.</b> The program asks Cloudflare, through the proxy itself,
         where it sees you, and only then reports that it works.</li>
-      <li><b>This will not lift geo-blocks.</b> Free WARP exits through the nearest node: from Russia the
+      <li><b>WARP by itself does not change your country.</b> The <a href="#hms-vkladka">HMS</a> tab does. Free WARP exits through the nearest node: from Russia the
         address will be Russian and published as WARP.</li>
     </ul>
 
     <p>What it gives you, what it does not, where to point the proxy address and what happens inside are
-      covered on the separate <a href="warp.html">«WARP and changing your address»</a> page.</p>
+      covered on the separate <a href="warp.html">«WARP and HMS»</a> page.</p>
+
+    <h2 id="hms-vkladka">HMS</h2>
+
+    <figure>
+      <img src="hms.png" alt="The HMS tab: the chain switch and the entrance on the left, the site list in the middle, the connection diagram on the right" loading="lazy">
+      <figcaption>Changing the country. On the right, the connection diagram, built from your settings.</figcaption>
+    </figure>
+
+    <p>WARP changes your address but not your country. HMS changes the country too: a second connection
+      to WARP goes through an entrance in another country, and Cloudflare hands out an exit there. The
+      community picked the name — Hide My Ass.</p>
+
+    <ul>
+      <li><b>On the left: the chain and the entrance.</b> The chain switch, the exit address, the choice of
+        entrance: "Напрямую" (Direct), "Свой прокси" (Your proxy) or "Tor". For Tor, the country, the
+        bridges with the "Получить мосты" (Get bridges) and "Проверить скорость" (Check speed) buttons,
+        and pinning the exit node.</li>
+      <li><b>In the middle: what takes this route.</b> The "Вести эти сайты через цепочку" (Send these
+        sites through the chain) switch, the site list (ChatGPT, Gemini and Grok shipped) and the
+        exceptions that go around it.</li>
+      <li><b>On the right: how it is built.</b> The diagram: your browser → Zapret2UI → entrance →
+        Cloudflare WARP → site. It is built from the settings, and with the "Direct" entrance its middle
+        disappears. On a narrow window the column moves underneath.</li>
+    </ul>
+
+    <p>How to turn it on, where the bridges come from, why the exit is worth pinning and what happens to
+      the sites with the chain off — on the <a href="warp.html#hms">«WARP and HMS»</a> page.</p>
 
     <h2 id="nastroyki">Settings</h2>
 
@@ -699,6 +725,10 @@ gateway.discord.gg</code></pre>
 ├─ masque\                     <span class="t-cmt">the bundled WARP client</span>
 │  ├─ usque.exe               <span class="t-cmt">the MASQUE client</span>
 │  └─ config.json             <span class="t-cmt">the registered device: key, licence, token</span>
+├─ tor\                        <span class="t-cmt">Tor for HMS, downloaded on first use</span>
+│  ├─ tor.exe, torrc          <span class="t-cmt">Tor itself and its config</span>
+│  ├─ pt\                     <span class="t-cmt">the obfs4 and webtunnel transports (lyrebird)</span>
+│  └─ data\                   <span class="t-cmt">the cached consensus: exits and ordinary relays</span>
 ├─ tmp\                        <span class="t-cmt">temporary downloads</span>
 ├─ presets.json                <span class="t-cmt">your strategies</span>
 └─ settings.json               <span class="t-cmt">settings</span></code></pre>
@@ -770,7 +800,7 @@ sc.exe delete WinDivert</code></pre>
       <a href="quickstart.html">Quick start</a>
       <a href="interface.html">Interface</a>
       <a href="strategies.html">Strategies explained</a>
-      <a href="warp.html">WARP and changing your address</a>
+      <a href="warp.html">WARP and HMS</a>
     </nav>
     <nav>
       <a href="reference.html">Reference</a>

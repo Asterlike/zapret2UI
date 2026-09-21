@@ -19,12 +19,6 @@ public sealed class AutostartService
         ExePath.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) &&
         !ExePath.EndsWith("dotnet.exe", StringComparison.OrdinalIgnoreCase);
 
-    public bool IsEnabled()
-    {
-        var (code, _) = RunSchtasks($"/Query /TN \"{TaskName}\"");
-        return code == 0;
-    }
-
     public bool Enable()
     {
         if (!IsSupported || ExePath is null) return false;

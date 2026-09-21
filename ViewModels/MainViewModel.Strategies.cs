@@ -73,7 +73,7 @@ public sealed partial class MainViewModel
 
     /// <summary>Selected preset name (translated for display), or the hint shown when none is selected.</summary>
     public string SelectedPresetOrHint =>
-        SelectedPreset is { } p ? Loc.T(p.Name) : Loc.T("Выберите пресет");
+        SelectedPreset is { } p ? Loc.T(p.Name) : Loc.T("Выберите стратегию");
 
     /// <summary>Running-strategy line under the state badge on the Стратегии tab.</summary>
     public string RunningPresetLine =>
@@ -92,7 +92,7 @@ public sealed partial class MainViewModel
     public string RunStatusText =>
         IsRunning
             ? Loc.T("Включён: {0}", Loc.T(RunningPresetName))
-            : SelectedPreset is null ? Loc.T("пресет не выбран") : Loc.T("Выбран: {0}", Loc.T(SelectedPreset.Name));
+            : SelectedPreset is null ? Loc.T("стратегия не выбрана") : Loc.T("Выбран: {0}", Loc.T(SelectedPreset.Name));
 
     /// <summary>Args of the selected preset, one per line, for editing.</summary>
     public string PresetArgsText

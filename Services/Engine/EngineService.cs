@@ -556,7 +556,7 @@ public sealed partial class EngineService : IDisposable
             _proc = proc;
             ActivePreset = preset;
             SetState(EngineState.Running);
-            Emit(Loc.T("=== Запущен пресет «{0}» (PID {1}) ===", Loc.T(preset.Name), proc.Id));
+            Emit(Loc.T("=== Запущена стратегия «{0}» (PID {1}) ===", Loc.T(preset.Name), proc.Id));
         }
     }
 

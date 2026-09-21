@@ -101,7 +101,7 @@ public sealed partial class MainViewModel
         if (IsDpiChecking) return;
         IsDpiChecking = true;
         DpiVerdictStatus = DiagStatus.Running;
-        DpiVerdictText = Loc.T("Проверяем DPI: имя сайта и лимит по объёму/пакетам (TCP 16-20)…");
+        DpiVerdictText = Loc.T("Проверка DPI: имя сайта и лимит по объёму/пакетам (TCP 16-20)…");
         DpiVerdictDetail = "";
         _dpiCts = new CancellationTokenSource();
         try
@@ -272,7 +272,7 @@ public sealed partial class MainViewModel
         string root = TargetService.Normalize(TargetRootInput);
         if (root.Length == 0) { TargetStatus = Loc.T("Сначала укажите корневой домен."); return; }
         IsExpandingTarget = true;
-        TargetStatus = Loc.T("Ищу домены для «{0}»…", root);
+        TargetStatus = Loc.T("Поиск доменов для «{0}»…", root);
         try
         {
             // Progress<T> marshals back to this (UI) thread, so live status updates are safe to bind.
@@ -353,7 +353,7 @@ public sealed partial class MainViewModel
         return false;
     }
 
-    public async Task CheckAndUpdateAsync(bool silent)
+    public async Task CheckAndUpdateAsync()
     {
         if (IsUpdating) return;
         IsUpdating = true;
@@ -365,10 +365,10 @@ public sealed partial class MainViewModel
         if (vanished)
         {
             AppendLog(Loc.T("Файл движка winws2.exe исчез, хотя он был установлен — почти наверняка его удалил ")
-                    + Loc.T("антивирус (ложное срабатывание). Скачиваю заново, но без исключений он удалит его "
-                    + "снова: Настройки → «Добавить в исключения»."));
+                    + Loc.T("антивирус (ложное срабатывание). Движок скачивается заново, но без исключений "
+                    + "антивирус удалит его снова: Настройки → «Добавить в исключения»."));
             Notify?.Invoke(Loc.T("Антивирус удалил движок"),
-                           Loc.T("Скачиваю заново. Чтобы это не повторялось — Настройки → «Добавить в исключения»."));
+                           Loc.T("Движок скачивается заново. Чтобы это не повторялось — Настройки → «Добавить в исключения»."));
         }
 
         try
@@ -383,7 +383,7 @@ public sealed partial class MainViewModel
             {
                 string detail = DescribeError(ex);
                 UpdateStatus = _updater.IsEngineInstalled
-                    ? Loc.T("Не удалось проверить обновления ({0}). Работаем на установленной версии.", detail)
+                    ? Loc.T("Не удалось проверить обновления ({0}). Используется установленная версия.", detail)
                     : Loc.T("Нет связи с GitHub: {0}", detail);
                 return;
             }
@@ -495,8 +495,8 @@ public sealed partial class MainViewModel
     private void DeletePreset()
     {
         if (SelectedPreset is not { IsBuiltIn: false } p) return;
-        if (!ConfirmDialog.Show(Loc.T("Удалить пресет?"),
-                Loc.T("Пресет «{0}» будет удалён без возможности восстановления.", Loc.T(p.Name))))
+        if (!ConfirmDialog.Show(Loc.T("Удалить стратегию?"),
+                Loc.T("Стратегия «{0}» будет удалена без возможности восстановления.", Loc.T(p.Name))))
             return;
         _presets.DeleteUser(p);
         ReloadPresets();
@@ -508,10 +508,8 @@ public sealed partial class MainViewModel
         if (SelectedPreset is not { IsBuiltIn: false } p) return;
         _presets.UpdateUser(p);
         OnPropertyChanged(nameof(CommandPreview));
-        AppendLog(Loc.T("Пресет «{0}» сохранён.", Loc.T(p.Name)));
+        AppendLog(Loc.T("Стратегия «{0}» сохранена.", Loc.T(p.Name)));
     }
-
-    public void StopEngine() => _engine.Stop();
 
     /// <summary>Stop everything and release resources on application exit.</summary>
     public void Shutdown()
@@ -532,7 +530,9 @@ public sealed partial class MainViewModel
         // which Windows is aimed at a socket that has already gone.
         try { RestoreStaleSystemProxy(); } catch { }
         try { MasqueService.DropStaleProxy(); } catch { }
+        try { MasqueService.DropStaleTor(); } catch { }
         try { _masque.Dispose(); } catch { }
+        try { _chain.Dispose(); } catch { }   // takes its Tor with it
         try { _engine.Dispose(); } catch { }
     }
 

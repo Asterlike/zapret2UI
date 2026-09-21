@@ -155,8 +155,23 @@ public sealed partial class MainViewModel
     /// strategy's full pipeline was the one handling it, rather than a narrower profile aimed at those
     /// addresses. So WARP raises the scope for as long as it is on, and the saved preference is left
     /// untouched: a setting silently rewritten by another tab is a setting the user no longer
-    /// owns.</para></summary>
-    private bool EffectiveBypassAllSites => Settings.BypassAllSites || IsMasqueOn;
+    /// owns.</para>
+    ///
+    /// <para><b>Except when the entrance is the user's own proxy.</b> Then the link to Cloudflare never
+    /// crosses the censored network as ours: it ends at a local SOCKS port, and what leaves the machine
+    /// is that client's own traffic, which looks after itself. There is nothing left for the widened
+    /// scope to protect, so it stays where the user put it.</para>
+    ///
+    /// <para><b>Tor is NOT such a case</b>, which a first draft got wrong. Tor's own connections to its
+    /// bridges go out over the censored network — as does the one-off download of the Tor bundle — and
+    /// both are exactly what the engine is there to get through. Narrowing the scope for the Tor
+    /// entrance left the bundle unreachable «даже с обходом», which is precisely how it was found.</para></summary>
+    private bool EffectiveBypassAllSites => Settings.BypassAllSites || ScopeWidenedByWarp;
+
+    /// <summary>True while WARP or a chain through Tor holds the engine wide whatever the user chose — the
+    /// Настройки card says so, because otherwise the switch and the engine would disagree in silence. The
+    /// chain counts too: its bridges cross the same censored network.</summary>
+    public bool ScopeWidenedByWarp => IsMasqueOn || (IsChainOn && EntranceNeedsBypass);
 
     /// <summary>"QUIC off": drop the desynced services' HTTP/3 so the browser falls back to TCP/H2.
     /// Turn on where the ISP/TSPU throttles QUIC. Relaunches a running engine so it takes effect now.</summary>

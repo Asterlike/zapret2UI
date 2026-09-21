@@ -175,18 +175,6 @@ public static class ConflictScanService
     }
 
     // Active tunnel/VPN network adapters (WireGuard/OpenVPN-TAP/WARP…), excluding Windows' own IPv6
-    /// <summary>Tunnel adapters that belong to somebody else — every one <see cref="VpnAdapters"/> finds
-    /// except the named one.
-    ///
-    /// Used before raising our own WARP tunnel. Two full tunnels at once is not a slow setup, it is a
-    /// broken one: WireGuard picks the interface for its own socket from the routing table, and with a
-    /// second default route in play it can end up sending from an address that path will not carry — the
-    /// handshake then fails for a reason nothing on screen can explain.</summary>
-    public static List<string> ForeignTunnelAdapters(string ownAdapterName) =>
-        VpnAdapters()
-            .Where(n => !string.Equals(n, ownAdapterName, StringComparison.OrdinalIgnoreCase))
-            .ToList();
-
     // transition pseudo-tunnels so they don't raise a false alarm. Yields the adapter name.
     private static IEnumerable<string> VpnAdapters()
     {

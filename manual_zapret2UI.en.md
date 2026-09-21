@@ -41,6 +41,7 @@ wants to understand the program as a whole and tune it finely.
 10. [Writing your own strategies](#10-writing-your-own-strategies)
 11. [The built-in Telegram proxy](#11-the-built-in-telegram-proxy)
 12. [WARP and changing your address](#12-warp-and-changing-your-address)
+   - [HMS: changing the country](#hms-changing-the-country)
 13. [TCP timestamps](#13-tcp-timestamps)
 14. [Per-network memory](#14-per-network-memory)
 15. [Settings: the full list](#15-settings-the-full-list)
@@ -63,15 +64,17 @@ What it offers:
 
 - Bypassing blocks and throttling for **Discord** and **YouTube** with one button.
 - A built-in **Telegram proxy** (MTProto → WebSocket through Cloudflare) that gets around IP-based
-  blocking of Telegram; it works separately and **without administrator rights**.
+  blocking of Telegram; it works separately from the bypass.
 - **9 ready-made strategies**, **automatic selection** of the best one, and **generation** of a personal
   strategy for your provider.
 - **Per-network memory**: a working strategy is remembered for each network and turns on by itself.
 - **Auto-repair**: if the bypass falls over, the program re-selects a working variant.
 - **Diagnostics**: an availability table by service.
 - **Built-in Cloudflare WARP** as a local SOCKS5 proxy: changes the address you arrive from, with no
-  administrator rights and no changes to your network (see
+  changes to your network (see
   [§12](#12-warp-and-changing-your-address)).
+- **HMS — changing the country**: a second connection to WARP through Tor or your own proxy, so the
+  exit lands in the entrance's country (see [§12 → HMS](#hms-changing-the-country)).
 - **Your own host lists and targets**, **IP-based bypass** (ipset), a **game filter**, and **disabling
   QUIC**.
 - **A single self-contained `.exe`**; the engine is downloaded on first launch and verified against
@@ -85,7 +88,7 @@ What it offers:
 
 - Windows 10 or 11, **x64** (an x86 build of the engine exists, but the 64-bit one is the main one).
 - **Administrator rights** for the bypass (the engine loads the WinDivert driver into the kernel). The
-  Telegram proxy does not need administrator rights.
+  program asks for them at startup and does not open without them.
 - Internet access on first launch (to download the engine).
 
 **Installation:**
@@ -159,9 +162,9 @@ At the top centre is the **Простой / Расширенный** (Simple / A
 
 - **Simple** — one big "Включить обход" (Turn on bypass) button, the Telegram and WARP cards, and the
   target selector. Nothing else.
-- **Advanced** — eight tabs: **Главная** (Home), **Стратегии** (Strategies), **Хостлисты** (Host
-  lists), **Диагностика** (Diagnostics), **Журнал** (Journal), **Telegram**, **WARP**, **Настройки**
-  (Settings).
+- **Advanced** — nine tabs: **Главная** (Home), **Стратегии** (Strategies), **Хостлисты** (Host
+  lists), **Диагностика** (Diagnostics), **Журнал** (Journal), **Telegram**, **WARP**, **HMS**,
+  **Настройки** (Settings).
 
 ### 4.1. Home
 
@@ -298,7 +301,20 @@ A dedicated page for the built-in proxy: turning it on, the address and secret, 
 button, changing the port, starting the proxy automatically, and a step-by-step guide. Details in
 [§11](#11-the-built-in-telegram-proxy).
 
-### 4.7. Settings
+### 4.7. WARP
+
+Cloudflare WARP as a local SOCKS5 proxy: create a device, turn it on, where to point the address, the
+"Направлять весь трафик системы" (Send all system traffic) switch. On the right, the four points of "Что
+это и зачем" (What it is and why). Details in [§12](#12-warp-and-changing-your-address).
+
+### 4.8. HMS
+
+Changing the country: a second connection to WARP through an entrance in another country — Tor or your
+own proxy. On the left, the chain switch, the entrance, bridges and the exit node; in the middle, which
+sites take this route; on the right, a diagram of the connection built from your settings. Details in
+[§12 → HMS](#hms-changing-the-country).
+
+### 4.9. Settings
 
 Interface language, scale, engine updates, autostart, notifications, auto-repair, bypass scope, the
 game filter, QUIC, covering the Telegram proxy with the engine, IP-based bypass, "Добавить в
@@ -561,8 +577,8 @@ So the program has **a separate built-in proxy**.
 - **What it does.** It raises a local MTProto proxy on `127.0.0.1:1443`; every Telegram connection is
   carried to its data centres over **WebSocket-TLS**, and through **domains behind Cloudflare** when the
   direct path is blocked. That is how the connection survives IP-based blocking.
-- **Rights.** Administrator is **not needed** (a local listener plus outgoing TLS). It works
-  independently of the main bypass button, and even when the window is minimised to the tray.
+- **Running.** It works independently of the main bypass button, and even when the window is minimised
+  to the tray.
 - **How to turn it on.** The Telegram switch (on Home or on the Telegram tab) → "Открыть в Telegram"
   (Open in Telegram), and the proxy registers itself. By hand: Telegram → Settings → Data and Storage →
   Proxy → Add → MTProto, then fill in the address, port and secret (there is a copy button next to
@@ -657,13 +673,14 @@ refused you lets you through.
 |---|---|
 | The site does not open at all, the connection drops | **The bypass** |
 | The site opens but will not let you in: captcha, refusal, "access restricted" | **WARP** |
-| "Not available in your country / region" | Neither will help |
+| "Not available in your country / region" | **HMS** — a chain through Tor or your own proxy, [below](#hms-changing-the-country) |
 
-> **WARP does not change your country.** Free WARP is anycast: you land on the nearest Cloudflare node,
-> not one you chose. From Russia the exit is Russian. Measured: every run came out on `104.28.x.x`,
-> country RU, node DME; an independent geo database labels those addresses `Cloudflare WARP` and flags
-> them as a proxy. No setting or entry point changes this — it is a Cloudflare limitation, not one of
-> this program. What changes is the address's **reputation**, not the country.
+> **WARP by itself does not change your country.** Free WARP is anycast: you land on the nearest
+> Cloudflare node, not one you chose. From Russia the exit is Russian. Measured: every run came out on
+> `104.28.x.x`, country RU, node DME; an independent geo database labels those addresses
+> `Cloudflare WARP` and flags them as a proxy. No setting and no other entry point picks the country —
+> what changes is the address's **reputation**. But the exit country follows **wherever the connection
+> to Cloudflare came from**, and the HMS tab is built on that — [below](#hms-changing-the-country).
 
 > **The bypass and WARP do not get in each other's way — they are needed together.** Cloudflare has to
 > be reached in the first place: registering a device goes to `api.cloudflareclient.com`, a name that is
@@ -742,11 +759,107 @@ the bypass scope is widened to every site**, and it goes back to your setting wh
 > because of it. The "Bypass all sites" switch itself does not change: the program does not rewrite
 > your choice, it overrides it temporarily, and the card in Настройки (Settings) says so outright.
 
+### HMS: changing the country
+
+The **HMS** tab sits between WARP and Settings. The name is the community's — Hide My Ass. It is a
+second connection to WARP, dialled not directly but **through an entrance in another country**.
+
+Measured: Cloudflare picks the exit country from **wherever the connection came from** — the device and
+the keys stay the same. Connect from Germany and the exit is German. That is what cures "not available in
+your region", against which both the bypass and plain WARP are powerless.
+
+The whole chain (the same diagram is drawn on the right of the tab, built from your settings):
+
+1. **Your browser.** By a Windows rule only the listed sites go into the chain; everything else goes as
+   usual, at full speed.
+2. **Zapret2UI.** Takes these sites and passes them on. With Tor it also helps the bridges through with the
+   bypass — the provider cuts them; your own proxy reaches its server by itself.
+3. **The entrance.** A bridge and Tor exiting in the chosen country — or your own SOCKS5 proxy (a VLESS or
+   Shadowsocks client). This is the link that sets the country.
+4. **Cloudflare WARP.** An address that is trusted: the service sees a Cloudflare client, not a Tor exit
+   it knows and refuses.
+5. **The site** sees the entrance's country, not yours.
+
+Pick the "Напрямую" (Direct) entrance and the diagram loses its middle: that entrance changes no country.
+
+**Turning it on**
+
+1. Create a device on the **WARP** tab — one serves both tabs.
+2. On the **HMS** tab choose the entrance: **"Свой прокси"** (Your proxy — a SOCKS5 address such as
+   `127.0.0.1:10808`, with a login `socks5://user:password@host:port`) or **"Tor"** (a country code such
+   as `de`).
+3. For Tor press **"Получить мосты"** (Get bridges), then **"Проверить скорость"** (Check speed) — details
+   below.
+4. Optionally, **"Подобрать выход"** (Choose an exit).
+5. Turn on **"Цепочка включена"** (Chain on). The first time the program downloads Tor — 21 MB, checked
+   against its checksum. The Tor site is blocked in Russia, so it is fetched through WARP itself: WARP is
+   raised directly, the download goes through it, and only then does the chain go through Tor. The bypass
+   on the Home tab has to be running — while a chain through Tor is on it covers every site rather than
+   just the lists, or the bridges do not connect.
+6. Turn on **"Вести эти сайты через цепочку"** (Send these sites through the chain).
+
+**Bridges and ordinary relays**
+
+- **"Получить мосты"** asks the Tor Project for bridges — no captcha, the same request Tor Browser's
+  "Connection Assist" makes — and also looks for **ordinary Tor relays** that answer from your network.
+  Any relay can be named as a bridge (the ValdikSS/tor-relay-scanner idea). The list comes from the
+  consensus Tor already keeps on disk, and only addresses that completed a TLS handshake make it into the
+  box. Such relays carry no obfuscation and are often faster than bridges: measured, 9 of 9 brought Tor up,
+  median 5.4 Mbit/s, best 20.6 — against 3.2 for a live obfs4 bridge. Where the provider blocks Tor by
+  protocol they will not get through, and obfs4 and webtunnel are the fallback.
+- **"Проверить скорость"** brings up every line of the box in turn, however many there are. The box is
+  rewritten: the fast ones on top, each with a comment such as `# 12.5 Mbit/s, first byte 1.2 s`, the dead
+  ones at the bottom with the reason. Nothing is deleted. Tor takes the first 12 lines of the box — which
+  is why the fast ones are moved to the top.
+- You can still paste your own lines — the **@GetBridgesBot** bot in Telegram hands them out, command
+  `/webtunnel`.
+- snowflake is dropped: the program does not unpack its binary, and Tor refuses a whole config over one
+  such line. obfs4 with `iat-mode=1` or `2` is slow on purpose.
+
+**The exit node**
+
+Without a pin Tor takes a new exit for every connection, and the WARP address moves with it — to a service
+that is a new visitor every time. **"Подобрать выход"** measures the country's ten widest exits by the
+consensus and pins the best one by address. Measured: exits with nearly identical advertised bandwidth
+differed fifteenfold in real speed — 11.0 against 0.7 Mbit/s. If the pinned node stops answering, the
+program falls back to any node in the country by itself, opens one connection instead of two and says
+so in the journal.
+
+With a pinned exit the program opens a **second connection to Cloudflare**: both share one address, so
+the country cannot drift. Measured: 3.6 → 5.5 Mbit/s. Without a pin there is one connection — each would
+otherwise leave through its own node, and the countries could diverge.
+
+**Which sites take the chain**
+
+- The list is edited by hand, one domain per line. The shipped one is ChatGPT, Gemini and Grok: those are
+  the ones that refuse by country. A domain covers everything under it: `openai.com` is also
+  `api.openai.com`.
+- The rule is written into Windows' settings while the chain is on. Chrome, Edge, Brave and anything
+  built on them pick it up — that is what it was checked on; **Firefox** has not been tested.
+- **While the chain is on, these sites go through it and nowhere else.** If the entrance drops they stop
+  opening rather than leave from your own address. Switch the chain off and the rule is removed — they go
+  out as usual, from your own address, so better stay out of an account tied to another country then.
+- **Exceptions** go around the chain even when the list covers them. Measured: the `grok.com` page makes
+  219 requests, and 188 of them go to `cdn.grok.com`, where a country means nothing.
+
+**What it does not do**
+
+- It does not make things fast: through Tor it measured 2–6 Mbit/s with about a second of latency. That is why
+  only the listed sites take the chain.
+- It does not insure an account. The services' own rules still apply, signing up for Claude asks for a
+  phone number from a supported country, and a sudden change of country can get an account reviewed.
+  Changing the address answers "they will not let me in", not "am I allowed".
+
 ### Where things live
 
 Everything sits in `%LOCALAPPDATA%\Zapret2UI\masque`: the unpacked `usque.exe` client and
-`config.json` with the device key, its licence and token. The client runs as an ordinary child process
-under your account with no elevation; a proxy left behind by a crash is cleared on the next start.
+`config.json` with the device key, its licence and token. The client runs as a child process of the
+program; a proxy left behind by a crash is cleared on the next start.
+
+Tor for HMS lives in `%LOCALAPPDATA%\Zapret2UI\tor`: `tor.exe`, the `pt\lyrebird.exe` transport with
+`pt_config.json`, the `geoip` and `geoip6` databases, `torrc`, and the `data` folder with the cached
+consensus — which is also where exits and ordinary relays are picked from. It is downloaded the first
+time the chain is switched on through Tor.
 
 ### If it does not work
 
@@ -756,7 +869,12 @@ under your account with no elevation; a proxy left behind by a crash is cleared 
 | "No way of reaching Cloudflare worked" | Every transport and port was tried. Make sure the bypass is running and no other VPN is up |
 | "Port is already in use by another program" | Something else is on `1080` — put a free port in Options |
 | "Cloudflare answers but says the traffic is not going through WARP" | The request left outside the proxy; usually another tunnel is capturing the routes |
-| The proxy is on but a site still says "not available in your region" | Expected: free WARP exits in Russia |
+| The proxy is on but a site still says "not available in your region" | Expected: free WARP exits in Russia. The country is changed by [HMS](#hms-changing-the-country) |
+| HMS: Tor does not come up, or stalls on one percentage | The bridges are not answering: "Получить мосты", then "Проверить скорость"; the bypass on the Home tab has to be running. A stalled Tor is restarted once by the program itself |
+| HMS: "the exit came out in … but you asked for …" | Tor did not hold the country, and the proxy was stopped rather than take you somewhere you did not choose. Try again or pick another country |
+| HMS: "the pinned Tor exit is not answering — taking any one in that country" | The pinned node went away. The chain carries on through any node in the country, over one connection; press "Подобрать выход" again |
+| HMS: "the connection to Cloudflare went around your proxy" | Check that the proxy client is running and the address is its SOCKS5 port |
+| HMS: the listed sites do not open | The chain is on but its entrance stopped answering (Tor or your proxy), and these sites are not let around the chain. Switch the chain off and on. If the program crashed, start it again: it puts the Windows setting back |
 | The browser ignores the proxy | Check the address is entered as SOCKS5 and the port matches the one shown |
 | Everything got slower | Expected: a detour through Cloudflare. Keep the proxy on only when you need it |
 
@@ -817,6 +935,15 @@ none of them scrolls. The values are stored in `settings.json` (`AppSettings`).
 | All traffic through WARP | `MasqueSystemProxy` | `false` | Write the proxy into Windows' settings for as long as WARP is on (see [§12](#12-warp-and-changing-your-address)). Firefox is not covered. |
 | WARP proxy port | `MasqueListenPort` | `1080` | Local port of the WARP SOCKS5 proxy (see [§12](#12-warp-and-changing-your-address)). |
 | WARP transport | `MasqueHttp2`, `MasqueConnectPort` | `true`, `443` | Whatever connected last time. Worked out automatically; no need to change it by hand. |
+| HMS entrance | `MasqueIngress` | `direct` | `direct`, `proxy` or `tor` (see [§12 → HMS](#hms-changing-the-country)). |
+| Entrance proxy | `MasqueIngressProxy` | — | The SOCKS5 address for the "Свой прокси" entrance. |
+| Tor country | `MasqueTorCountry` | `de` | Two-letter code of the Tor exit country. |
+| Bridges | `MasqueTorBridges` | — | Bridge lines; empty means the ones shipped in the bundle. |
+| Exit node | `MasqueTorExit` | — | The pinned Tor exit address; empty means any node in the country. |
+| Chain port | `MasqueChainPort` | `1081` | Local port of the second connection to WARP. |
+| Send sites through the chain | `MasqueAiRouting` | `false` | A rule in Windows' settings while the chain is on. |
+| Chain sites | `MasqueAiDomains` | — | Your own list; empty means the shipped one (ChatGPT, Gemini, Grok). |
+| Exceptions | `MasqueAiBypass` | `cdn.grok.com` | Around the chain even when the list covers them. |
 | Per-network memory | `NetworkStrategies` | `{}` | Network → strategy (local only). |
 
 Besides the above, the file keeps two housekeeping marks for the interface: whether the support
@@ -910,6 +1037,11 @@ Everything lives under `%LOCALAPPDATA%\Zapret2UI\` (the program never writes to 
 ├─ masque\                     the built-in WARP client (see §12)
 │  ├─ usque.exe               the MASQUE client, started with no window
 │  └─ config.json             the registered device: key, licence, token
+├─ tor\                        Tor for HMS, downloaded on first use (see §12)
+│  ├─ tor.exe, torrc          Tor itself and its config
+│  ├─ pt\                     lyrebird.exe and pt_config.json: the obfs4 and webtunnel transports
+│  ├─ geoip, geoip6           address → country
+│  └─ data\                   the cached consensus: exits and ordinary relays are picked from it
 ├─ tmp\                        temporary downloads
 ├─ presets.json               your strategies
 └─ settings.json              settings (see §15)

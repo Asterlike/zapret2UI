@@ -20,7 +20,6 @@
          real screen, not from a swatch. -->
     <Color x:Key="C.Bg">#FF12151C</Color>
     <Color x:Key="C.Surface">#FF191D25</Color>
-    <Color x:Key="C.Card">#FF1B202A</Color>
     <Color x:Key="C.SurfaceAlt">#FF252B36</Color>
     <Color x:Key="C.Border">#1AFFFFFF</Color>
     <Color x:Key="C.Fg">#FFEFF2F7</Color>
@@ -32,7 +31,6 @@
 
     <SolidColorBrush x:Key="BgBrush"        Color="{StaticResource C.Bg}"/>
     <SolidColorBrush x:Key="SurfaceBrush"   Color="{StaticResource C.Surface}"/>
-    <SolidColorBrush x:Key="CardBrush"      Color="{StaticResource C.Card}"/>
     <SolidColorBrush x:Key="SurfaceAltBrush" Color="{StaticResource C.SurfaceAlt}"/>
     <SolidColorBrush x:Key="BorderBrush2"   Color="{StaticResource C.Border}"/>
     <SolidColorBrush x:Key="FgBrush"        Color="{StaticResource C.Fg}"/>
@@ -48,17 +46,10 @@
     <!-- Cards are lit from above rather than painted flat, and they carry NO outline: on the softened
          ground the fill alone is enough to separate them, and a border on top of that only added a
          second edge to look at. The two stops are what keeps a borderless card from reading as a flat
-         patch — it still has a top and a bottom.
-         CardEdge survives for the few places that genuinely need a hairline (the status badge, dialog
-         chrome); it is no longer on the Card style itself. -->
+         patch — it still has a top and a bottom. -->
     <LinearGradientBrush x:Key="CardFill" StartPoint="0,0" EndPoint="0,1">
         <GradientStop Color="#FF1D222C" Offset="0"/>
         <GradientStop Color="#FF191E27" Offset="1"/>
-    </LinearGradientBrush>
-    <LinearGradientBrush x:Key="CardEdge" StartPoint="0,0" EndPoint="0,1">
-        <GradientStop Color="#2BFFFFFF" Offset="0"/>
-        <GradientStop Color="#12FFFFFF" Offset="0.5"/>
-        <GradientStop Color="#0CFFFFFF" Offset="1"/>
     </LinearGradientBrush>
 
     <!-- The halo under a primary action. One resource rather than an inline effect per button, so

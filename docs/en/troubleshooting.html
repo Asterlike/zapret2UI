@@ -20,7 +20,7 @@
     <a href="quickstart.html">Quick start</a>
     <a href="interface.html">Interface</a>
     <a href="strategies.html">Strategies</a>
-    <a href="warp.html">WARP</a>
+    <a href="warp.html">WARP &amp; HMS</a>
     <a href="reference.html">Reference</a>
     <a href="troubleshooting.html" aria-current="page">Troubleshooting</a>
   </nav>
@@ -55,7 +55,7 @@
       <ul>
         <li><a href="interface.html">Interface</a></li>
         <li><a href="strategies.html">Strategies explained</a></li>
-        <li><a href="warp.html">WARP and changing your address</a></li>
+        <li><a href="warp.html">WARP and HMS</a></li>
       </ul>
       <h5>Advanced</h5>
       <ul>
@@ -285,10 +285,10 @@
       <li><b>The site does not trust your address.</b> The connection gets through, the site answers — and
         refuses: an endless captcha, "access restricted", a refusal at sign-up or payment. Your provider
         has nothing to do with it and the bypass has nothing left to push through. That is a job for
-        <a href="warp.html">WARP</a>: Cloudflare's addresses sit differently in reputation lists than
+        <a href="warp.html">WARP &amp; HMS</a>: Cloudflare's addresses sit differently in reputation lists than
         Russian home ranges.</li>
       <li><b>Blocking by IP address.</b> The bypass lifts name-based blocking, not address-based. The DPI
-        check will report "no connection". <a href="warp.html">WARP</a> helps here too — it changes the
+        check will report "no connection". <a href="warp.html">WARP &amp; HMS</a> helps here too — it changes the
         address you arrive from.</li>
       <li><b>A volume limit.</b> The handshake is short and stays under the limit, while a real page does
         not. The DPI check can detect this separately.</li>
@@ -346,8 +346,9 @@
     <h2 id="voprosy">Frequent questions</h2>
 
     <h3>Are administrator rights required</h3>
-    <p>For bypassing Discord and YouTube, yes: the engine loads a network driver into the Windows kernel.
-      For the built-in Telegram proxy, no — it runs as a normal user.</p>
+    <p>Yes: the program asks for them at startup — the engine loads a network driver into the Windows kernel.
+      Without them it does not start at all, the Telegram proxy and WARP included, even though they do not
+      need the rights themselves.</p>
 
     <h3>Do I need a VPN</h3>
     <p>Only if the resource is cut off by IP address, where the bypass cannot help. Against name-based
@@ -413,7 +414,7 @@
       <a href="quickstart.html">Quick start</a>
       <a href="interface.html">Interface</a>
       <a href="strategies.html">Strategies explained</a>
-      <a href="warp.html">WARP and changing your address</a>
+      <a href="warp.html">WARP and HMS</a>
     </nav>
     <nav>
       <a href="reference.html">Reference</a>

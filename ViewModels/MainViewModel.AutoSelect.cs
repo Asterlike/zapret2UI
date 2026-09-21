@@ -36,9 +36,9 @@ public sealed partial class MainViewModel
 
     public string SimpleGoalHint => SelectedScope switch
     {
-        AutoScope.Discord => Loc.T("Ищем стратегию под Discord."),
-        AutoScope.YouTube => Loc.T("Ищем стратегию под YouTube."),
-        _ => Loc.T("Ищем одну стратегию сразу под Discord и YouTube."),
+        AutoScope.Discord => Loc.T("Поиск стратегии для Discord."),
+        AutoScope.YouTube => Loc.T("Поиск стратегии для YouTube."),
+        _ => Loc.T("Поиск одной стратегии сразу для Discord и YouTube."),
     };
 
     // ---- auto-select (best strategy for the chosen scope) -----------------
@@ -60,7 +60,7 @@ public sealed partial class MainViewModel
 
     public string AutoPopupSubtitle => IsAutoRunning
         ? Loc.T("Слева — проверка целей текущей стратегией. Справа — стратегии, прошедшие проверку.")
-        : Loc.T("Проверка завершена. Наведите на нужную и нажмите «Сохранить в пресеты» — окно не закроется само.");
+        : Loc.T("Проверка завершена. Наведите на нужную и нажмите «Сохранить в стратегии» — окно не закроется само.");
 
     private void RaiseAutoRunState()
     {
@@ -131,7 +131,7 @@ public sealed partial class MainViewModel
         });
     }
 
-    private string _autoStatusText = Loc.T("Выберите цель и нажмите «Подобрать лучшую» — найдём стратегию с наименьшим числом ошибок.");
+    private string _autoStatusText = Loc.T("Выберите цель и нажмите «Подобрать лучшую» — подбор найдёт стратегию с наименьшим числом ошибок.");
     public string AutoStatusText { get => _autoStatusText; private set => SetField(ref _autoStatusText, value); }
 
     private void SetAutoStatus(string s) { AutoStatusText = s; SimpleStatus = s; }

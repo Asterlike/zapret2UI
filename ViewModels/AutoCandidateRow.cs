@@ -60,7 +60,7 @@ public sealed class AutoCandidateRow : ObservableObject
 
     public string StatusText => State switch
     {
-        AutoCandidateState.Running => Loc.T("проверяю…"),
+        AutoCandidateState.Running => Loc.T("проверка…"),
         AutoCandidateState.Done => Score?.Detail ?? Loc.T("готово"),
         _ => Loc.T("в очереди"),
     };

@@ -60,7 +60,7 @@ public sealed partial class MainViewModel : ObservableObject
         StopCommand = new RelayCommand(_ => _engine.Stop(), _ => CanStop);
         ToggleCommand = new RelayCommand(_ => { if (IsRunning) _engine.Stop(); else Start(); },
                                          _ => !IsUpdating && (IsRunning || CanStart));
-        CheckUpdateCommand = new RelayCommand(async _ => await CheckAndUpdateAsync(silent: false),
+        CheckUpdateCommand = new RelayCommand(async _ => await CheckAndUpdateAsync(),
                                               _ => !IsUpdating);
         ClearLogCommand = new RelayCommand(_ => LogLines.Clear());
         ClearProxyLogCommand = new RelayCommand(_ => ProxyLogLines.Clear());
@@ -85,8 +85,6 @@ public sealed partial class MainViewModel : ObservableObject
 
         SimpleToggleCommand = new RelayCommand(_ => SimpleToggle(),
             _ => !IsUpdating && !IsAutoSelecting && (IsRunning || CanStart));
-        SetSimpleModeCommand = new RelayCommand(_ => IsSimpleMode = true);
-        SetAdvancedModeCommand = new RelayCommand(_ => IsSimpleMode = false);
         SetLanguageCommand = new RelayCommand(p => SetLanguage(p as string));
         GoToSettingsCommand = new RelayCommand(_ => { IsSimpleMode = false; SelectedTabIndex = SettingsTabIndex; });
         GoToWarpTabCommand = new RelayCommand(_ => { IsSimpleMode = false; SelectedTabIndex = WarpTabIndex; });
@@ -218,8 +216,6 @@ public sealed partial class MainViewModel : ObservableObject
     public RelayCommand DeletePresetCommand { get; }
     public RelayCommand SavePresetCommand { get; }
     public RelayCommand SimpleToggleCommand { get; }
-    public RelayCommand SetSimpleModeCommand { get; }
-    public RelayCommand SetAdvancedModeCommand { get; }
     public RelayCommand SetLanguageCommand { get; }
     public RelayCommand RunDiagnosticsCommand { get; }
     public RelayCommand StopDiagnosticsCommand { get; }
@@ -277,6 +273,9 @@ public sealed partial class MainViewModel : ObservableObject
         // Before anything else touches the network: a system proxy left applied by a crash points at a
         // socket that no longer exists, which reads to the user as «интернет пропал».
         RestoreStaleSystemProxy();
+        // The orphaned children a crash leaves behind are swept by App, not here: this method also runs
+        // in the headless modes, which are one-shots that start ALONGSIDE a live copy — sweeping from
+        // here would make a screenshot run kill the running app's proxy.
         InitMasqueState();
         _engine.DebugLog = Settings.DebugLog;
         _tgProxy.Verbose = Settings.DebugLog;
@@ -318,9 +317,9 @@ public sealed partial class MainViewModel : ObservableObject
         // churn the launch (CheckAndUpdateAsync would otherwise stop→update→restart it mid-startup).
         if (!_updater.IsEngineInstalled || !_updater.IsEngineComplete
             || (Settings.AutoUpdateEngine && Settings.AutostartEngine))
-            await CheckAndUpdateAsync(silent: true);
+            await CheckAndUpdateAsync();
         else if (Settings.AutoUpdateEngine)
-            _ = CheckAndUpdateAsync(silent: true);
+            _ = CheckAndUpdateAsync();
 
         if (Settings.AutostartEngine && CanStart && SelectedPreset is not null)
             Start();

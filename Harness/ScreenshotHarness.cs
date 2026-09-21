@@ -46,7 +46,8 @@ internal static class ScreenshotHarness
             foreach (var (idx, file) in new[]
             {
                 (0, "home-advanced.png"), (1, "strategies.png"), (2, "hostlists.png"),
-                (3, "diagnostics.png"), (5, "telegram.png"), (6, "warp.png"), (7, "settings.png"),
+                (3, "diagnostics.png"), (5, "telegram.png"), (6, "warp.png"), (7, "hms.png"),
+                (8, "settings.png"),
             })
             {
                 vm.SelectedTabIndex = idx;

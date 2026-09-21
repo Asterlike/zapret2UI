@@ -55,8 +55,6 @@ public sealed class TargetService
         catch { return new(); }
     }
 
-    public bool Exists(string name) => File.Exists(PathFor(name));
-
     public List<string> ReadDomains(string name)
     {
         try
@@ -151,7 +149,7 @@ public sealed class TargetService
         if (root.Length == 0) return result.ToList();
         result.Add(root);
 
-        progress?.Report(Loc.T("Ищу поддомены «{0}» (crt.sh) и проверяю зоны бренда…", root));
+        progress?.Report(Loc.T("Поиск поддоменов «{0}» (crt.sh) и проверка зон бренда…", root));
         var crt = CrtShSubdomainsAsync(root, progress, ct);
         var tld = CrossTldVariantsAsync(root, progress, ct);
         foreach (var d in await crt.ConfigureAwait(false)) result.Add(d);
@@ -188,7 +186,7 @@ public sealed class TargetService
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch { /* crt.sh flaky/offline — cross-TLD probe still works */ }
-        if (found.Count > 0) progress?.Report(Loc.T("crt.sh: поддоменов найдено — {0}. Проверяю зоны бренда…", found.Count));
+        if (found.Count > 0) progress?.Report(Loc.T("crt.sh: поддоменов найдено — {0}. Проверка зон бренда…", found.Count));
         return found;
     }
 
@@ -237,8 +235,8 @@ public sealed class TargetService
                 int n = Interlocked.Increment(ref done);
                 var hits = owned.OrderBy(x => x.Length).ThenBy(x => x, StringComparer.OrdinalIgnoreCase).Take(6).ToList();
                 string tail = hits.Count == 0 ? "" :
-                    " · нашёл: " + string.Join(", ", hits) + (owned.Count > hits.Count ? "…" : "");
-                progress?.Report(Loc.T("Проверяю зоны бренда: {0}/{1}{2}", n, total, tail));
+                    Loc.T(" · найдено: {0}", string.Join(", ", hits) + (owned.Count > hits.Count ? "…" : ""));
+                progress?.Report(Loc.T("Проверка зон бренда: {0}/{1}{2}", n, total, tail));
             }
         });
         await Task.WhenAll(tasks).ConfigureAwait(false);

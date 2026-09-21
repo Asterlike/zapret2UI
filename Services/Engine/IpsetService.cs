@@ -14,9 +14,9 @@ namespace Zapret2UI.Services.Engine;
 /// </summary>
 public sealed class IpsetService
 {
-    public sealed record IpsetResult(string Path, int Subnets);
+    public sealed record IpsetResult(int Subnets);
 
-    /// <summary>Resolve <paramref name="domains"/> and write an aggregated ipset file. Returns the path + subnet count.</summary>
+    /// <summary>Resolve <paramref name="domains"/> and write an aggregated ipset file. Returns the subnet count.</summary>
     public async Task<IpsetResult> BuildDiscordIpsetAsync(IEnumerable<string> domains, CancellationToken ct)
     {
         if (!File.Exists(AppPaths.MdigExe) || !File.Exists(AppPaths.Ip2NetExe))
@@ -30,7 +30,7 @@ public sealed class IpsetService
 
         string ips = await ResolveAsync(list, ct);
         if (string.IsNullOrWhiteSpace(ips))
-            throw new InvalidOperationException(Loc.T("Не удалось разрезолвить ни одного домена (DNS-блокировка?)."));
+            throw new InvalidOperationException(Loc.T("Не удалось определить адрес ни одного домена (блокировка DNS?)."));
 
         string subnets = await AggregateAsync(ips, ct);
         var lines = subnets.Replace("\r\n", "\n").Split('\n')
@@ -38,7 +38,7 @@ public sealed class IpsetService
 
         Directory.CreateDirectory(AppPaths.ListsDir);
         await File.WriteAllTextAsync(AppPaths.IpsetDiscordFile, string.Join("\n", lines) + "\n", ct);
-        return new IpsetResult(AppPaths.IpsetDiscordFile, lines.Count);
+        return new IpsetResult(lines.Count);
     }
 
     private static Task<string> ResolveAsync(IReadOnlyList<string> domains, CancellationToken ct) =>

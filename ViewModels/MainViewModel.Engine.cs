@@ -50,7 +50,7 @@ public sealed partial class MainViewModel
     {
         if (SelectedPreset is null)
         {
-            AppendLog(Loc.T("Не выбран пресет."));
+            AppendLog(Loc.T("Не выбрана стратегия."));
             return;
         }
         try

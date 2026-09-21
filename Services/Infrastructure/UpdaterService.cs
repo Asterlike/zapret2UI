@@ -1,9 +1,7 @@
-using System.IO;
+﻿using System.IO;
 using System.IO.Compression;
-using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
-using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -32,77 +30,18 @@ public sealed class UpdaterService
         "https://github.com/Asterlike/zapret2UI/releases/latest";
 
     private readonly HttpClient _http;
-    private readonly DohResolver _doh = new();
 
     public UpdaterService()
     {
-        // Resolve every hostname over DoH first (OS resolver as fallback). This is what makes the
+        // Every hostname is resolved over DoH first (OS resolver as fallback), which is what makes the
         // download survive the common RU failure where github.com opens but the release asset host
-        // *.githubusercontent.com does not: the ISP poisons that name in the system resolver, while
-        // browsers (which do their own DoH) still reach it. On a healthy network DoH returns the same
-        // IPs, so behaviour is unchanged. See DohConnectAsync.
-        var handler = new SocketsHttpHandler { ConnectCallback = DohConnectAsync };
-        _http = new HttpClient(handler) { Timeout = TimeSpan.FromMinutes(10) };
+        // *.githubusercontent.com does not: the ISP poisons that one name in the system resolver, while
+        // browsers (which do their own DoH) still reach it. Shared with the Tor download — see DohHttp.
+        _http = DohHttp.Create(TimeSpan.FromMinutes(10));
         _http.DefaultRequestHeaders.UserAgent.Add(
             new ProductInfoHeaderValue("Zapret2UI", "1.0"));
         _http.DefaultRequestHeaders.Accept.Add(
             new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
-    }
-
-    /// <summary>
-    /// Custom connect for <see cref="_http"/>: resolve the target host via DoH first, then the OS
-    /// resolver, and TCP-connect to the first address that answers. TLS is still negotiated by the
-    /// handler afterwards using the real hostname (SNI + cert validation unchanged), so this only
-    /// bypasses a poisoned/blocked DNS answer — it does not weaken verification. Applies to every
-    /// request the updater makes (API, page scrape, sha256 manifest, the zip download itself), so the
-    /// whole chain — including the github.com→githubusercontent.com redirect — is DoH-resolved.
-    /// </summary>
-    private async ValueTask<Stream> DohConnectAsync(SocketsHttpConnectionContext ctx, CancellationToken ct)
-    {
-        string host = ctx.DnsEndPoint.Host;
-        int port = ctx.DnsEndPoint.Port;
-
-        var candidates = new List<IPAddress>();
-        if (IPAddress.TryParse(host, out var literal))
-            candidates.Add(literal); // already an IP — no resolution needed
-        else
-        {
-            try
-            {
-                foreach (var ip in await _doh.ResolveAsync(host, ct).ConfigureAwait(false))
-                    if (IPAddress.TryParse(ip, out var addr)) candidates.Add(addr);
-            }
-            catch { /* DoH unavailable → OS resolver below */ }
-
-            try
-            {
-                foreach (var addr in await Dns.GetHostAddressesAsync(host, ct).ConfigureAwait(false))
-                    if (!candidates.Contains(addr)) candidates.Add(addr);
-            }
-            catch { /* OS resolver failed too — any DoH candidates may still connect */ }
-        }
-
-        if (candidates.Count == 0)
-            throw new IOException(Loc.T("Не удалось определить адрес {0} (ни DoH, ни системный DNS не ответили).", host));
-
-        Exception? last = null;
-        foreach (var addr in candidates)
-        {
-            var socket = new Socket(addr.AddressFamily, SocketType.Stream, ProtocolType.Tcp) { NoDelay = true };
-            try
-            {
-                using var connectCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-                connectCts.CancelAfter(TimeSpan.FromSeconds(10));
-                await socket.ConnectAsync(addr, port, connectCts.Token).ConfigureAwait(false);
-                return new NetworkStream(socket, ownsSocket: true);
-            }
-            catch (Exception ex)
-            {
-                last = ex;
-                socket.Dispose();
-            }
-        }
-        throw last ?? new IOException(Loc.T("Не удалось подключиться к {0}.", host));
     }
 
     /// <summary>Currently installed engine tag, or null if the engine is absent.</summary>
@@ -301,7 +240,7 @@ public sealed class UpdaterService
         try
         {
             // 1. Download the zip with progress.
-            progress?.Report(new UpdateProgress(UpdatePhase.Downloading, 0, Loc.T("Загрузка движка…")));
+            progress?.Report(new UpdateProgress(0, Loc.T("Загрузка движка…")));
             await DownloadFileAsync(release.ZipUrl, zipPath, release.ZipSize, progress, ct)
                 .ConfigureAwait(false);
 
@@ -316,7 +255,7 @@ public sealed class UpdaterService
                     + Loc.T("установка отменена. Скачайте движок вручную со страницы релиза zapret2 "
                     + "или повторите попытку позже."));
 
-            progress?.Report(new UpdateProgress(UpdatePhase.Verifying, 0, Loc.T("Проверка контрольных сумм…")));
+            progress?.Report(new UpdateProgress(0, Loc.T("Проверка контрольных сумм…")));
             string shaText = await _http.GetStringAsync(release.Sha256Url, ct).ConfigureAwait(false);
             var hashes = ParseSha256Sum(shaText);
             if (hashes.Count == 0)
@@ -324,7 +263,7 @@ public sealed class UpdaterService
                     Loc.T("Манифест sha256 релиза {0} пуст или не разобран — установка отменена.", release.Tag));
 
             // 3. Extract only what we need into a staging folder.
-            progress?.Report(new UpdateProgress(UpdatePhase.Extracting, 0, Loc.T("Распаковка…")));
+            progress?.Report(new UpdateProgress(0, Loc.T("Распаковка…")));
             Directory.CreateDirectory(stageDir);
             ExtractNeeded(zipPath, stageDir, ct);
 
@@ -332,11 +271,11 @@ public sealed class UpdaterService
             VerifyBinaries(stageDir, hashes);
 
             // 5. Move staged engine into place.
-            progress?.Report(new UpdateProgress(UpdatePhase.Extracting, 0.95, Loc.T("Установка…")));
+            progress?.Report(new UpdateProgress(0.95, Loc.T("Установка…")));
             InstallStaged(stageDir);
             File.WriteAllText(AppPaths.EngineVersionFile, release.Tag);
 
-            progress?.Report(new UpdateProgress(UpdatePhase.Done, 1.0, Loc.T("Готово — {0}", release.Tag)));
+            progress?.Report(new UpdateProgress(1.0, Loc.T("Готово — {0}", release.Tag)));
         }
         finally
         {
@@ -371,7 +310,7 @@ public sealed class UpdaterService
             {
                 double frac = Math.Clamp((double)read / total, 0, 1);
                 progress?.Report(new UpdateProgress(
-                    UpdatePhase.Downloading, frac,
+                    frac,
                     Loc.T("Загрузка движка… {0:F1}/{1:F1} МБ", read / 1_048_576.0, total / 1_048_576.0)));
             }
         }

@@ -61,6 +61,7 @@ This is the short version. Everything is covered in detail on the
 | [Quick start](https://asterlike.github.io/zapret2UI/en/quickstart.html) | Installation, first launch, selection and generation, autostart |
 | [Interface](https://asterlike.github.io/zapret2UI/en/interface.html) | Every screen with a screenshot, host lists, the Telegram proxy, all settings, files on disk |
 | [Strategies explained](https://asterlike.github.io/zapret2UI/en/strategies.html) | All nine built-in strategies line by line: what each argument does and why it is assembled that way |
+| [WARP and HMS](https://asterlike.github.io/zapret2UI/en/warp.html) | Changing your address through Cloudflare, changing your country with a chain through Tor or your own proxy, bridges and the exit node |
 | [Reference](https://asterlike.github.io/zapret2UI/en/reference.html) | The `winws2` argument format: desync verbs, fooling, tokens, markers, blobs, orchestrators |
 | [Troubleshooting](https://asterlike.github.io/zapret2UI/en/troubleshooting.html) | What to try in order, engine exit codes, frequent questions |
 | [Support](https://asterlike.github.io/zapret2UI/en/support.html) · [Credits](https://asterlike.github.io/zapret2UI/en/credits.html) | Donations, feedback, and everyone the project stands on |
@@ -106,8 +107,7 @@ The official engine manual: [manual.en.md](https://github.com/bol-van/zapret2/bl
 ## What the program does
 
 - **One-click bypass** for Discord and YouTube, with no manual configuration.
-- **A separate built-in Telegram proxy** (MTProto) that works on its own and needs no administrator
-  rights.
+- **A separate built-in Telegram proxy** (MTProto) that works on its own, independently of the bypass.
 - **9 ready-made bypass strategies** plus **automatic selection** of the best one plus **generation of
   a personal strategy** assembled specifically for your provider.
 - **Per-network memory**: the program remembers the working strategy for each network (home Wi-Fi,
@@ -124,16 +124,25 @@ The official engine manual: [manual.en.md](https://github.com/bol-van/zapret2/bl
   opens and the provider has nothing to do with it. WARP's addresses belong to Cloudflare, which already
   carries a sizeable share of the web, so they sit differently in those reputation lists: **you arrive
   not from a bad range but as a Cloudflare client** — and the same check lets you through.
-  The client is carried inside the program, so **there is nothing to install** and **no administrator
-  rights are needed**: no adapter, no routes, nothing changed in the system, so a failure cannot leave
+  The client is carried inside the program, so **there is nothing to install**: no adapter, no routes, nothing changed in the system, so a failure cannot leave
   you without internet. It speaks MASQUE — the same protocol Cloudflare's own app uses.
-  *This does not change your country:* free WARP exits through the nearest node, from Russia the address
-  will be Russian, and "not available in your region" cannot be got round this way — what changes is the
-  address's reputation, not the country. While the proxy is on, **the bypass scope widens to every site
+  *WARP by itself does not change your country:* the free service exits through the nearest node, and
+  from Russia the address will be Russian — what changes is the address's reputation. For "not available
+  in your region" there is HMS (the next item). While the proxy is on, **the bypass scope widens to every site
   by itself** — otherwise the connection to Cloudflare does not come up; your setting is kept and comes
   back when you switch the proxy off. Normally only what you point at the proxy uses it, but a separate
   switch writes it into Windows' settings and sends **all system traffic** through it (Firefox reads its
   own setting and is not covered).
+- **HMS — changing your country** (the HMS tab; the community picked the name: Hide My Ass).
+  Cloudflare chooses the exit country from **wherever the connection came from** — that is measured. HMS
+  uses it: a second connection to WARP goes through an entrance in another country — **Tor** (free) or
+  **your own SOCKS5 proxy** — and the exit lands there too. The chain: **your browser → Zapret2UI →
+  entrance (bridge → Tor, or your proxy) → Cloudflare WARP → site**; the tab draws it on the right from
+  your settings. Only the listed sites take it — the shipped list is ChatGPT, Gemini and Grok, which
+  refuse by country — and everything else goes as usual. Bridges come with one button: from the Tor
+  Project and from ordinary Tor relays that answer from your network (no obfuscation, often faster). A
+  fast exit node can be measured and pinned, and then there are two connections to Cloudflare. Through
+  Tor it measured 2–6 Mbit/s — enough for a conversation.
 - **Your own site lists** (host lists) and **your own targets**: any domain can be added.
 - **Autostart** at Windows logon, minimise to tray, quiet notifications in the corner.
 - **A backup of your settings and strategies** in a single file — for a reinstall or a move to another
@@ -175,7 +184,7 @@ More in the documentation: [Quick start](https://asterlike.github.io/zapret2UI/e
 ## Screen by screen
 
 At the top centre is the **Простой / Расширенный** (Simple / Advanced) switch. Simple leaves the toggle,
-the Telegram and WARP cards and the target selector; advanced adds eight tabs.
+the Telegram and WARP cards and the target selector; advanced adds nine tabs.
 
 <img src="docs/en/home-advanced.png" width="820" alt="Advanced mode"/>
 
@@ -188,6 +197,7 @@ the Telegram and WARP cards and the target selector; advanced adds eight tabs.
 | **Журнал** (Journal) | Live output from the engine and the proxy. The first place to look if the bypass did not start |
 | **Telegram** | The built-in proxy: address, secret, port, autostart |
 | **WARP** | The Cloudflare proxy for changing your address: create a device, turn it on, where to point it |
+| **HMS** | Changing your country: a chain to WARP through Tor or your own proxy, a diagram of the connection, bridges, the exit node, which sites take this route |
 | **Настройки** (Settings) | Four sections: **Appearance** (language, scale, notifications), **Bypass** (scope, game filter, QUIC, Telegram through the engine), **System** (engine, startup, auto-repair, environment check), **Maintenance** (IP list, exclusions, backup, reset, logs) |
 
 More in the documentation: [Interface](https://asterlike.github.io/zapret2UI/en/interface.html) — every
@@ -199,8 +209,7 @@ screen with a screenshot, the full settings table and a breakdown of host lists.
 
 Telegram is blocked differently from websites — often **by IP address** rather than by name. An
 ordinary DPI bypass does not help there, so the program has **a separate built-in proxy** (MTProto). It
-works on its own, **independently of the main bypass button**, and administrator rights are **not
-needed**.
+works on its own, **independently of the main bypass button**.
 
 1. Turn on the **Telegram switch** (on Home or on the Telegram tab).
 2. Press **"Открыть в Telegram"** (Open in Telegram) — the proxy is registered in the app
@@ -299,8 +308,15 @@ the page loads forever while `curl` returns it instantly, that is QUIC: add the 
 endless captcha, "access restricted", a refusal at sign-up — the provider is not the problem, your
 address's reputation is: that is a job for **WARP**.
 
+**A site says "not available in your region".**
+That is a refusal by country, and neither the bypass nor plain WARP lifts it. It is a job for the
+**HMS** tab: a chain through Tor or your own proxy, so the site sees the entrance's country. Add the site
+to its list.
+
 **Are administrator rights required?**
-For bypassing Discord/YouTube, yes. For the Telegram proxy, **no**.
+Yes: the program asks for them at startup — the engine loads a network driver into the Windows kernel.
+Without them it does not start at all, the Telegram proxy and WARP included, even though they do not
+need the rights themselves.
 
 Other questions: [Troubleshooting → Frequent questions](https://asterlike.github.io/zapret2UI/en/troubleshooting.html#voprosy).
 
@@ -317,6 +333,8 @@ path → Enter).
 | The `winws2` engine and its files (downloaded on first launch) | `engine\` |
 | Host lists and IP lists | `lists\` |
 | Engine journals (`engine-*.log`) | `logs\` |
+| The built-in WARP client and the device key | `masque\` |
+| Tor for HMS (downloaded the first time the chain goes through Tor) | `tor\` |
 | Your strategies | `presets.json` |
 | Settings | `settings.json` |
 

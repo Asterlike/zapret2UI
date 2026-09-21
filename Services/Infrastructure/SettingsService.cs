@@ -63,11 +63,67 @@ public sealed class AppSettings
     /// Cloudflare. Firefox keeps its own proxy setting and is NOT covered.</summary>
     public bool MasqueSystemProxy { get; set; }
 
-    /// <summary>Windows' proxy setting as it was before <see cref="MasqueSystemProxy"/> pointed it at
-    /// the local proxy, encoded as <c>enabled|server|override</c>. Empty when nothing is applied.
-    /// Persisted rather than held in memory precisely because it has to survive a crash: a registry
-    /// setting left pointing at a proxy that is no longer listening is a machine with no browsing, and
-    /// the next launch undoes it.</summary>
+    /// <summary>A SOCKS5 proxy to reach Cloudflare THROUGH, so the WARP exit lands in that proxy's
+    /// country instead of this one. Empty — the default — dials Cloudflare directly, which is the
+    /// behaviour every version so far had.
+    ///
+    /// <para>Measured: Cloudflare chooses the exit by the country of the address that dialled it, so a
+    /// foreign entrance is the only thing that turns WARP from «другой адрес» into «другая страна» —
+    /// and the only way the AI services that refuse by country can be reached at all.</para></summary>
+    public string MasqueIngressProxy { get; set; } = "";
+
+    /// <summary>Which way in the CHAIN takes: <c>direct</c> (the ordinary WARP proxy, no chain),
+    /// <c>proxy</c> (<see cref="MasqueIngressProxy"/>) or <c>tor</c>. A word rather than a number so the
+    /// settings file stays readable and an unknown value can safely fall back to «direct».</summary>
+    public string MasqueIngress { get; set; } = "direct";
+
+    /// <summary>Loopback port for the CHAIN's own proxy — a second WARP connection, dialled through the
+    /// entrance above, living beside the ordinary one rather than replacing it.
+    ///
+    /// <para>Two connections from one registered device were measured working side by side, which is
+    /// what makes «WARP» and «WARP через Tor» two switches instead of one: the fast proxy stays
+    /// available for everything while the slow chain carries only the sites that need the
+    /// country.</para></summary>
+    public int MasqueChainPort { get; set; } = 1081;
+
+    /// <summary>Country the Tor entrance should come out in, as a two-letter code. Germany by default:
+    /// it has the most exit capacity of the countries the AI services accept, and it is the one measured
+    /// end to end here.</summary>
+    public string MasqueTorCountry { get; set; } = "de";
+
+    /// <summary>Bridge lines for Tor, one per line, as handed out by @GetBridgesBot. Empty falls back to
+    /// the bridges inside the bundle — which is a fallback, not a plan: the bundle carries obfs4,
+    /// snowflake and meek, and Russian users are usually given WebTunnel.</summary>
+    public string MasqueTorBridges { get; set; } = "";
+
+    /// <summary>One exit address to come out of every time, instead of a fresh draw from the country per
+    /// circuit. Empty means the country, which is what every version before this did. Pinned by ADDRESS
+    /// rather than by fingerprint because the address is what decides the WARP exit — and because big
+    /// operators run several relays behind one address, so the pin survives one of them going down.</summary>
+    public string MasqueTorExit { get; set; } = "";
+
+    /// <summary>Route the AI sites (see <c>AiDomains</c>) through the WARP proxy by writing a rule into
+    /// Windows' own proxy setting, leaving every other site alone. Off by default.</summary>
+    public bool MasqueAiRouting { get; set; }
+
+    /// <summary>The sites that rule covers, one per line. Empty means the list that ships with the app —
+    /// stored that way on purpose, so a user who never edited it keeps getting the shipped list as it
+    /// grows, and one who did keeps exactly what they typed.</summary>
+    public string MasqueAiDomains { get; set; } = "";
+
+    /// <summary>Names that go PAST the chain even though the list above covers them, one per line. The
+    /// only thing this can express that the list above cannot is a subdomain exception — the match is by
+    /// suffix, so <c>cdn.grok.com</c> cannot be let through while <c>grok.com</c> is routed unless it is
+    /// named here. Stored literally, empty included — unlike the list above, where empty means «whatever
+    /// ships» — because emptying this box is the user saying they want no exceptions at all.</summary>
+    public string MasqueAiBypass { get; set; } = Warp.AiDomains.BypassText;
+
+    /// <summary>Windows' proxy setting as it was before <see cref="MasqueSystemProxy"/> or
+    /// <see cref="MasqueAiRouting"/> pointed it at the local proxy, encoded as
+    /// <c>enabled|server|override|autoconfig</c>. Empty when nothing is applied. Persisted rather than
+    /// held in memory precisely because it has to survive a crash: a registry setting left pointing at a
+    /// proxy that is no longer listening is a machine with no browsing — or, with the routing rule, a
+    /// handful of sites that refuse to open — and the next launch undoes it.</summary>
     public string SystemProxyBackup { get; set; } = "";
 
     /// <summary>Verbose engine log (<c>--debug=1</c>): winws2 reports per-connection decisions, which is

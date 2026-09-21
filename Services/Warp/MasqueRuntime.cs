@@ -40,7 +40,7 @@ public readonly record struct MasqueTransport(
 /// <summary>
 /// The bundled MASQUE client (usque): unpacked from our own exe on first use and driven headlessly.
 ///
-/// <para><b>Why this exists next to <see cref="WireGuardRuntime"/>.</b> WireGuard to WARP is cut at the
+/// <para><b>Why MASQUE and not WireGuard.</b> WireGuard to WARP is cut at the
 /// TRANSPORT level on censored Russian networks — the handshake is let through and the data stream is
 /// dropped, which is why the tunnel came up, reported a completed handshake, and carried nothing. The
 /// engine cannot repair that: a desync disguises the FIRST packet of a flow, and a steady stream of
@@ -90,10 +90,9 @@ internal sealed class MasqueRuntime : IDisposable
     /// <summary>Unpack the client if needed. Cheap to call repeatedly: a file is rewritten only when it is
     /// missing or a different size.
     ///
-    /// <para>Deliberately no <c>icacls</c> lockdown, unlike <see cref="WireGuardRuntime.EnsureReady"/>.
-    /// That folder is closed to everyone but SYSTEM because a SYSTEM service executes out of it, so a
-    /// user-writable copy would be a privilege escalation. Nothing here runs elevated, so the same lock
-    /// would protect nothing and would only stop the owner reading their own logs.</para></summary>
+    /// <para>No <c>icacls</c> lockdown. Note what that leaves open: usque is a child of this app, so it
+    /// runs with the app's own rights — administrator, because the manifest asks for it — out of a folder
+    /// the user can write to, and a replacement of the same size is not noticed here.</para></summary>
     internal static void EnsureReady()
     {
         Directory.CreateDirectory(AppPaths.MasqueDir);
@@ -122,12 +121,10 @@ internal sealed class MasqueRuntime : IDisposable
 
     /// <summary>Enrol a fresh MASQUE device with Cloudflare.
     ///
-    /// <para>A SEPARATE device from the WireGuard one and not interchangeable: MASQUE enrols an ECDSA
-    /// P-256 key and receives a licence, an id and an access token, where WireGuard registration produces
-    /// a curve25519 pair. The request goes to <c>api.cloudflareclient.com</c>, whose name is cut by SNI on
-    /// a censored network — the engine already covers it unconditionally through the
-    /// <see cref="AppPaths.WarpApiFile"/> hostlist, so this works for the same reason the WireGuard
-    /// registration finally did.</para></summary>
+    /// <para>MASQUE enrols an ECDSA P-256 key, generated here, and receives a licence, an id and an
+    /// access token. The request goes to <c>api.cloudflareclient.com</c>, whose name is cut by SNI on a
+    /// censored network — the engine covers it unconditionally through the
+    /// <see cref="AppPaths.WarpApiFile"/> hostlist.</para></summary>
     internal static async Task<WarpResult> RegisterAsync(CancellationToken ct = default)
     {
         try
@@ -159,10 +156,9 @@ internal sealed class MasqueRuntime : IDisposable
 
     /// <summary>Start the SOCKS5 proxy on loopback and leave it running.
     ///
-    /// <para><paramref name="connectPort"/> is the port used to REACH Cloudflare, not the one we listen
-    /// on. MASQUE's entry points are a tiny fixed pool — 162.159.198.1 and .2 on 443, 4443, 8443, 500,
-    /// 1701, 4500 and 8095 — so when one port is throttled the next is a single retry away, with none of
-    /// the 57-address sweeping the WireGuard path needed.</para></summary>
+    /// <para>The transport's <c>ConnectPort</c> is the port used to REACH Cloudflare, not the one we
+    /// listen on. MASQUE's entry points are a tiny fixed pool — 162.159.198.1 and .2 on 443, 4443, 8443,
+    /// 500, 1701, 4500 and 8095 — so when one port is throttled the next is a single retry away.</para></summary>
     public bool Start(int listenPort, MasqueTransport transport, out string error)
     {
         error = "";
@@ -183,7 +179,7 @@ internal sealed class MasqueRuntime : IDisposable
 
             if (!IsRegistered)
             {
-                error = Loc.T("Сначала создайте конфигурацию.");
+                error = Loc.T("Сначала создайте устройство.");
                 return false;
             }
 
@@ -290,6 +286,37 @@ internal sealed class MasqueRuntime : IDisposable
             // A derived config we cannot write is not worth failing the attempt over — fall back to the
             // registered endpoint and let the result speak for the address it actually used.
             return AppPaths.MasqueConfigFile;
+        }
+    }
+
+    /// <summary>The entry point the registration handed us, as a bare address.
+    ///
+    /// <para>Needed when the connection goes through the user's own proxy: usque is pointed at loopback
+    /// then, so the relay in the middle has to know the address it would otherwise have dialled. Read
+    /// from the config rather than hard-coded, because the two published entry points are what the
+    /// registration happens to hand out today, not a promise.</para></summary>
+    internal static string RegisteredEndpoint(bool http2)
+    {
+        try
+        {
+            var root = JsonNode.Parse(File.ReadAllText(AppPaths.MasqueConfigFile))?.AsObject();
+            if (root is null) return "";
+
+            string value = Field(root, http2 ? "endpoint_h2_v4" : "endpoint_v4");
+            if (value.Length == 0) value = Field(root, "endpoint_v4");
+            return StripPort(value);
+        }
+        catch { return ""; }
+
+        static string Field(JsonObject root, string name) => root[name]?.GetValue<string>()?.Trim() ?? "";
+
+        // Today the config carries a bare address. One that ever carried "address:port" would otherwise
+        // be handed to a connect as a host name and simply never resolve.
+        static string StripPort(string value)
+        {
+            if (value.Length == 0 || System.Net.IPAddress.TryParse(value, out _)) return value;
+            int colon = value.LastIndexOf(':');
+            return colon > 0 ? value[..colon] : value;
         }
     }
 

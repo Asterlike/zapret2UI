@@ -186,7 +186,7 @@
                         </Grid.RowDefinitions>
                         <StackPanel Grid.Row="0" Margin="0,0,0,8">
                             <TextBlock Text="{loc:Loc 'ПРОШЛИ ПРОВЕРКУ'}" Style="{StaticResource Muted}" FontSize="11"/>
-                            <TextBlock Text="{loc:Loc 'Лучшие сверху. Сохраните понравившуюся в пресеты.'}"
+                            <TextBlock Text="{loc:Loc 'Лучшие сверху. Сохраните понравившуюся в свои стратегии.'}"
                                        Style="{StaticResource Muted}" FontSize="10.5" Margin="0,2,0,0"
                                        TextWrapping="Wrap"/>
                         </StackPanel>
@@ -278,7 +278,7 @@
                                                         <ColumnDefinition Width="8"/>
                                                         <ColumnDefinition Width="Auto"/>
                                                     </Grid.ColumnDefinitions>
-                                                    <Button Grid.Column="0" Content="{loc:Loc 'Сохранить в пресеты'}"
+                                                    <Button Grid.Column="0" Content="{loc:Loc 'Сохранить в стратегии'}"
                                                             Style="{StaticResource GhostButton}" Padding="10,6" FontSize="12"
                                                             HorizontalAlignment="Stretch"
                                                             Command="{Binding DataContext.ApplyScoreCommand, RelativeSource={RelativeSource AncestorType=Window}}"

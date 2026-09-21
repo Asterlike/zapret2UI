@@ -3,6 +3,7 @@ using System.Windows;
 using Zapret2UI.Harness;
 using Zapret2UI.Localization;
 using Zapret2UI.Services.Infrastructure;
+using Zapret2UI.Services.Warp;
 using Zapret2UI.Startup;
 using Zapret2UI.Views;
 
@@ -29,6 +30,13 @@ public partial class App : Application
             Shutdown(0);   // another copy holds the slot and has been asked to surface
             return;
         }
+
+        // This copy owns the slot, so anything of ours still running was orphaned by a crash: usque
+        // holding the proxy port, or a Tor still building circuits for nobody. Swept here rather than in
+        // the view model because the headless modes run that too — alongside a live app, where killing
+        // «stale» children would mean killing the running one's.
+        try { MasqueService.DropStaleProxy(); } catch { /* never block startup on cleanup */ }
+        try { MasqueService.DropStaleTor(); } catch { /* never block startup on cleanup */ }
 
         try
         {
@@ -135,7 +143,10 @@ public partial class App : Application
         }
         if (CommandLine.TryValue(args, "--masquetest", "443", out string exitPort))
         {
-            _ = MasqueSelfTest.RunAsync(int.TryParse(exitPort, out int port) ? port : 443);
+            // --via <host:port> puts a SOCKS5 proxy in front of the connection, which is the only way
+            // to test the country-changing path without a screen.
+            _ = MasqueSelfTest.RunAsync(int.TryParse(exitPort, out int port) ? port : 443,
+                                        CommandLine.Value(args, "--via") ?? "");
             return true;
         }
         if (CommandLine.Has(args, "--masqueregion"))

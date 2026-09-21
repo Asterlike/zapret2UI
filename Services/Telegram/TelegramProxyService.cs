@@ -89,7 +89,7 @@ public sealed class TelegramProxyService : IDisposable
     private readonly DohResolver _doh = new();
     private TcpListener? _listener;
     private CancellationTokenSource? _cts;
-    private bool _loggedFirstSuccess; // log Loc.T("соединение установлено") once per session, not per connection
+    private bool _loggedFirstSuccess; // announce the first open channel once per session, not per connection
     private int _connSeq;             // per-connection number, so open/close lines can be paired by eye
     private int _loggedFragmentation; // 0 until the "edge fragments messages" note has been printed once
     private readonly ConcurrentDictionary<int, byte> _loggedOddDc = new(); // raw DC indexes already reported
@@ -137,14 +137,14 @@ public sealed class TelegramProxyService : IDisposable
         }
         if (listener is null)
         {
-            StartError = Loc.T("Порт {0} занят (проверил {1}–{2}). ", desired, desired, Math.Min(desired + 9, 65535)) +
-                         "Закройте программу, занявшую порт, или укажите другой в настройках.";
+            StartError = Loc.T("Порт {0} занят (проверены {1}–{2}). Закройте программу, занявшую порт, или "
+                               + "укажите другой в настройках.", desired, desired, Math.Min(desired + 9, 65535));
             LogLine?.Invoke($"[tg-proxy] {StartError}");
             StateChanged?.Invoke(); // let the card show the failure instead of silently staying off
             return false;
         }
         if (Port != desired)
-            LogLine?.Invoke(Loc.T("[tg-proxy] порт {0} занят — использую {1}", desired, Port));
+            LogLine?.Invoke(Loc.T("[tg-proxy] порт {0} занят — взят {1}", desired, Port));
 
         _listener = listener;
         _cts = new CancellationTokenSource();
@@ -221,7 +221,7 @@ public sealed class TelegramProxyService : IDisposable
             // completely invisible: the journal printed the normalised DC and hid the mismatch. Say it
             // once per distinct index so a burst of file connections can't flood the log.
             if (dcKey != dc && _loggedOddDc.TryAdd(dc, 0))
-                LogLine?.Invoke(Loc.T("[tg-proxy] клиент просит DC{0} — такого узла у прокси нет, веду на DC{1}; "
+                LogLine?.Invoke(Loc.T("[tg-proxy] клиент просит DC{0} — такого узла у прокси нет, вместо него DC{1}; "
                                     + "файлы именно с этого узла могут не загрузиться", dc, dcKey));
 
             byte[] relayInit = TgProxyProto.GenerateRelayInit(protoTag, dcIdx);
@@ -248,7 +248,7 @@ public sealed class TelegramProxyService : IDisposable
                 {
                     _balancer.MarkBad(dcKey, frontId, isMedia: isMedia);
                     _loggedFirstSuccess = false; // let the next working path re-announce success
-                    LogLine?.Invoke(Loc.T("[tg-proxy] DC{0}: {1} не доводит трафик до Telegram — исключаю на время", dcKey, frontId));
+                    LogLine?.Invoke(Loc.T("[tg-proxy] DC{0}: {1} не доводит трафик до Telegram — исключён на время", dcKey, frontId));
                 }
                 else if (outcome == BridgeOutcome.FlakyDeath)
                 {
@@ -256,7 +256,7 @@ public sealed class TelegramProxyService : IDisposable
                     // briefly so the client's retry lands on a different front instead of churning here.
                     _balancer.MarkBad(dcKey, frontId, 30_000, isMedia);
                     _loggedFirstSuccess = false;
-                    LogLine?.Invoke(Loc.T("[tg-proxy] DC{0}: {1} рвёт соединение сразу — пробую другой фронт", dcKey, frontId));
+                    LogLine?.Invoke(Loc.T("[tg-proxy] DC{0}: {1} рвёт соединение сразу — берётся другой фронт", dcKey, frontId));
                 }
             }
         }
@@ -382,7 +382,7 @@ public sealed class TelegramProxyService : IDisposable
             _loggedFirstSuccess = true;
             // Only the WS channel is open here (101) — NOT proof Telegram's traffic flows. The bridge
             // logs "поток пошёл" on the first real answer, or the front is blacklisted as not-relaying.
-            LogLine?.Invoke(Loc.T("[tg-proxy] канал до Telegram открыт (DC{0} через {1}) — проверяю поток", dc, via));
+            LogLine?.Invoke(Loc.T("[tg-proxy] канал до Telegram открыт (DC{0} через {1}) — проверка потока", dc, via));
         }
         return (ws, frontId);
     }
