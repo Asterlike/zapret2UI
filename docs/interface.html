@@ -578,10 +578,10 @@ gateway.discord.gg</code></pre>
           <tr><td>Активная стратегия</td><td><code>ActivePresetName</code></td><td></td><td>Имя выбранной стратегии.</td></tr>
           <tr><td>Активный хостлист</td><td><code>ActiveHostlist</code></td><td></td><td>Имя активного списка доменов.</td></tr>
           <tr><td>Авто-обновление движка</td><td><code>AutoUpdateEngine</code></td><td><code>true</code></td><td>Тихо обновлять <code>winws2</code> из релизов.</td></tr>
-          <tr><td>Автозапуск с Windows</td><td><code>Autostart</code></td><td><code>false</code></td><td>Запуск при входе, от администратора, через планировщик задач.</td></tr>
+          <tr><td>Автозапуск с Windows</td><td><code>Autostart</code></td><td><code>false</code></td><td>Запуск при входе, от администратора, через планировщик задач — сразу в трей, без окна.</td></tr>
           <tr><td>И запуск обхода</td><td><code>AutostartEngine</code></td><td><code>false</code></td><td>Дополнительно включать обход при старте.</td></tr>
           <tr><td>Сворачивать в трей</td><td><code>MinimizeToTray</code></td><td><code>true</code></td><td>Крестик прячет окно, а не закрывает программу.</td></tr>
-          <tr><td>Стартовать в трее</td><td><code>StartMinimized</code></td><td><code>false</code></td><td>Запускаться сразу свёрнутым.</td></tr>
+          <tr><td>Стартовать в трее</td><td><code>StartMinimized</code></td><td><code>false</code></td><td>Любой запуск — сразу в трей, без окна. Переключателя нет, только файл: запуск вместе с Windows уходит в трей и так.</td></tr>
           <tr><td>Авто-починка</td><td><code>AutoHeal</code></td><td><code>false</code></td><td>Следить за доступностью и переподбирать при сбое.</td></tr>
           <tr><td>Игровой фильтр</td><td><code>GameFilter</code></td><td><code>false</code></td><td>Расширить перехват на все высокие порты.</td></tr>
           <tr><td>Обход всех сайтов</td><td><code>BypassAllSites</code></td><td><code>false</code></td><td>Все сайты вместо только списков. Пока включён прокси WARP, обход идёт по всем сайтам независимо от этого значения — сама настройка не меняется.</td></tr>
@@ -593,7 +593,7 @@ gateway.discord.gg</code></pre>
           <tr><td>Звук уведомлений</td><td><code>NotificationSound</code></td><td><code>true</code></td><td>Тихий сигнал вместе с сообщением.</td></tr>
           <tr><td>Порт прокси Telegram</td><td><code>TgProxyPort</code></td><td><code>1443</code></td><td>Локальный порт встроенного прокси.</td></tr>
           <tr><td>Секрет прокси</td><td><code>TgProxySecret</code></td><td></td><td>Постоянный секрет MTProto.</td></tr>
-          <tr><td>Автозапуск прокси</td><td><code>TgProxyAutostart</code></td><td><code>false</code></td><td>Стартовать прокси вместе с программой.</td></tr>
+          <tr><td>Автозапуск прокси</td><td><code>TgProxyAutostart</code></td><td><code>false</code></td><td>Стартовать прокси вместе с программой. Переключатель — на вкладке Telegram и в карточке «Запуск» в Настройках.</td></tr>
           <tr><td>Весь трафик через WARP</td><td><code>MasqueSystemProxy</code></td><td><code>false</code></td><td>Прописывать прокси в настройках Windows, пока WARP включён. Firefox не покрывается — у него своя настройка.</td></tr>
           <tr><td>Порт прокси WARP</td><td><code>MasqueListenPort</code></td><td><code>1080</code></td><td>Локальный порт SOCKS5-прокси WARP.</td></tr>
           <tr><td>Транспорт WARP</td><td><code>MasqueHttp2</code>, <code>MasqueConnectPort</code></td><td><code>true</code>, <code>443</code></td><td>Способ подключения, который сработал в прошлый раз. Подбирается сам.</td></tr>
@@ -728,7 +728,7 @@ gateway.discord.gg</code></pre>
       </li>
       <li>
         <h3>Снимите автозапуск, если включали</h3>
-        <p>Настройки, выключить «Запускать Zapret2UI при входе в Windows». Либо вручную:</p>
+        <p>Настройки, выключить «Запускать вместе с Windows — в трее, без окна». Либо вручную:</p>
 <pre><code>schtasks /delete /tn "Zapret2UI Autostart" /f</code></pre>
       </li>
       <li>

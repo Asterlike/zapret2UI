@@ -9,6 +9,7 @@ using Forms = System.Windows.Forms;
 using Zapret2UI.Localization;
 using Zapret2UI.Services.Engine;
 using Zapret2UI.Services.Platform;
+using Zapret2UI.Startup;
 using Zapret2UI.ViewModels;
 
 namespace Zapret2UI.Views;
@@ -38,6 +39,7 @@ public partial class MainWindow : Window
         _vm.AutoCheckStarted += OnAutoCheckStarted;
         _vm.AutoCheckFinished += OnAutoCheckFinished;
         Loaded += OnLoaded;
+        IsVisibleChanged += OnIsVisibleChanged; // repaint a window first drawn behind the logon screen
         Closing += OnClosing;
         StateChanged += OnWindowStateChanged;
         SourceInitialized += OnSourceInitialized; // constrain borderless maximize to work area
@@ -47,23 +49,51 @@ public partial class MainWindow : Window
         Application.Current.SessionEnding += (_, _) => { _reallyClose = true; CleanupAndShutdown(); };
     }
 
+    private bool _started;
+
+    /// <summary>
+    /// Start this launch: show the window — or, for the logon task (<c>--tray</c>) and the «start
+    /// minimised» setting, bring up everything except the window. <c>--tray</c> means the tray whatever
+    /// «Сворачивать в трей» says: that switch is about the close button, and the autostart that ignored
+    /// it with the switch off opened a window at logon instead.
+    /// </summary>
+    internal void Launch(bool inTray)
+    {
+        if (inTray || _vm.Settings.StartMinimized) StartInTray();
+        else Show();
+    }
+
+    /// <summary>
+    /// The tray icon, the view model and whatever is set to start with the app come up; the window does
+    /// not — it is created the first time the user opens it from the tray. It used to be shown here
+    /// anyway and hidden again from Loaded, which put an empty frame on screen for as long as a cold start
+    /// at logon took, and drew the window while the welcome screen still covered the desktop (see
+    /// MainWindow.Logon.cs for what that does).
+    /// </summary>
+    private async void StartInTray() => await StartAsync(interactive: false);
+
     private async void OnLoaded(object sender, RoutedEventArgs e)
     {
-        SetupTray();
         UpdateMaxButtonGlyph();
+        // A start in the tray gets its Loaded only when the user first opens the window — long after the
+        // start itself has run.
+        if (!_started) await StartAsync(interactive: true);
+    }
 
-        bool startInTray =
-            Environment.GetCommandLineArgs().Any(a => a.Equals("--tray", StringComparison.OrdinalIgnoreCase))
-            || _vm.Settings.StartMinimized;
-        if (startInTray && _vm.MinimizeToTray)
-            HideToTray();
+    /// <summary>What every launch does once: the tray icon, the startup advisories — only with the window
+    /// on screen, nobody reads them from the tray — and the view model.</summary>
+    private async Task StartAsync(bool interactive)
+    {
+        _started = true;
+        SetupTray();
+
+        bool screenshotHarness = CommandLine.Has(Environment.GetCommandLineArgs(), "--screenshot");
+        if (!screenshotHarness) _vm.RefreshAutostartTask();
 
         // Startup-only conflict check: another DPI-bypass tool (shares the WinDivert driver) or a VPN
         // (re-routes traffic past the engine) commonly stops the bypass from working. Advisory dialog —
         // it never blocks the launch. Skipped when starting hidden in the tray or under the screenshot harness.
-        bool screenshotHarness = Environment.GetCommandLineArgs()
-            .Any(a => a.Equals("--screenshot", StringComparison.OrdinalIgnoreCase));
-        if (!screenshotHarness && !(startInTray && _vm.MinimizeToTray))
+        if (interactive && !screenshotHarness)
         {
             var conflicts = await Task.Run(ConflictScanService.ScanConflicts);
             if (conflicts.Count > 0) ConflictDialog.Show(conflicts);
@@ -80,7 +110,7 @@ public partial class MainWindow : Window
 
         // First run: open the walkthrough once, after init so it sits over a populated window. Skipped
         // under the screenshot harness (it would cover every tab shot) and when starting into the tray.
-        if (!screenshotHarness && !(startInTray && _vm.MinimizeToTray) && _vm.NeedsWelcome)
+        if (interactive && !screenshotHarness && _vm.NeedsWelcome)
             _vm.OpenWelcome(withCountdown: true);
     }
 
@@ -204,6 +234,7 @@ public partial class MainWindow : Window
 
     private void SetupTray()
     {
+        AllowTaskbarCreated();
         _iconIdle = LoadIcon("app.ico");
         _iconRunning = LoadIcon("app-on.ico");
 

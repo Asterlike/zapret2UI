@@ -1958,11 +1958,18 @@
                                             <Border Style="{StaticResource Card}" Margin="0,14,0,0">
                                                 <StackPanel>
                                                     <TextBlock Text="{loc:Loc 'Запуск'}" Style="{StaticResource H2}" Margin="0,0,0,12"/>
-                                                    <CheckBox Content="{loc:Loc 'Запускать Zapret2UI при входе в Windows'}"
+                                                    <!-- The logon task starts the app with its tray switch: that launch never shows
+                                                         the window, whatever the close-button switch below says. The two «сразу»
+                                                         switches apply to every launch; with the first one they make the whole
+                                                         «в трей с обходом и Telegram». -->
+                                                    <CheckBox Content="{loc:Loc 'Запускать вместе с Windows — в трее, без окна'}"
                                                               IsChecked="{Binding AutostartEnabled}" Style="{StaticResource ToggleSwitch}"
                                                               Margin="0,6"/>
                                                     <CheckBox Content="{loc:Loc 'Сразу запускать обход при старте приложения'}"
                                                               IsChecked="{Binding AutostartEngine}" Style="{StaticResource ToggleSwitch}"
+                                                              Margin="0,6"/>
+                                                    <CheckBox Content="{loc:Loc 'Сразу запускать прокси Telegram при старте приложения'}"
+                                                              IsChecked="{Binding TelegramProxyAutostart}" Style="{StaticResource ToggleSwitch}"
                                                               Margin="0,6"/>
                                                     <CheckBox Content="{loc:Loc 'Сворачивать в трей вместо закрытия'}"
                                                               IsChecked="{Binding MinimizeToTray}" Style="{StaticResource ToggleSwitch}"

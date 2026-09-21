@@ -144,7 +144,8 @@ The official engine manual: [manual.en.md](https://github.com/bol-van/zapret2/bl
   fast exit node can be measured and pinned, and then there are two connections to Cloudflare. Through
   Tor it measured 2–6 Mbit/s — enough for a conversation.
 - **Your own site lists** (host lists) and **your own targets**: any domain can be added.
-- **Autostart** at Windows logon, minimise to tray, quiet notifications in the corner.
+- **Autostart** at Windows logon — straight into the tray with no window and, if ticked, with the
+  bypass and the Telegram proxy on; minimise to tray, quiet notifications in the corner.
 - **A backup of your settings and strategies** in a single file — for a reinstall or a move to another
   computer — plus a **settings reset** that leaves your own strategies untouched.
 - **One file, no installation.** The engine is downloaded on first launch and verified against SHA-256.
@@ -341,7 +342,7 @@ path → Enter).
 **How to remove the program completely:**
 
 1. Close it — right-click the tray icon → "Выход" (Exit).
-2. If you enabled autostart, remove it: Settings → turn "Запускать Zapret2UI при входе в Windows"
+2. If you enabled autostart, remove it: Settings → turn "Запускать вместе с Windows — в трее, без окна"
    off (or by hand:
    `schtasks /delete /tn "Zapret2UI Autostart" /f`).
 3. Delete `Zapret2UI.exe` itself.

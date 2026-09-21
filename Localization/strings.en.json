@@ -110,7 +110,7 @@
   "Проверить обновления": "Check for updates",
   "Автоматически обновлять движок при запуске": "Update the engine automatically on launch",
   "Запуск": "Startup",
-  "Запускать Zapret2UI при входе в Windows": "Start Zapret2UI when Windows logs in",
+  "Запускать вместе с Windows — в трее, без окна": "Start with Windows — in the tray, no window",
   "Сразу запускать обход при старте приложения": "Start the bypass as soon as the app launches",
   "Сворачивать в трей вместо закрытия": "Minimise to the tray instead of closing",
   "Уведомления": "Notifications",
@@ -904,5 +904,7 @@
   "Tor берёт из списка первые {0}.": "Tor takes the first {0} of them.",
   "принимает эти сайты и отдаёт вашему прокси": "takes these sites and hands them to your proxy",
   "отдаёт эти сайты обычному прокси WARP, если он включён": "hands these sites to the ordinary WARP proxy, if it is on",
-  " · найдено: {0}": " · found: {0}"
+  " · найдено: {0}": " · found: {0}",
+  "Сразу запускать прокси Telegram при старте приложения": "Start the Telegram proxy as soon as the app launches",
+  "Не удалось включить автозапуск: планировщик заданий Windows отказал.": "Could not turn autostart on: Windows Task Scheduler refused."
 }

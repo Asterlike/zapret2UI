@@ -42,7 +42,8 @@ public partial class App : Application
         {
             var window = new MainWindow();
             MainWindow = window;
-            window.Show();
+            // --tray is the logon task (AutostartService): that launch never shows the window.
+            window.Launch(inTray: CommandLine.Has(e.Args, "--tray"));
         }
         catch (Exception ex)
         {

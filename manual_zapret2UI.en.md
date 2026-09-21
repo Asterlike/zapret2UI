@@ -916,10 +916,10 @@ none of them scrolls. The values are stored in `settings.json` (`AppSettings`).
 | Active strategy | `ActivePresetName` | — | The name of the selected strategy. |
 | Active host list | `ActiveHostlist` | — | The name of the active domain list. |
 | Auto-update the engine | `AutoUpdateEngine` | `true` | Quietly update `winws2` from releases. |
-| Start with Windows | `Autostart` | `false` | Start at logon (through `schtasks`, elevated). |
+| Start with Windows | `Autostart` | `false` | Start at logon (through `schtasks`, elevated) — straight into the tray, no window. |
 | …and start the bypass | `AutostartEngine` | `false` | Additionally start the bypass at launch. |
 | Minimise to tray | `MinimizeToTray` | `true` | The close button hides to the tray instead of quitting. |
-| Start in the tray | `StartMinimized` | `false` | Start already minimised. |
+| Start in the tray | `StartMinimized` | `false` | Every launch goes straight into the tray, no window. There is no switch, only the file: the start with Windows goes into the tray anyway. |
 | Auto-repair | `AutoHeal` | `false` | Watch availability and re-select on failure. |
 | Game filter | `GameFilter` | `false` | Widen capture to all high ports. |
 | Bypass all sites | `BypassAllSites` | `false` | All sites versus the lists only. While the WARP proxy is on the bypass covers every site regardless of this value — the setting itself does not change. |
@@ -931,7 +931,7 @@ none of them scrolls. The values are stored in `settings.json` (`AppSettings`).
 | Notification sound | `NotificationSound` | `true` | A quiet chime with the toast. |
 | Telegram proxy port | `TgProxyPort` | `1443` | The proxy's local port. |
 | Proxy secret | `TgProxySecret` | — | The persistent MTProto secret. |
-| Start the proxy automatically | `TgProxyAutostart` | `false` | Start the proxy at launch. |
+| Start the proxy automatically | `TgProxyAutostart` | `false` | Start the proxy at launch. The switch is on the Telegram tab and in the Startup card in Settings. |
 | All traffic through WARP | `MasqueSystemProxy` | `false` | Write the proxy into Windows' settings for as long as WARP is on (see [§12](#12-warp-and-changing-your-address)). Firefox is not covered. |
 | WARP proxy port | `MasqueListenPort` | `1080` | Local port of the WARP SOCKS5 proxy (see [§12](#12-warp-and-changing-your-address)). |
 | WARP transport | `MasqueHttp2`, `MasqueConnectPort` | `true`, `443` | Whatever connected last time. Worked out automatically; no need to change it by hand. |

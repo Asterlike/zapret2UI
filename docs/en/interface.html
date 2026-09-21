@@ -592,10 +592,10 @@ gateway.discord.gg</code></pre>
           <tr><td>Active strategy</td><td><code>ActivePresetName</code></td><td></td><td>The name of the selected strategy.</td></tr>
           <tr><td>Active host list</td><td><code>ActiveHostlist</code></td><td></td><td>The name of the active domain list.</td></tr>
           <tr><td>Auto-update the engine</td><td><code>AutoUpdateEngine</code></td><td><code>true</code></td><td>Quietly update <code>winws2</code> from releases.</td></tr>
-          <tr><td>Start with Windows</td><td><code>Autostart</code></td><td><code>false</code></td><td>Start at logon, elevated, through Task Scheduler.</td></tr>
+          <tr><td>Start with Windows</td><td><code>Autostart</code></td><td><code>false</code></td><td>Start at logon, elevated, through Task Scheduler — straight into the tray, no window.</td></tr>
           <tr><td>And start the bypass</td><td><code>AutostartEngine</code></td><td><code>false</code></td><td>Also turn the bypass on at start-up.</td></tr>
           <tr><td>Minimise to tray</td><td><code>MinimizeToTray</code></td><td><code>true</code></td><td>The close button hides the window instead of quitting.</td></tr>
-          <tr><td>Start in the tray</td><td><code>StartMinimized</code></td><td><code>false</code></td><td>Start already minimised.</td></tr>
+          <tr><td>Start in the tray</td><td><code>StartMinimized</code></td><td><code>false</code></td><td>Every launch goes straight into the tray, no window. There is no switch, only the file: the start with Windows goes into the tray anyway.</td></tr>
           <tr><td>Auto-repair</td><td><code>AutoHeal</code></td><td><code>false</code></td><td>Watch availability and re-select on failure.</td></tr>
           <tr><td>Game filter</td><td><code>GameFilter</code></td><td><code>false</code></td><td>Widen capture to all high ports.</td></tr>
           <tr><td>Bypass all sites</td><td><code>BypassAllSites</code></td><td><code>false</code></td><td>All sites instead of the lists only. While the WARP proxy is on the bypass covers every site regardless of this value — the setting itself does not change.</td></tr>
@@ -607,7 +607,7 @@ gateway.discord.gg</code></pre>
           <tr><td>Notification sound</td><td><code>NotificationSound</code></td><td><code>true</code></td><td>A quiet chime along with the message.</td></tr>
           <tr><td>Telegram proxy port</td><td><code>TgProxyPort</code></td><td><code>1443</code></td><td>The local port of the built-in proxy.</td></tr>
           <tr><td>Proxy secret</td><td><code>TgProxySecret</code></td><td></td><td>The persistent MTProto secret.</td></tr>
-          <tr><td>Start the proxy automatically</td><td><code>TgProxyAutostart</code></td><td><code>false</code></td><td>Start the proxy together with the program.</td></tr>
+          <tr><td>Start the proxy automatically</td><td><code>TgProxyAutostart</code></td><td><code>false</code></td><td>Start the proxy together with the program. The switch is on the Telegram tab and in the Startup card in Settings.</td></tr>
           <tr><td>All traffic through WARP</td><td><code>MasqueSystemProxy</code></td><td><code>false</code></td><td>Write the proxy into Windows' settings for as long as WARP is on. Firefox is not covered — it has its own setting.</td></tr>
           <tr><td>WARP proxy port</td><td><code>MasqueListenPort</code></td><td><code>1080</code></td><td>Local port of the WARP SOCKS5 proxy.</td></tr>
           <tr><td>WARP transport</td><td><code>MasqueHttp2</code>, <code>MasqueConnectPort</code></td><td><code>true</code>, <code>443</code></td><td>Whatever connected last time. Worked out automatically.</td></tr>
@@ -742,7 +742,7 @@ gateway.discord.gg</code></pre>
       </li>
       <li>
         <h3>Remove autostart, if you enabled it</h3>
-        <p>Settings, turn "Start Zapret2UI when Windows logs in" off. Or by hand:</p>
+        <p>Settings, turn "Start with Windows — in the tray, no window" off. Or by hand:</p>
 <pre><code>schtasks /delete /tn "Zapret2UI Autostart" /f</code></pre>
       </li>
       <li>

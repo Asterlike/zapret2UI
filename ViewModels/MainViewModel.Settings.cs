@@ -79,11 +79,30 @@ public sealed partial class MainViewModel
         get => Settings.Autostart;
         set
         {
+            if (value == Settings.Autostart) return;
+            if (value && !_autostart.Enable())
+            {
+                // The switch used to stay on over a task Windows had refused to create — autostart that
+                // silently never happened. Put it back and say so.
+                OnUi(() => OnPropertyChanged(nameof(AutostartEnabled)));
+                Notify?.Invoke("Zapret2UI", Loc.T("Не удалось включить автозапуск: планировщик заданий Windows отказал."));
+                return;
+            }
+            if (!value) _autostart.Disable();
             Settings.Autostart = value;
-            if (value) _autostart.Enable(); else _autostart.Disable();
             _settingsSvc.Save();
             OnPropertyChanged();
         }
+    }
+
+    /// <summary>While autostart is on, the logon task is registered again at every launch: tasks made by
+    /// older versions carry Task Scheduler's background-job defaults (see
+    /// <see cref="Services.Platform.AutostartService.Enable"/>), and a program moved to another folder
+    /// would leave the task starting nothing. Off the UI thread and silent — if it fails, the task already
+    /// there keeps working as it did.</summary>
+    internal void RefreshAutostartTask()
+    {
+        if (Settings.Autostart) _ = Task.Run(() => _autostart.Enable());
     }
 
     public bool AutostartEngine
