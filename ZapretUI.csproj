@@ -53,12 +53,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Color-emoji rendering for WPF (WPF can't draw color emoji natively).
-         Provides emoji:TextBlock / emoji:RichTextBox with the bundled Twemoji font. -->
-    <PackageReference Include="Emoji.Wpf" Version="0.3.4" />
-  </ItemGroup>
-
-  <ItemGroup>
     <!-- RU→EN UI string table, loaded at runtime by Localization/Loc.cs when the language is English.
          Embedded (not a loose file) so it travels inside the single-file exe. WithCulture=false +
          LogicalName are REQUIRED: the ".en." in the name makes MSBuild treat it as an English SATELLITE

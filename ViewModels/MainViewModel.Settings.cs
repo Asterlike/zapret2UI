@@ -117,6 +117,12 @@ public sealed partial class MainViewModel
         set { Settings.MinimizeToTray = value; _settingsSvc.Save(); OnPropertyChanged(); }
     }
 
+    public bool UnloadWindowInTray
+    {
+        get => Settings.UnloadWindowInTray;
+        set { Settings.UnloadWindowInTray = value; _settingsSvc.Save(); OnPropertyChanged(); }
+    }
+
     public bool AutoHeal
     {
         get => Settings.AutoHeal;

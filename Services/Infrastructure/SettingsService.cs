@@ -11,6 +11,11 @@ public sealed class AppSettings
     public bool Autostart { get; set; }
     public bool AutostartEngine { get; set; }   // also start the engine on launch
     public bool MinimizeToTray { get; set; } = true;
+
+    /// <summary>Close the window for real when it goes to the tray, and build it again when it is opened.
+    /// A hidden window keeps its whole visual tree and burns 3–5 % of a core (measured); a closed one costs
+    /// nothing. On by default: the price is a moment longer to open from the tray.</summary>
+    public bool UnloadWindowInTray { get; set; } = true;
     public bool StartMinimized { get; set; }
 
     /// <summary>Simple (one-click) vs Advanced (full tabs) interface. Simple by default.</summary>

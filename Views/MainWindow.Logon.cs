@@ -79,7 +79,7 @@ public partial class MainWindow
     /// this the icon is gone for good once Explorer restarts, and a logon start that beats the taskbar
     /// never shows one at all: the app would be running in a tray it has no icon in.
     /// </summary>
-    private static void AllowTaskbarCreated()
+    internal static void AllowTaskbarCreated()
     {
         try { ChangeWindowMessageFilter(RegisterWindowMessage("TaskbarCreated"), MSGFLT_ADD); }
         catch { /* best-effort: without it only the icon's comeback is lost */ }

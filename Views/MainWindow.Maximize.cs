@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using System.Windows;
 using System.Windows.Interop;
 
 namespace Zapret2UI.Views;
@@ -19,6 +20,17 @@ public partial class MainWindow
         var handle = new WindowInteropHelper(this).Handle;
         HwndSource.FromHwnd(handle)?.AddHook(WindowProc);
         ApplyUiScale(_vm.UiScale); // restore the persisted UI zoom before the window is shown
+
+        // A window rebuilt after the tray unloaded the last one opens where that one was, not centred —
+        // as long as the spot is still on screen (a monitor may have gone since).
+        if (_restoreBounds is Rect b && SystemParameters.VirtualScreenWidth > 0
+            && b.Left < SystemParameters.VirtualScreenLeft + SystemParameters.VirtualScreenWidth - 40
+            && b.Top < SystemParameters.VirtualScreenTop + SystemParameters.VirtualScreenHeight - 40
+            && b.Right > SystemParameters.VirtualScreenLeft + 40 && b.Top >= SystemParameters.VirtualScreenTop)
+        {
+            Left = b.Left; Top = b.Top; Width = b.Width; Height = b.Height;
+        }
+        if (_restoreState == WindowState.Maximized) WindowState = WindowState.Maximized;
     }
 
     private IntPtr WindowProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)

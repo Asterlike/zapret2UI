@@ -25,18 +25,20 @@ internal static class ScreenshotHarness
         try
         {
             Directory.CreateDirectory(outDir);
-            var window = new MainWindow
+            // No shell: no tray icon, no startup advisories, no welcome — the harness drives the view model
+            // itself, and a window without a shell simply closes.
+            var vm = new MainViewModel();
+            var window = new MainWindow(vm, shell: null)
             {
                 WindowStartupLocation = WindowStartupLocation.Manual,
                 Left = 60, Top = 40, Width = 1280, Height = 800,
             };
             app.MainWindow = window;
             window.Show();
+            await vm.InitializeAsync();
 
-            // Let Loaded + InitializeAsync (presets/version) + the entrance animation settle.
-            await Task.Delay(4000);
-
-            var vm = (MainViewModel)window.DataContext;
+            // Let the presets/version land and the entrance animation settle.
+            await Task.Delay(3000);
 
             vm.IsSimpleMode = true;
             await SettleAndSnap(window, Path.Combine(outDir, "home-simple.png"));

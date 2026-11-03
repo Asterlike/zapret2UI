@@ -269,8 +269,8 @@ splitting, fake packets, fooling, and why the fake must die on the way.
 Work through the steps from the top — one of the first three almost always does it.
 
 1. **Go through the strategies by hand** (Стратегии → select → Применить), in this order:
-   `Комбо (рекомендуемый)` → `отечественный (VK)` → `ALT10` → `ALT11` → `Flowseal (multisplit)` →
-   `Flowseal ALT` → `окно (wssize)` → `адаптивный`.
+   `Комбо (рекомендуемый)` → `отечественный (VK)` → `ALT10` → `ALT11` → `ALT11 (сферум)` → `ALT12` →
+   `ALT13` → `Flowseal (multisplit)` → `Flowseal ALT` → `окно (wssize)` → `адаптивный`.
    > Discord voice "connects but nobody can be heard" — try `Discord — голос (QUIC-фейк)` separately.
 2. **Select or generate** — Диагностика → Подобрать; nothing found → Сгенерировать.
 3. **Add to exclusions** — Settings → "Добавить в исключения" (the antivirus).
@@ -389,8 +389,7 @@ dotnet publish ZapretUI/ZapretUI.csproj -c Release -o publish
 ```
 
 **Requirements:** Windows 10/11 x64, administrator rights (the engine loads a driver into the kernel),
-an internet connection on first launch. Built with .NET 9 and WPF; the only external dependency is
-Emoji.Wpf (colour emoji).
+an internet connection on first launch. Built with .NET 9 and WPF; the build has no external packages.
 
 ---
 
@@ -411,7 +410,8 @@ output. More in the documentation: [Support](https://asterlike.github.io/zapret2
 - [bol-van/zapret2](https://github.com/bol-van/zapret2) — the DPI-bypass engine itself (`winws2`) and
   its documentation.
 - [Flowseal/zapret-discord-youtube](https://github.com/Flowseal/zapret-discord-youtube) — working
-  strategies and [tg-ws-proxy](https://github.com/Flowseal/tg-ws-proxy).
+  strategies, five fake packets (MIT) and [tg-ws-proxy](https://github.com/Flowseal/tg-ws-proxy).
+- [Lucide](https://lucide.dev) — the line icons on the buttons (ISC).
 - [RaccoonLaptop/ZapretUI](https://github.com/RaccoonLaptop/ZapretUI) — the inspiration for the project.
 - [hyperion-cs/dpi-checkers](https://github.com/hyperion-cs/dpi-checkers) — the volume-limit detection
   method.

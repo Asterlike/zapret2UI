@@ -3,7 +3,6 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         xmlns:ctl="clr-namespace:Zapret2UI.Controls"
-        xmlns:emoji="clr-namespace:Emoji.Wpf;assembly=Emoji.Wpf"
         xmlns:loc="clr-namespace:Zapret2UI.Localization"
         Title="Zapret2UI" Height="720" Width="1280" MinHeight="580" MinWidth="880"
         WindowStartupLocation="CenterScreen"
@@ -365,7 +364,7 @@
                                 </TextBlock>
                             </Button>
 
-                            <emoji:TextBlock Text="{Binding SimpleStatus}" Style="{StaticResource Muted}" FontSize="13"
+                            <TextBlock Text="{Binding SimpleStatus}" Style="{StaticResource Muted}" FontSize="13"
                                        HorizontalAlignment="Center" TextAlignment="Center" Margin="0,20,0,0"/>
 
                             <!-- scope chips -->
@@ -400,12 +399,12 @@
                             <Button Command="{Binding RunAutoSelectCommand}" Style="{StaticResource PrimaryButton}"
                                     Width="300" Height="44" Margin="0,18,0,0" HorizontalAlignment="Center"
                                     ToolTip="{loc:Loc 'Перебирает проверенные стратегии и оставляет ту, что открывает выбранные сервисы. Стабильнее генерации — начните с неё. Занимает минуту-другую.'}">
-                                <emoji:TextBlock Text="{loc:Loc '🔎  Подобрать стратегию'}" Foreground="White" FontWeight="SemiBold"/>
+                                <ctl:IconText Icon="{StaticResource Icon.Search}" Text="{loc:Loc 'Подобрать стратегию'}" Foreground="White" FontWeight="SemiBold"/>
                             </Button>
                             <Button Command="{Binding GenerateStrategyCommand}" Style="{StaticResource GhostButton}"
                                     Width="300" Margin="0,8,0,0" HorizontalAlignment="Center"
                                     ToolTip="{loc:Loc 'Собирает стратегию с нуля под вашего провайдера — отдельно под Discord и YouTube. Дольше и менее предсказуемо; используйте, если подбор не помог.'}">
-                                <emoji:TextBlock Text="{loc:Loc '✨  Сгенерировать стратегию'}"/>
+                                <ctl:IconText Icon="{StaticResource Icon.Sparkles}" Text="{loc:Loc 'Сгенерировать стратегию'}"/>
                             </Button>
                             <TextBlock Text="{loc:Loc 'Сначала «Подобрать» — так стабильнее. «Сгенерировать» — если подбор не пробил.'}"
                                        Style="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" MaxWidth="320"
@@ -498,7 +497,7 @@
                                     Command="{Binding OpenLinkCommand}"
                                     CommandParameter="{loc:Loc 'https://github.com/Asterlike/zapret2UI/blob/main/README.md#-быстрый-старт-для-новичка'}"
                                     ToolTip="{loc:Loc 'Открыть инструкцию (быстрый старт) на GitHub'}">
-                                <emoji:TextBlock Text="{loc:Loc '📖  Инструкция'}"/>
+                                <ctl:IconText Icon="{StaticResource Icon.Book}" Text="{loc:Loc 'Инструкция'}"/>
                             </Button>
 
                             <!-- Donate (bottom of the left column, both modes) -->
@@ -519,7 +518,7 @@
                                     Command="{Binding OpenLinkCommand}"
                                     CommandParameter="{loc:Loc 'https://github.com/Asterlike/zapret2UI/blob/main/manual_zapret2UI.md#5-встроенные-стратегии'}"
                                     ToolTip="{loc:Loc 'Открыть раздел «Встроенные стратегии» в инструкции'}">
-                                <emoji:TextBlock Text="{loc:Loc '📖  Инструкция'}"/>
+                                <ctl:IconText Icon="{StaticResource Icon.Book}" Text="{loc:Loc 'Инструкция'}"/>
                             </Button>
                             <StackPanel>
                                 <TextBlock Text="{loc:Loc 'Стратегии'}" Style="{StaticResource H1}"/>
@@ -550,7 +549,7 @@
                                                     <StackPanel Orientation="Horizontal">
                                                         <Border Width="3" Height="13" CornerRadius="2" Margin="0,0,8,0"
                                                                 Background="{StaticResource AccentBrush}" VerticalAlignment="Center"/>
-                                                        <emoji:TextBlock Text="{Binding Name}" FontSize="11" FontWeight="Bold"
+                                                        <TextBlock Text="{Binding Name}" FontSize="11" FontWeight="Bold"
                                                                    Foreground="{StaticResource FgMutedBrush}" VerticalAlignment="Center"/>
                                                         <Border CornerRadius="8" Background="{StaticResource AccentSoftBrush}"
                                                                 Padding="6,1" Margin="8,0,0,0" VerticalAlignment="Center">
@@ -578,7 +577,7 @@
                                                 <TextBlock Grid.Column="0" Text="★  " FontWeight="Bold" VerticalAlignment="Center"
                                                            Foreground="{StaticResource AccentBrush}"
                                                            Visibility="{Binding IsRecommended, Converter={StaticResource BoolToVis}}"/>
-                                                <emoji:TextBlock Grid.Column="1" Text="{Binding PrimaryLabel}" FontWeight="SemiBold"
+                                                <TextBlock Grid.Column="1" Text="{Binding PrimaryLabel}" FontWeight="SemiBold"
                                                            TextTrimming="CharacterEllipsis" Margin="0,0,64,0"/>
                                                 <!-- "ВКЛЮЧЁН" badge — visible only on the actually-running preset -->
                                                 <Border Grid.ColumnSpan="2" CornerRadius="7" Padding="6,1" HorizontalAlignment="Right"
@@ -602,7 +601,7 @@
                             </ListBox>
                             <Button Grid.Row="1" Command="{Binding OpenHowItWorksCommand}"
                                     Style="{StaticResource GhostButton}" Margin="4,8,4,4" HorizontalAlignment="Stretch">
-                                <emoji:TextBlock Text="{loc:Loc '❔  Как это работает'}"/>
+                                <ctl:IconText Icon="{StaticResource Icon.Help}" Text="{loc:Loc 'Как это работает'}"/>
                             </Button>
                             </Grid>
                         </Border>
@@ -616,7 +615,7 @@
                                     <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
 
-                                <emoji:TextBlock Grid.Row="0" Text="{Binding SelectedPresetOrHint}"
+                                <TextBlock Grid.Row="0" Text="{Binding SelectedPresetOrHint}"
                                            Style="{StaticResource H2}" TextWrapping="Wrap"/>
 
                                 <!-- Row 1: friendly tagline + «рекомендуемая» badge — fills what used to be dead
@@ -625,10 +624,10 @@
                                     <Border CornerRadius="8" Background="{StaticResource AccentSoftBrush}" Padding="8,2" Margin="0,0,8,0"
                                             VerticalAlignment="Center"
                                             Visibility="{Binding SelectedPreset.IsRecommended, Converter={StaticResource BoolToVis}}">
-                                        <emoji:TextBlock Text="{loc:Loc '★ Рекомендуемая'}" FontSize="11" FontWeight="Bold"
+                                        <TextBlock Text="{loc:Loc '★ Рекомендуемая'}" FontSize="11" FontWeight="Bold"
                                                    Foreground="{StaticResource AccentBrush}"/>
                                     </Border>
-                                    <emoji:TextBlock Text="{Binding SelectedPreset.TaglineDisplay}" FontSize="13" FontWeight="SemiBold"
+                                    <TextBlock Text="{Binding SelectedPreset.TaglineDisplay}" FontSize="13" FontWeight="SemiBold"
                                                Foreground="{StaticResource AccentBrush}" VerticalAlignment="Center"
                                                Visibility="{Binding SelectedPreset.HasTagline, Converter={StaticResource BoolToVis}}"/>
                                 </StackPanel>
@@ -655,13 +654,13 @@
                                                     <WrapPanel Margin="0,10,0,0">
                                                         <Button Command="{Binding OpenHowItWorksCommand}"
                                                                 Style="{StaticResource GhostButton}" Margin="0,0,8,0">
-                                                            <emoji:TextBlock Text="{loc:Loc '❔  Как это работает'}"/>
+                                                            <ctl:IconText Icon="{StaticResource Icon.Help}" Text="{loc:Loc 'Как это работает'}"/>
                                                         </Button>
                                                         <Button Command="{Binding OpenLinkCommand}"
                                                                 CommandParameter="{loc:Loc 'https://github.com/Asterlike/zapret2UI/blob/main/manual_zapret2UI.md#18-решение-проблем-и-коды-ошибок'}"
                                                                 Style="{StaticResource GhostButton}"
                                                                 ToolTip="{loc:Loc 'Открыть раздел «Решение проблем и коды ошибок» в инструкции'}">
-                                                            <emoji:TextBlock Text="{loc:Loc '📖  Инструкция'}"/>
+                                                            <ctl:IconText Icon="{StaticResource Icon.Book}" Text="{loc:Loc 'Инструкция'}"/>
                                                         </Button>
                                                     </WrapPanel>
                                                 </StackPanel>
@@ -773,7 +772,7 @@
                                     Command="{Binding OpenLinkCommand}"
                                     CommandParameter="{loc:Loc 'https://github.com/Asterlike/zapret2UI/blob/main/manual_zapret2UI.md#8-хостлисты-свои-цели-и-обход-по-ip'}"
                                     ToolTip="{loc:Loc 'Открыть раздел «Хостлисты, свои цели и обход по IP» в инструкции'}">
-                                <emoji:TextBlock Text="{loc:Loc '📖  Инструкция'}"/>
+                                <ctl:IconText Icon="{StaticResource Icon.Book}" Text="{loc:Loc 'Инструкция'}"/>
                             </Button>
                             <StackPanel>
                                 <TextBlock Text="{loc:Loc 'Хостлисты'}" Style="{StaticResource H1}"/>
@@ -802,8 +801,12 @@
                                                 <Border Width="28" Height="28" CornerRadius="12" VerticalAlignment="Center"
                                                         Background="{StaticResource AccentSoftBrush}"
                                                         BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1">
-                                                    <emoji:TextBlock Text="📄" FontSize="13"
-                                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                    <Viewbox Width="13" Height="13" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                        <Canvas Width="24" Height="24">
+                                                            <Path Data="{StaticResource Icon.FileText}" Stroke="{StaticResource FgBrush}"
+                                                                  StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+                                                        </Canvas>
+                                                    </Viewbox>
                                                 </Border>
                                                 <TextBlock Text="{Binding}" FontFamily="{StaticResource MonoFont}"
                                                            FontSize="13" VerticalAlignment="Center" Margin="10,0,0,0"/>
@@ -882,7 +885,7 @@
                                             Command="{Binding OpenLinkCommand}"
                                             CommandParameter="{loc:Loc 'https://github.com/Asterlike/zapret2UI/blob/main/manual_zapret2UI.md#6-автоподбор-и-генерация'}"
                                             ToolTip="{loc:Loc 'Открыть раздел «Автоподбор и генерация» в инструкции'}">
-                                        <emoji:TextBlock Text="{loc:Loc '📖  Инструкция'}"/>
+                                        <ctl:IconText Icon="{StaticResource Icon.Book}" Text="{loc:Loc 'Инструкция'}"/>
                                     </Button>
                                     <TextBlock Text="{loc:Loc 'Проверка и авто-подбор'}" Style="{StaticResource H2}" VerticalAlignment="Center"/>
                                 </DockPanel>
@@ -931,7 +934,7 @@
                                             Style="{StaticResource GhostButton}" Margin="0,0,8,8"
                                             ToolTip="{loc:Loc 'Сгенерирует персональную стратегию: проверит приёмы для Discord и YouTube по отдельности, объединит лучшие в одну стратегию и проверит её целиком. Дольше подбора.'}"
                                             Visibility="{Binding IsGenerating, Converter={StaticResource BoolToVis}, ConverterParameter=invert}">
-                                        <emoji:TextBlock Text="{loc:Loc '✨ Сгенерировать стратегию'}"/>
+                                        <ctl:IconText Icon="{StaticResource Icon.Sparkles}" Text="{loc:Loc 'Сгенерировать стратегию'}"/>
                                     </Button>
                                     <Button Content="{loc:Loc 'Остановить генерацию'}" Command="{Binding StopAutoSelectCommand}"
                                             Style="{StaticResource GhostButton}" Margin="0,0,8,8"
@@ -951,7 +954,7 @@
                                             Visibility="{Binding IsDpiChecking, Converter={StaticResource BoolToVis}}"/>
                                 </WrapPanel>
 
-                                <emoji:TextBlock Text="{Binding AutoStatusText}" Style="{StaticResource Muted}"
+                                <TextBlock Text="{Binding AutoStatusText}" Style="{StaticResource Muted}"
                                            Margin="0,12,0,0" TextWrapping="Wrap"/>
 
                                 <Border Background="#22F59E0B" CornerRadius="8" Padding="10,7" Margin="0,12,0,0">
@@ -1137,7 +1140,7 @@
                                     ToolTip="{loc:Loc 'Открыть раздел «Решение проблем и коды ошибок» в инструкции'}"
                                     Command="{Binding OpenLinkCommand}"
                                     CommandParameter="{loc:Loc 'https://github.com/Asterlike/zapret2UI/blob/main/manual_zapret2UI.md#18-решение-проблем-и-коды-ошибок'}">
-                                <emoji:TextBlock Text="{loc:Loc '📖  Инструкция'}"/>
+                                <ctl:IconText Icon="{StaticResource Icon.Book}" Text="{loc:Loc 'Инструкция'}"/>
                             </Button>
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="{loc:Loc 'Журнал'}" Style="{StaticResource H1}" VerticalAlignment="Center"/>
@@ -1209,7 +1212,7 @@
                                             Command="{Binding OpenLinkCommand}"
                                             CommandParameter="{loc:Loc 'https://github.com/Asterlike/zapret2UI/blob/main/manual_zapret2UI.md#11-встроенный-telegram-прокси'}"
                                             ToolTip="{loc:Loc 'Открыть раздел «Встроенный Telegram-прокси» в инструкции'}">
-                                        <emoji:TextBlock Text="{loc:Loc '📖  Инструкция'}"/>
+                                        <ctl:IconText Icon="{StaticResource Icon.Book}" Text="{loc:Loc 'Инструкция'}"/>
                                     </Button>
                                     <StackPanel Orientation="Horizontal">
                                         <Path Data="{StaticResource Icon.Telegram}" Fill="{StaticResource Brand.Telegram}"
@@ -1364,7 +1367,7 @@
                                             Command="{Binding OpenLinkCommand}"
                                             CommandParameter="{loc:Loc 'https://github.com/Asterlike/zapret2UI/blob/main/manual_zapret2UI.md#12-warp-и-смена-адреса'}"
                                             ToolTip="{loc:Loc 'Открыть раздел «WARP и смена адреса» в инструкции'}">
-                                        <emoji:TextBlock Text="{loc:Loc '📖  Инструкция'}"/>
+                                        <ctl:IconText Icon="{StaticResource Icon.Book}" Text="{loc:Loc 'Инструкция'}"/>
                                     </Button>
                                     <StackPanel Orientation="Horizontal">
                                         <Path Data="{StaticResource Icon.Cloudflare}" Fill="{StaticResource Brand.Cloudflare}"
@@ -1520,7 +1523,7 @@
                                             Command="{Binding OpenLinkCommand}"
                                             CommandParameter="{loc:Loc 'https://github.com/Asterlike/zapret2UI/blob/main/manual_zapret2UI.md#hms-смена-страны'}"
                                             ToolTip="{loc:Loc 'Открыть раздел «HMS: смена страны» в инструкции'}">
-                                        <emoji:TextBlock Text="{loc:Loc '📖  Инструкция'}"/>
+                                        <ctl:IconText Icon="{StaticResource Icon.Book}" Text="{loc:Loc 'Инструкция'}"/>
                                     </Button>
                                     <TextBlock Text="{loc:Loc 'HMS — Hide My Ass'}" Style="{StaticResource H1}" VerticalAlignment="Center"/>
                                 </DockPanel>
@@ -1754,7 +1757,7 @@
                                     Command="{Binding OpenLinkCommand}"
                                     CommandParameter="{loc:Loc 'https://github.com/Asterlike/zapret2UI/blob/main/manual_zapret2UI.md#15-настройки--полный-список'}"
                                     ToolTip="{loc:Loc 'Открыть раздел «Настройки — полный список» в инструкции'}">
-                                <emoji:TextBlock Text="{loc:Loc '📖  Инструкция'}"/>
+                                <ctl:IconText Icon="{StaticResource Icon.Book}" Text="{loc:Loc 'Инструкция'}"/>
                             </Button>
                             <StackPanel VerticalAlignment="Center">
                                 <TextBlock Text="{loc:Loc Настройки}" Style="{StaticResource H1}"/>
@@ -1974,6 +1977,10 @@
                                                     <CheckBox Content="{loc:Loc 'Сворачивать в трей вместо закрытия'}"
                                                               IsChecked="{Binding MinimizeToTray}" Style="{StaticResource ToggleSwitch}"
                                                               Margin="0,6"/>
+                                                    <CheckBox Content="{loc:Loc 'Выгружать окно в трее — меньше памяти и нагрузки'}"
+                                                              IsChecked="{Binding UnloadWindowInTray}" Style="{StaticResource ToggleSwitch}"
+                                                              IsEnabled="{Binding MinimizeToTray}" Margin="0,6"
+                                                              ToolTip="{loc:Loc 'Свёрнутое в трей окно закрывается целиком, а обход, Telegram и WARP работают дальше. Открывается из трея заново — на мгновение дольше.'}"/>
                                                 </StackPanel>
                                             </Border>
                                         </StackPanel>
@@ -2177,17 +2184,21 @@
                                 <Button Style="{StaticResource GhostButton}" Margin="0,0,8,8"
                                         Command="{Binding OpenLinkCommand}"
                                         CommandParameter="{loc:Loc 'https://github.com/Asterlike/zapret2UI/blob/main/manual_zapret2UI.md'}">
-                                    <emoji:TextBlock Text="{loc:Loc '📖  Полная инструкция'}"/>
+                                    <ctl:IconText Icon="{StaticResource Icon.Book}" Text="{loc:Loc 'Полная инструкция'}"/>
                                 </Button>
                                 <Button Style="{StaticResource GhostButton}" Margin="0,0,8,8"
                                         Command="{Binding OpenLinkCommand}"
                                         CommandParameter="{loc:Loc 'https://github.com/Asterlike/zapret2UI/blob/main/README.md'}">
-                                    <emoji:TextBlock Text="{loc:Loc '📄  О программе (README)'}"/>
+                                    <ctl:IconText Icon="{StaticResource Icon.FileText}" Text="{loc:Loc 'О программе (README)'}"/>
                                 </Button>
                                 <Button Style="{StaticResource GhostButton}" Margin="0,0,8,8"
                                         Command="{Binding OpenLinkCommand}"
                                         CommandParameter="https://t.me/Zapret2UI">
-                                    <emoji:TextBlock Text="{loc:Loc '✈  Telegram-канал'}"/>
+                                    <StackPanel Orientation="Horizontal">
+                                        <Path Data="{StaticResource Icon.Telegram}" Fill="{StaticResource Brand.Telegram}"
+                                              Width="14" Height="14" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                        <TextBlock Text="{loc:Loc 'Telegram-канал'}" VerticalAlignment="Center"/>
+                                    </StackPanel>
                                 </Button>
                             </WrapPanel>
 
@@ -2334,6 +2345,7 @@
                         <StackPanel Grid.Row="5" Margin="0,10,0,0">
                             <!-- animated "busy" bar while domains are being verified — so it's visibly working -->
                             <ProgressBar Style="{StaticResource BusyBar}" Margin="0,0,0,8"
+                                         IsIndeterminate="{Binding IsExpandingTarget}"
                                          Visibility="{Binding IsExpandingTarget, Converter={StaticResource BoolToVis}}"/>
                             <TextBlock Text="{Binding TargetStatus}" Style="{StaticResource Muted}"
                                        FontSize="11.5" TextWrapping="Wrap"/>

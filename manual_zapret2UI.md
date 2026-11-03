@@ -886,6 +886,7 @@ timestamps=enabled`, а при **остановке** возвращает пр�
 | Автозапуск с Windows | `Autostart` | `false` | Запуск при входе (через `schtasks`, от админа) — сразу в трей, без окна. |
 | …и запуск обхода | `AutostartEngine` | `false` | Дополнительно стартовать обход при запуске. |
 | Сворачивать в трей | `MinimizeToTray` | `true` | Крестик прячет в трей, а не закрывает. |
+| Выгружать окно в трее | `UnloadWindowInTray` | `true` | Окно, свёрнутое в трей, закрывается целиком; обход, Telegram и WARP работают дальше, а из трея окно строится заново. Работает, только когда включено «Сворачивать в трей». Замерено: в трее после закрытия окна программа занимает около 45 МБ и не нагружает процессор, со скрытым окном было 169 МБ и 3–5 % ядра. |
 | Стартовать в трее | `StartMinimized` | `false` | Любой запуск — сразу в трей, без окна. Переключателя нет, только файл: запуск вместе с Windows уходит в трей и так. |
 | Авто-починка | `AutoHeal` | `false` | Следить за доступностью и переподбирать при сбое. |
 | Игровой фильтр | `GameFilter` | `false` | Расширить перехват на все высокие порты. |
@@ -1132,7 +1133,9 @@ dotnet publish ZapretUI/ZapretUI.csproj -c Release -o publish
 - [bol-van/zapret2](https://github.com/bol-van/zapret2) — движок `winws2` и
   [официальный мануал](https://github.com/bol-van/zapret2/blob/master/docs/manual.en.md).
 - [Flowseal/zapret-discord-youtube](https://github.com/Flowseal/zapret-discord-youtube) — рабочие
-  стратегии и [tg-ws-proxy](https://github.com/Flowseal/tg-ws-proxy).
+  стратегии, пять фейковых пакетов (MIT, см. [§5](#5-встроенные-стратегии)) и
+  [tg-ws-proxy](https://github.com/Flowseal/tg-ws-proxy).
+- [Lucide](https://lucide.dev) — контурные значки на кнопках (ISC).
 - [RaccoonLaptop/ZapretUI](https://github.com/RaccoonLaptop/ZapretUI) — проект, с которого началась
   идея сделать графическую оболочку.
 - [hyperion-cs/dpi-checkers](https://github.com/hyperion-cs/dpi-checkers) — метод обнаружения лимита

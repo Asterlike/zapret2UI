@@ -1,7 +1,7 @@
 ﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:mvvm="clr-namespace:Zapret2UI.Mvvm"
-                    xmlns:emoji="clr-namespace:Emoji.Wpf;assembly=Emoji.Wpf">
+                    xmlns:ctl="clr-namespace:Zapret2UI.Controls">
 
     <!-- ====================== Converters ====================== -->
     <mvvm:InverseBoolConverter x:Key="InverseBool"/>
@@ -78,9 +78,33 @@
         <Setter Property="TextOptions.TextFormattingMode" Value="Ideal"/>
     </Style>
 
-    <!-- Color-emoji TextBlock (Emoji.Wpf) inherits the base TextBlock typography so it is a
-         true drop-in. Use <emoji:TextBlock> wherever text may contain emoji. -->
-    <Style TargetType="{x:Type emoji:TextBlock}" BasedOn="{StaticResource {x:Type TextBlock}}"/>
+    <!-- Line icon + label (Controls/IconText): what the buttons used to say with a colour emoji. The
+         label binds the control's own typography explicitly — the implicit TextBlock style above would
+         otherwise reset its size to 13 inside the template. The outline takes the text colour. -->
+    <Style TargetType="{x:Type ctl:IconText}">
+        <Setter Property="FontFamily" Value="{StaticResource UiFont}"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type ctl:IconText}">
+                    <StackPanel Orientation="Horizontal">
+                        <Viewbox Width="{TemplateBinding IconSize}" Height="{TemplateBinding IconSize}"
+                                 VerticalAlignment="Center" Margin="0,0,8,0">
+                            <Canvas Width="24" Height="24">
+                                <Path Data="{TemplateBinding Icon}" Stroke="{TemplateBinding Foreground}"
+                                      StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                      StrokeLineJoin="Round"/>
+                            </Canvas>
+                        </Viewbox>
+                        <TextBlock Text="{TemplateBinding Text}" VerticalAlignment="Center"
+                                   Foreground="{TemplateBinding Foreground}" FontFamily="{TemplateBinding FontFamily}"
+                                   FontSize="{TemplateBinding FontSize}" FontWeight="{TemplateBinding FontWeight}"/>
+                    </StackPanel>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
 
     <!-- ToolTip chrome. Without an explicit style WPF falls back to the system's WHITE tooltip,
          which reads as a broken empty box on the dark theme (reported on hover). Implicit style →
@@ -441,6 +465,16 @@
     <Geometry x:Key="Icon.YouTube">M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z</Geometry>
     <Geometry x:Key="Icon.Cloudflare">M16.5088 16.8447c.1475-.5068.0908-.9707-.1553-1.3154-.2246-.3164-.6045-.499-1.0615-.5205l-8.6592-.1123a.1559.1559 0 0 1-.1333-.0713c-.0283-.042-.0351-.0986-.021-.1553.0278-.084.1123-.1484.2036-.1562l8.7359-.1123c1.0351-.0489 2.1601-.8868 2.5537-1.9136l.499-1.3013c.0215-.0561.0293-.1128.0147-.168-.5625-2.5463-2.835-4.4453-5.5499-4.4453-2.5039 0-4.6284 1.6177-5.3876 3.8614-.4927-.3658-1.1187-.5625-1.794-.499-1.2026.119-2.1665 1.083-2.2861 2.2856-.0283.31-.0069.6128.0635.894C1.5683 13.171 0 14.7754 0 16.752c0 .1748.0142.3515.0352.5273.0141.083.0844.1475.1689.1475h15.9814c.0909 0 .1758-.0645.2032-.1553l.12-.4268zm2.7568-5.5634c-.0771 0-.1611 0-.2383.0112-.0566 0-.1054.0415-.127.0976l-.3378 1.1744c-.1475.5068-.0918.9707.1543 1.3164.2256.3164.6055.498 1.0625.5195l1.8437.1133c.0557 0 .1055.0263.1329.0703.0283.043.0351.1074.0214.1562-.0283.084-.1132.1485-.204.1553l-1.921.1123c-1.041.0488-2.1582.8867-2.5527 1.914l-.1406.3585c-.0283.0713.0215.1416.0986.1416h6.5977c.0771 0 .1474-.0489.169-.126.1122-.4082.1757-.837.1757-1.2803 0-2.6025-2.125-4.727-4.7344-4.727</Geometry>
     <Geometry x:Key="Icon.Telegram">M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z</Geometry>
+
+    <!-- Line icons for ctl:IconText — Lucide (ISC, lucide-icons/lucide @4b203ec9), copied path for path on
+         Lucide's 24×24 grid; circles written as two arcs, compact arc flags spelled out for WPF's parser.
+         Drawn as STROKES (width 2), not fills — unlike the Icon.* brand marks above. -->
+    <Geometry x:Key="Icon.Book">M12 5v16M20.001 19A2 2 0 0 0 22 17V5a2 2 0 0 0 -1.999 -2L16 3.002A5 5 0 0 0 12 5a5 5 0 0 0 -4 -2H4a2 2 0 0 0 -2 2v12a2 2 0 0 0 1.999 2H8a5 5 0 0 1 4 2a5 5 0 0 1 4 -2z</Geometry>
+    <Geometry x:Key="Icon.Help">M2 12a10 10 0 1 0 20 0a10 10 0 1 0 -20 0M9.09 9a3 3 0 0 1 5.83 1c0 2 -3 3 -3 3M12 17h0.01</Geometry>
+    <Geometry x:Key="Icon.Search">M21 21l-4.34 -4.34M3 11a8 8 0 1 0 16 0a8 8 0 1 0 -16 0</Geometry>
+    <Geometry x:Key="Icon.Sparkles">M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0 -1.594 1.594l-1.051 5.558a1 1 0 0 1 -1.966 0l-1.051 -5.558a2 2 0 0 0 -1.594 -1.594l-5.558 -1.051a1 1 0 0 1 0 -1.966l5.558 -1.051a2 2 0 0 0 1.594 -1.594zM20 2v4M22 4h-4M2 20a2 2 0 1 0 4 0a2 2 0 1 0 -4 0</Geometry>
+    <Geometry x:Key="Icon.FileText">M6 22a2 2 0 0 1 -2 -2V4a2 2 0 0 1 2 -2h8a2.4 2.4 0 0 1 1.704 0.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1 -2 2zM14 2v5a1 1 0 0 0 1 1h5M10 9H8M16 13H8M16 17H8</Geometry>
+    <Geometry x:Key="Icon.Heart">M2 9.5a5.5 5.5 0 0 1 9.591 -3.676a0.56 0.56 0 0 0 0.818 0A5.49 5.49 0 0 1 22 9.5c0 2.29 -1.5 4 -3 5.5l-5.492 5.313a2 2 0 0 1 -3 0.019L5 15c-1.5 -1.5 -3 -3.2 -3 -5.5</Geometry>
 
     <!-- ====================== Top nav (horizontal pill tabs) ====================== -->
     <Style x:Key="TopTabs" TargetType="TabControl">
@@ -846,10 +880,13 @@
 
     <!-- Indeterminate "busy" bar: a highlight slides left→right forever so the user can see work is
          happening even when there's no numeric progress (e.g. while domains are being verified). The
-         default ProgressBar template has no indeterminate animation, so this one supplies its own. -->
+         default ProgressBar template has no indeterminate animation, so this one supplies its own.
+         Bind IsIndeterminate to the work itself — it is NOT set here. MEASURED (2026-11-03): with it set
+         to True in this style the storyboard ran forever on a COLLAPSED bar, and an animation clock that
+         never stops keeps WPF's animation timer ticking — 6–11 % of a core with the window open and doing
+         nothing, 3–5 % with it hidden in the tray. Visibility does not stop a storyboard; the trigger does. -->
     <Style x:Key="BusyBar" TargetType="ProgressBar">
         <Setter Property="Height" Value="4"/>
-        <Setter Property="IsIndeterminate" Value="True"/>
         <Setter Property="Foreground" Value="{StaticResource AccentBrush}"/>
         <Setter Property="Background" Value="{StaticResource SurfaceAltBrush}"/>
         <Setter Property="BorderThickness" Value="0"/>

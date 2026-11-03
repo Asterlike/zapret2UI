@@ -943,6 +943,7 @@ none of them scrolls. The values are stored in `settings.json` (`AppSettings`).
 | Start with Windows | `Autostart` | `false` | Start at logon (through `schtasks`, elevated) — straight into the tray, no window. |
 | …and start the bypass | `AutostartEngine` | `false` | Additionally start the bypass at launch. |
 | Minimise to tray | `MinimizeToTray` | `true` | The close button hides to the tray instead of quitting. |
+| Unload the window in the tray | `UnloadWindowInTray` | `true` | A window sent to the tray is closed entirely; the bypass, Telegram and WARP keep running, and the window is built again when opened from the tray. Works only with "Minimise to tray" on. Measured: in the tray after the window closes the program takes about 45 MB and no CPU; with the window hidden it was 169 MB and 3–5 % of a core. |
 | Start in the tray | `StartMinimized` | `false` | Every launch goes straight into the tray, no window. There is no switch, only the file: the start with Windows goes into the tray anyway. |
 | Auto-repair | `AutoHeal` | `false` | Watch availability and re-select on failure. |
 | Game filter | `GameFilter` | `false` | Widen capture to all high ports. |
@@ -1195,7 +1196,9 @@ dotnet publish ZapretUI/ZapretUI.csproj -c Release -o publish
 - [bol-van/zapret2](https://github.com/bol-van/zapret2) — the `winws2` engine and the
   [official manual](https://github.com/bol-van/zapret2/blob/master/docs/manual.en.md).
 - [Flowseal/zapret-discord-youtube](https://github.com/Flowseal/zapret-discord-youtube) — working
-  strategies and [tg-ws-proxy](https://github.com/Flowseal/tg-ws-proxy).
+  strategies, five fake packets (MIT, see [§5](#5-built-in-strategies)) and
+  [tg-ws-proxy](https://github.com/Flowseal/tg-ws-proxy).
+- [Lucide](https://lucide.dev) — the line icons on the buttons (ISC).
 - [RaccoonLaptop/ZapretUI](https://github.com/RaccoonLaptop/ZapretUI) — the project that started the idea
   of making a graphical shell.
 - [hyperion-cs/dpi-checkers](https://github.com/hyperion-cs/dpi-checkers) — the volume-limit detection

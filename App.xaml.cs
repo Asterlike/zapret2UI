@@ -13,9 +13,18 @@ public partial class App : Application
 {
     private SingleInstance? _instance;
 
+    /// <summary>Lives for the whole process: the view model, the tray, the window when there is one.</summary>
+    private AppShell? _shell;
+
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        // Draw on the CPU, not through Direct3D — set before the first window, it is process-wide. MEASURED
+        // (2026-11-03, the full window after every tab): 171 → 103 MB private working set, and idle CPU with
+        // the window open lower, not higher (15.7 → 11 % of a core). The GPU path keeps device surfaces and
+        // their system-memory copies for the process lifetime; this UI is flat panels and text, which the
+        // software rasteriser draws without effort. No switch, by the owner's decision.
+        System.Windows.Media.RenderOptions.ProcessRenderMode = System.Windows.Interop.RenderMode.SoftwareOnly;
         CrashLog.Install(this);
         AwaitPreviousCopy(e.Args);
         InitLanguage(e.Args);
@@ -40,10 +49,9 @@ public partial class App : Application
 
         try
         {
-            var window = new MainWindow();
-            MainWindow = window;
+            _shell = new AppShell();
             // --tray is the logon task (AutostartService): that launch never shows the window.
-            window.Launch(inTray: CommandLine.Has(e.Args, "--tray"));
+            _shell.Launch(inTray: CommandLine.Has(e.Args, "--tray"));
         }
         catch (Exception ex)
         {
@@ -57,7 +65,7 @@ public partial class App : Application
     /// <summary>A later launch asked the copy already running to come to the front. Marshalled onto the
     /// UI thread: the signal arrives on the single-instance watcher thread.</summary>
     private void SurfaceExistingWindow() =>
-        Dispatcher.BeginInvoke(() => (MainWindow as Views.MainWindow)?.SurfaceWindow());
+        Dispatcher.BeginInvoke(() => _shell?.SurfaceWindow());
 
     protected override void OnExit(ExitEventArgs e)
     {

@@ -257,8 +257,8 @@ WebSocket-TLS, а при перекрытом прямом пути — чере
 Идите по шагам сверху вниз — почти всегда срабатывает один из первых трёх.
 
 1. **Переберите стратегии вручную** («Стратегии» → выбрать → «Применить») в порядке сверху вниз:
-   `Комбо (рекомендуемый)` → `отечественный (VK)` → `ALT10` → `ALT11` → `Flowseal (multisplit)` →
-   `Flowseal ALT` → `окно (wssize)` → `адаптивный`.
+   `Комбо (рекомендуемый)` → `отечественный (VK)` → `ALT10` → `ALT11` → `ALT11 (сферум)` → `ALT12` →
+   `ALT13` → `Flowseal (multisplit)` → `Flowseal ALT` → `окно (wssize)` → `адаптивный`.
    > Голос Discord «подключается, но не слышно» — отдельно попробуйте `Discord — голос (QUIC-фейк)`.
 2. **Подберите или сгенерируйте** — «Диагностика» → «Подобрать», не нашлось — «Сгенерировать».
 3. **Добавьте в исключения** — Настройки → «Добавить в исключения» (антивирус).
@@ -374,7 +374,7 @@ dotnet publish ZapretUI/ZapretUI.csproj -c Release -o publish
 ```
 
 **Требования:** Windows 10/11 x64, права администратора (движок грузит драйвер в ядро), интернет при
-первом запуске. Технологии: .NET 9, WPF; из внешних зависимостей — только Emoji.Wpf (цветные эмодзи).
+первом запуске. Технологии: .NET 9, WPF; внешних пакетов в сборке нет.
 
 ---
 
@@ -394,7 +394,8 @@ dotnet publish ZapretUI/ZapretUI.csproj -c Release -o publish
 
 - [bol-van/zapret2](https://github.com/bol-van/zapret2) — сам движок обхода DPI (`winws2`) и документация.
 - [Flowseal/zapret-discord-youtube](https://github.com/Flowseal/zapret-discord-youtube) — рабочие
-  стратегии и [tg-ws-proxy](https://github.com/Flowseal/tg-ws-proxy).
+  стратегии, пять фейковых пакетов (MIT) и [tg-ws-proxy](https://github.com/Flowseal/tg-ws-proxy).
+- [Lucide](https://lucide.dev) — контурные значки на кнопках (ISC).
 - [RaccoonLaptop/ZapretUI](https://github.com/RaccoonLaptop/ZapretUI) — вдохновитель проекта.
 - [hyperion-cs/dpi-checkers](https://github.com/hyperion-cs/dpi-checkers) — метод проверки лимита по объёму.
 

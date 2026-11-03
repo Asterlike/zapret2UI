@@ -595,6 +595,7 @@ gateway.discord.gg</code></pre>
           <tr><td>Start with Windows</td><td><code>Autostart</code></td><td><code>false</code></td><td>Start at logon, elevated, through Task Scheduler — straight into the tray, no window.</td></tr>
           <tr><td>And start the bypass</td><td><code>AutostartEngine</code></td><td><code>false</code></td><td>Also turn the bypass on at start-up.</td></tr>
           <tr><td>Minimise to tray</td><td><code>MinimizeToTray</code></td><td><code>true</code></td><td>The close button hides the window instead of quitting.</td></tr>
+          <tr><td>Unload the window in the tray</td><td><code>UnloadWindowInTray</code></td><td><code>true</code></td><td>A window sent to the tray is closed entirely: the bypass, Telegram and WARP keep running, and the window is built again when opened from the tray. In the tray the program takes about 45 MB instead of 169 and no CPU.</td></tr>
           <tr><td>Start in the tray</td><td><code>StartMinimized</code></td><td><code>false</code></td><td>Every launch goes straight into the tray, no window. There is no switch, only the file: the start with Windows goes into the tray anyway.</td></tr>
           <tr><td>Auto-repair</td><td><code>AutoHeal</code></td><td><code>false</code></td><td>Watch availability and re-select on failure.</td></tr>
           <tr><td>Game filter</td><td><code>GameFilter</code></td><td><code>false</code></td><td>Widen capture to all high ports.</td></tr>
