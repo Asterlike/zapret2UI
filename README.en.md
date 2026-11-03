@@ -325,19 +325,21 @@ Other questions: [Troubleshooting → Frequent questions](https://asterlike.gith
 
 ## Files and removal
 
-The program is **portable**: it does not install into `Program Files` and barely touches the system.
-All data lives in one folder, **`%LOCALAPPDATA%\Zapret2UI\`** (to open it quickly: `Win+R` → paste the
-path → Enter).
+The program installs nothing and barely touches the system, but it keeps its files in two folders. The
+programs it runs with administrator's rights live in **`C:\Program Files\Zapret2UI\`**: only an
+administrator can write there, so nobody can quietly swap the engine. Your data lives in
+**`%LOCALAPPDATA%\Zapret2UI\`** (to open it quickly: `Win+R` → paste the path → Enter).
 
 | What | Where |
 |---|---|
-| The `winws2` engine and its files (downloaded on first launch) | `engine\` |
-| Host lists and IP lists | `lists\` |
-| Engine journals (`engine-*.log`) | `logs\` |
-| The built-in WARP client and the device key | `masque\` |
-| Tor for HMS (downloaded the first time the chain goes through Tor) | `tor\` |
-| Your strategies | `presets.json` |
-| Settings | `settings.json` |
+| The `winws2` engine and its files (downloaded on first launch) | `C:\Program Files\Zapret2UI\engine\` |
+| The WARP client `usque.exe` | `C:\Program Files\Zapret2UI\masque\` |
+| Tor for HMS (downloaded the first time the chain goes through Tor) | `C:\Program Files\Zapret2UI\tor\` |
+| Host lists and IP lists | `%LOCALAPPDATA%\Zapret2UI\lists\` |
+| Engine journals (`engine-*.log`) | `%LOCALAPPDATA%\Zapret2UI\logs\` |
+| The WARP device key | `%LOCALAPPDATA%\Zapret2UI\masque\` |
+| Tor's cache | `%LOCALAPPDATA%\Zapret2UI\tor\data\` |
+| Your strategies and settings | `%LOCALAPPDATA%\Zapret2UI\presets.json`, `settings.json` |
 
 **How to remove the program completely:**
 
@@ -346,7 +348,8 @@ path → Enter).
    off (or by hand:
    `schtasks /delete /tn "Zapret2UI Autostart" /f`).
 3. Delete `Zapret2UI.exe` itself.
-4. Delete the `%LOCALAPPDATA%\Zapret2UI\` folder — after that nothing is left of the program.
+4. Delete the `%LOCALAPPDATA%\Zapret2UI\` and `C:\Program Files\Zapret2UI\` folders (the second asks for
+   administrator's confirmation) — after that nothing is left of the program.
 
 **Windows says `WinDivert64.sys` is in use?** That is a kernel driver and it stays loaded until it is
 unloaded.
@@ -360,7 +363,7 @@ unloaded.
    ```
    > ⚠️ Specifically **`sc.exe`**, not `sc`! In PowerShell `sc` is an alias for `Set-Content`, so
    > `sc stop WinDivert` silently does nothing. (In classic `cmd.exe` plain `sc` works too.)
-3. The `engine` folder will now delete.
+3. The `C:\Program Files\Zapret2UI\engine` folder will now delete.
 
 **Simpler:** reboot and then delete the folder — the driver is configured not to load on its own, so
 after a restart the file is free.

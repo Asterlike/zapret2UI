@@ -190,12 +190,14 @@ public sealed partial class EngineService : IDisposable
     /// <para>The blob is declared under its own name rather than reusing the strategy's <c>tls_google</c>:
     /// this profile is appended to EVERY preset, including ones that never declared it, and since
     /// zapret2 v1.0.4 an undeclared blob silently stops the whole execution plan — no error, no bypass.
-    /// A no-op if either the list or the blob is missing.</para></summary>
+    /// A no-op if the list is missing. The blob is not checked: it ships in every zapret2 release, the
+    /// strategies reference their own blobs unchecked too, and a missing one makes winws2 say so at start
+    /// instead of this profile quietly vanishing.</para></summary>
     private static void AppendMasqueCoverage(List<string> args)
     {
         string ipset = AppPaths.IpsetFile("masque");
         string blob = Path.Combine(AppPaths.FilesDir, "fake", "tls_clienthello_www_google_com.bin");
-        if (!File.Exists(ipset) || !File.Exists(blob)) return;
+        if (!File.Exists(ipset)) return;
 
         // --blob is a GLOBAL declaration: it belongs before anything opens a profile.
         int firstProfileArg = args.FindIndex(IsProfileArg);

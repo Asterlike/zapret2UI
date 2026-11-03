@@ -66,11 +66,10 @@ internal sealed class TorRuntime : IDisposable
         ("data/geoip6", AppPaths.TorGeoIp6File),
     };
 
-    /// <summary>Everything in the torrc is a path RELATIVE to the folder tor runs in. Verified rather
-    /// than assumed: a Windows account whose profile has a space in it («C:\Users\John Doe\…») is
-    /// ordinary, and tor's own parser for <c>ClientTransportPlugin</c> splits on spaces without
-    /// honouring quotes — an absolute path there would break for those users and nobody else, which is
-    /// the worst kind of bug to ship.</summary>
+    /// <summary>The program paths in the torrc are RELATIVE to the folder tor runs in. Verified rather
+    /// than assumed: tor's own parser for <c>ClientTransportPlugin</c> splits on spaces without
+    /// honouring quotes, and tor runs from «C:\Program Files\…» — an absolute path there would break for
+    /// everyone. Only <c>DataDirectory</c> is absolute, quoted (see <see cref="TorrcQuote"/>).</summary>
     private const string TorrcName = "torrc";
 
     // ---- state -------------------------------------------------------------
@@ -147,7 +146,9 @@ internal sealed class TorRuntime : IDisposable
         if (IsInstalled) return WarpResult.Success("");
 
         AppPaths.EnsureCreated();
-        string archive = Path.Combine(AppPaths.TempDir, ArchiveName);
+        AppPaths.EnsureBinCreated();
+        // Under Program Files, so the archive cannot be swapped between its checksum and the unpacking.
+        string archive = Path.Combine(AppPaths.BinTempDir, ArchiveName);
 
         try
         {
@@ -179,6 +180,13 @@ internal sealed class TorRuntime : IDisposable
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Exception ex)
         {
+            // First run after the move to Program Files with no way to download: the bundle unpacked
+            // before the move is still in the profile — carry it over rather than fail.
+            if (AdoptLegacyBundle())
+            {
+                Log(Loc.T("[tor] скачать не удалось ({0}) — перенесён бандл из старой папки", ex.Message));
+                return WarpResult.Success("");
+            }
             return WarpResult.Fail(throughProxy.Length > 0
                 ? Loc.T("Не удалось скачать Tor даже через WARP: {0}", ex.Message)
                 : Loc.T("Не удалось скачать Tor: {0}. Сайт Tor Project в России блокируют — включите "
@@ -214,6 +222,47 @@ internal sealed class TorRuntime : IDisposable
                 Report(Loc.T("Загрузка Tor… {0:F1}/{1:F1} МБ", done / 1_048_576.0, total / 1_048_576.0));
             }
         }
+    }
+
+    /// <summary>Where each wanted file lived before the move — the same names under the profile's tor
+    /// folder.</summary>
+    private static string LegacyPath(string target) =>
+        Path.Combine(AppPaths.LegacyTorDir, Path.GetRelativePath(AppPaths.TorDir, target));
+
+    /// <summary>Copy the pinned bundle unpacked before the move, if that is what is there. Only as
+    /// trustworthy as the profile folder was, which is why a download is always tried first.</summary>
+    private static bool AdoptLegacyBundle()
+    {
+        try
+        {
+            string version = Path.Combine(AppPaths.LegacyTorDir, "installed_version.txt");
+            if (!File.Exists(version)
+                || !string.Equals(File.ReadAllText(version).Trim(), Version, StringComparison.OrdinalIgnoreCase)
+                || Wanted.Any(w => !File.Exists(LegacyPath(w.Target))))
+                return false;
+
+            Directory.CreateDirectory(AppPaths.TorTransportDir);
+            foreach (var (_, target) in Wanted) File.Copy(LegacyPath(target), target, overwrite: true);
+            File.WriteAllText(AppPaths.TorVersionFile, Version);
+            return IsInstalled;
+        }
+        catch { return false; }
+    }
+
+    /// <summary>Remove the pre-move programs from the profile once the bundle is in its new place.
+    /// <c>data</c> stays: it is where tor keeps its state now as before.</summary>
+    internal static void DeleteLegacyBundle()
+    {
+        if (!IsInstalled) return;
+        foreach (var (_, target) in Wanted) TryDelete(LegacyPath(target));
+        TryDelete(Path.Combine(AppPaths.LegacyTorDir, TorrcName));
+        TryDelete(Path.Combine(AppPaths.LegacyTorDir, "installed_version.txt"));
+        try
+        {
+            string pt = Path.Combine(AppPaths.LegacyTorDir, "pt");
+            if (Directory.Exists(pt)) Directory.Delete(pt, recursive: true);
+        }
+        catch { /* a leftover we could not remove does no harm */ }
     }
 
     /// <summary>Pull the five files we need straight out of the .tar.gz — no shelling out, no temporary
@@ -447,7 +496,8 @@ internal sealed class TorRuntime : IDisposable
     /// a copy somewhere else is the user's own Tor Browser and none of our business.</summary>
     internal static void DropStale()
     {
-        foreach (string exe in new[] { AppPaths.TorExe, AppPaths.TorTransportExe })
+        foreach (string exe in new[] { AppPaths.TorExe, AppPaths.TorTransportExe,
+                                       LegacyPath(AppPaths.TorExe), LegacyPath(AppPaths.TorTransportExe) })
         {
             try
             {
@@ -481,8 +531,9 @@ internal sealed class TorRuntime : IDisposable
         var lines = new List<string>
         {
             "SocksPort 127.0.0.1:" + socksPort.ToString(System.Globalization.CultureInfo.InvariantCulture),
-            // Relative to the working directory on purpose — see TorrcName.
-            "DataDirectory data",
+            // The one absolute path: tor's state is data and stays in the profile, while tor runs from
+            // Program Files (see AppPaths.TorDir).
+            "DataDirectory " + TorrcQuote(AppPaths.TorDataDir),
             "GeoIPFile geoip",
             "GeoIPv6File geoip6",
             "Log notice stdout",
@@ -511,6 +562,13 @@ internal sealed class TorRuntime : IDisposable
 
         return string.Join("\n", lines) + "\n";
     }
+
+    /// <summary>A path as a torrc value: quoted, with <c>\</c> and <c>"</c> escaped. Verified on tor
+    /// 0.4.9 — unquoted, a <c>#</c> anywhere in the path (an account named «C#dev») starts a comment and
+    /// tor silently puts its state somewhere else; quoted, spaces and <c>#</c> both survive.</summary>
+    internal static string TorrcQuote(string path) =>
+        "\"" + path.Replace("\\", "\\\\", StringComparison.Ordinal)
+                   .Replace("\"", "\\\"", StringComparison.Ordinal) + "\"";
 
     /// <summary>Two ASCII letters or nothing. This string goes straight into the torrc between braces,
     /// so «anything else» is not a country and does not belong in a config file.</summary>

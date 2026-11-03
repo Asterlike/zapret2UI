@@ -90,14 +90,23 @@ internal sealed class MasqueRuntime : IDisposable
     /// <summary>Unpack the client if needed. Cheap to call repeatedly: a file is rewritten only when it is
     /// missing or a different size.
     ///
-    /// <para>No <c>icacls</c> lockdown. Note what that leaves open: usque is a child of this app, so it
-    /// runs with the app's own rights — administrator, because the manifest asks for it — out of a folder
-    /// the user can write to, and a replacement of the same size is not noticed here.</para></summary>
+    /// <para>usque is a child of this app and runs with its rights — administrator's — so it is unpacked
+    /// under Program Files (<see cref="AppPaths.MasqueBinDir"/>), where only administrators can replace
+    /// it. Its config, with the device key, stays in the profile.</para></summary>
     internal static void EnsureReady()
     {
         Directory.CreateDirectory(AppPaths.MasqueDir);
+        Directory.CreateDirectory(AppPaths.MasqueBinDir);
         Extract(ExeResource, AppPaths.MasqueExe);
-        Extract(LicenseResource, Path.Combine(AppPaths.MasqueDir, LicenseName));
+        Extract(LicenseResource, Path.Combine(AppPaths.MasqueBinDir, LicenseName));
+    }
+
+    /// <summary>The client and its licence as unpacked before the move to Program Files. They are in our
+    /// exe, so nothing is lost by deleting them.</summary>
+    internal static void DeleteLegacyClient()
+    {
+        foreach (string f in new[] { AppPaths.LegacyMasqueExe, Path.Combine(AppPaths.MasqueDir, LicenseName) })
+            try { if (File.Exists(f)) File.Delete(f); } catch { /* a leftover does no harm */ }
     }
 
     /// <summary>Write an embedded binary out, skipping the copy when it is already byte-count identical.
@@ -346,19 +355,21 @@ internal sealed class MasqueRuntime : IDisposable
     }
 
     /// <summary>Kill a proxy left behind by a crash. Ours is the one running out of our own folder —
-    /// another copy of usque is somebody else's program and none of our business.</summary>
+    /// another copy of usque is somebody else's program and none of our business. «Our folder» includes
+    /// the one it was unpacked to before the move to Program Files.</summary>
     internal static void DropStaleProxy()
     {
         try
         {
-            if (!File.Exists(AppPaths.MasqueExe)) return;
+            if (!File.Exists(AppPaths.MasqueExe) && !File.Exists(AppPaths.LegacyMasqueExe)) return;
 
             foreach (var p in Process.GetProcessesByName(Path.GetFileNameWithoutExtension(ExeName)))
             {
                 try
                 {
-                    if (string.Equals(p.MainModule?.FileName, AppPaths.MasqueExe,
-                                      StringComparison.OrdinalIgnoreCase))
+                    string? path = p.MainModule?.FileName;
+                    if (string.Equals(path, AppPaths.MasqueExe, StringComparison.OrdinalIgnoreCase)
+                        || string.Equals(path, AppPaths.LegacyMasqueExe, StringComparison.OrdinalIgnoreCase))
                         p.Kill(entireProcessTree: true);
                 }
                 catch { /* a process we may not inspect is not ours */ }

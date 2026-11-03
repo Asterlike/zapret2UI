@@ -97,8 +97,9 @@ What it offers:
    [releases page](https://github.com/Asterlike/zapret2UI/releases/latest). It is a single file — no
    installation required, and no .NET to install.
 2. Run it **as administrator** (right-click → "Run as administrator", or accept the UAC prompt).
-3. On first launch the program downloads the `winws2` engine into `%LOCALAPPDATA%\Zapret2UI\engine` and
-   verifies the download against its **SHA-256** checksum.
+3. On first launch the program downloads the `winws2` engine into `C:\Program Files\Zapret2UI\engine` and
+   verifies the download against its **SHA-256** checksum. Why Program Files rather than next to the
+   settings — see [§17](#17-files-and-folders-on-disk).
 
 The engine and the application are updated separately (see [§16](#16-updates)).
 
@@ -852,14 +853,14 @@ otherwise leave through its own node, and the countries could diverge.
 
 ### Where things live
 
-Everything sits in `%LOCALAPPDATA%\Zapret2UI\masque`: the unpacked `usque.exe` client and
-`config.json` with the device key, its licence and token. The client runs as a child process of the
-program; a proxy left behind by a crash is cleared on the next start.
+The `usque.exe` client is unpacked into `C:\Program Files\Zapret2UI\masque`, while `config.json` with
+the device key, its licence and token lives in `%LOCALAPPDATA%\Zapret2UI\masque`. The client runs as a
+child process of the program; a proxy left behind by a crash is cleared on the next start.
 
-Tor for HMS lives in `%LOCALAPPDATA%\Zapret2UI\tor`: `tor.exe`, the `pt\lyrebird.exe` transport with
-`pt_config.json`, the `geoip` and `geoip6` databases, `torrc`, and the `data` folder with the cached
-consensus — which is also where exits and ordinary relays are picked from. It is downloaded the first
-time the chain is switched on through Tor.
+Tor for HMS lives in `C:\Program Files\Zapret2UI\tor`: `tor.exe`, the `pt\lyrebird.exe` transport with
+`pt_config.json`, the `geoip` and `geoip6` databases and `torrc`. The `data` folder with the cached
+consensus — which is also where exits and ordinary relays are picked from — is in
+`%LOCALAPPDATA%\Zapret2UI\tor\data`. It is downloaded the first time the chain is switched on through Tor.
 
 ### If it does not work
 
@@ -949,15 +950,17 @@ none of them scrolls. The values are stored in `settings.json` (`AppSettings`).
 Besides the above, the file keeps two housekeeping marks for the interface: whether the support
 block is collapsed, and whether the first-run walkthrough has been shown. Neither is edited by hand.
 
-The **"Добавить в исключения"** (Add to exclusions) button registers the program and the engine folder
-with Windows Defender and the firewall in one click (the antivirus is a common cause of "it does not
-work").
+The **"Добавить в исключения"** (Add to exclusions) button registers the program and the
+`C:\Program Files\Zapret2UI` folder with Windows Defender and the firewall in one click (the antivirus is
+a common cause of "it does not work"). If the `%LOCALAPPDATA%\Zapret2UI` folder was excluded before (as
+versions before the engine moved did), the button takes that exclusion back: a folder any program can
+write to must not be hidden from the antivirus.
 
 After each exclusion the program **re-reads the list from Defender and makes sure the entry really
 appeared**. This is not a formality: with Tamper Protection on (enabled by default in Windows 11) or
 under a third-party antivirus, the add command can report success while the exclusion is quietly dropped
 — and the engine keeps disappearing. If the entry was not confirmed, the report shows a **✗** with an
-explanation rather than a false tick. In that case add the `%LOCALAPPDATA%\Zapret2UI` folder to the
+explanation rather than a false tick. In that case add the `C:\Program Files\Zapret2UI` folder to the
 exclusions by hand through Windows Security → Virus and threat protection → Exclusions.
 
 ### 15.1. Backup
@@ -1008,6 +1011,11 @@ grow in number and are needed for diagnosing failures.
   about the false positive appears in the journal along with advice to add the exclusions, after which
   the engine is downloaded again. Without the exclusions it will disappear again after every download
   (see [§15](#15-settings-the-full-list)).
+- **Before the bypass starts on its own, the update check waits no longer than 15 seconds.** With both
+  automatic engine updates and "Сразу запускать обход" (Start the bypass at launch) on and GitHub not
+  answering, the bypass starts on the installed version and the check finishes in the background. If a
+  newer version turns up, the program stops the engine, updates it and starts it again by itself. A
+  download already under way is waited for.
 - **The application** is updated separately, from the
   [Asterlike/zapret2UI](https://github.com/Asterlike/zapret2UI/releases) releases. When a newer version
   exists, a notification appears with a link to the release.
@@ -1016,36 +1024,57 @@ grow in number and are needed for diagnosing failures.
 
 ## 17. Files and folders on disk
 
-Everything lives under `%LOCALAPPDATA%\Zapret2UI\` (the program never writes to Program Files):
+Two folders, split by who may write to them.
+
+**`C:\Program Files\Zapret2UI\`** — everything that runs. The program runs with administrator's rights,
+and so does every process it starts. Were the engine in the profile folder, any program running under
+your name could swap a file and be started with administrator's rights the next time the bypass is
+switched on. In Program Files only administrators can write — Windows gives the folder the right
+permissions by itself. ProgramData would not do: there an ordinary user can create the folder before the
+program does and own it.
 
 ```
-%LOCALAPPDATA%\Zapret2UI\
-├─ engine\                     the engine and its data
+C:\Program Files\Zapret2UI\
+├─ engine\                     the engine
 │  ├─ winws2.exe               the engine itself (needs administrator)
 │  ├─ mdig.exe, ip2net.exe     resolving domains → CIDR for ipset
 │  ├─ cygwin1.dll, WinDivert*  runtime and driver
 │  ├─ installed_version.txt    the installed engine version
-│  ├─ lua\                     zapret-lib / zapret-antidpi / zapret-auto and others
+│  ├─ lua\                     zapret-lib / zapret-antidpi / zapret-auto and others (code too)
 │  ├─ files\                   blobs (fake\*.bin: TLS/QUIC/STUN client hellos)
 │  └─ windivert.filter\        windivert_part.*.txt (STUN, QUIC initial)
+├─ masque\usque.exe            the WARP client (see §12)
+├─ tor\                        Tor for HMS, downloaded on first use (see §12)
+│  ├─ tor.exe, torrc          Tor itself and its config (the torrc names the program Tor starts)
+│  ├─ pt\                     lyrebird.exe and pt_config.json: the obfs4 and webtunnel transports
+│  └─ geoip, geoip6           address → country
+└─ tmp\                        engine and Tor downloads before their checksum is checked
+```
+
+**`%LOCALAPPDATA%\Zapret2UI\`** — your data:
+
+```
+%LOCALAPPDATA%\Zapret2UI\
 ├─ lists\                      host lists and ipset
 │  ├─ youtube.txt, discord.txt built-in domain lists
 │  ├─ exclude.txt              exclusions (banks / government services)
 │  ├─ ipset-discord.txt        collected CIDR subnets (after "Build the IP list")
 │  └─ ipset-masque.txt         WARP entry points; always covered by the engine (see §12)
 ├─ logs\                       engine-YYYYMMDD-HHMMSS.log (engine output)
-├─ masque\                     the built-in WARP client (see §12)
-│  ├─ usque.exe               the MASQUE client, started with no window
-│  └─ config.json             the registered device: key, licence, token
-├─ tor\                        Tor for HMS, downloaded on first use (see §12)
-│  ├─ tor.exe, torrc          Tor itself and its config
-│  ├─ pt\                     lyrebird.exe and pt_config.json: the obfs4 and webtunnel transports
-│  ├─ geoip, geoip6           address → country
-│  └─ data\                   the cached consensus: exits and ordinary relays are picked from it
-├─ tmp\                        temporary downloads
+├─ masque\config.json          the registered WARP device: key, licence, token
+├─ tor\data\                   Tor's cached consensus: exits and ordinary relays are picked from it
+├─ tmp\                        temporary files of the backup
 ├─ presets.json               your strategies
 └─ settings.json              settings (see §15)
 ```
+
+**Coming from an older version.** Everything used to live in `%LOCALAPPDATA%\Zapret2UI`. On the first
+launch of the new version the engine is downloaded again, into Program Files, with its checksum checked.
+The old copy is not carried over: anyone could have swapped it. If the download fails, the old engine is
+copied after all so the bypass keeps working, and it is replaced by a verified download at the next
+chance. The same goes for Tor. Once the replacement is in place, the old program files are deleted from
+the profile. The `wireguard` folder (WireGuard is long gone) and the old `%LOCALAPPDATA%\ZapretUI` folder
+— a leftover of the program's rename — are deleted too.
 
 `settings.json` is written atomically (through a temp file), so a failure during writing cannot corrupt
 your settings; if the file does get damaged, it is kept as `.bak` and the settings are reset to their

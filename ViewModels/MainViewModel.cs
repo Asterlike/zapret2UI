@@ -310,21 +310,63 @@ public sealed partial class MainViewModel : ObservableObject
 
         EngineVersion = _updater.InstalledVersion ?? Loc.T("не установлен");
 
-        // A missing/incomplete engine must be resolved before anything can run → await (it downloads).
-        // A routine "is there a newer engine?" check when the engine is already present runs in the
-        // BACKGROUND so a slow or blocked GitHub request never delays the rest of startup — EXCEPT when
-        // we're about to auto-start the engine, where the old await ordering is kept so an install can't
-        // churn the launch (CheckAndUpdateAsync would otherwise stop→update→restart it mid-startup).
-        if (!_updater.IsEngineInstalled || !_updater.IsEngineComplete
-            || (Settings.AutoUpdateEngine && Settings.AutostartEngine))
-            await CheckAndUpdateAsync();
-        else if (Settings.AutoUpdateEngine)
-            _ = CheckAndUpdateAsync();
+        // Installing writes under Program Files, which needs administrator's rights. The app always has
+        // them; only the headless harness runs without, and it never needs an engine.
+        if (Environment.IsPrivilegedProcess)
+        {
+            // A missing/incomplete engine must be resolved before anything can run → await (it downloads).
+            // A routine "is there a newer engine?" check when the engine is already present runs in the
+            // BACKGROUND so a slow or blocked GitHub request never delays the rest of startup. A copy carried
+            // over from the profile is checked whatever the setting says: it is meant to be replaced.
+            if (!_updater.IsEngineInstalled || !_updater.IsEngineComplete)
+            {
+                await CheckAndUpdateAsync();
+                AdoptLegacyEngineIfNeeded();
+            }
+            else if (Settings.AutoUpdateEngine && Settings.AutostartEngine)
+                await CheckBeforeAutostartAsync();
+            else if (Settings.AutoUpdateEngine || _updater.IsCopiedEngine)
+                _ = CheckAndUpdateAsync();
+
+            _ = Task.Run(() => LegacyCleanup.Run(_updater));
+        }
 
         if (Settings.AutostartEngine && CanStart && SelectedPreset is not null)
             Start();
 
         _ = CheckAppUpdateAsync(); // notify (don't block startup) if a newer ZapretUI release exists
+    }
+
+    /// <summary>
+    /// The update check ahead of an automatic start, with a ceiling. It used to be awaited in full so an
+    /// install could not stop and restart the engine mid-launch — but the check is a GitHub request with a
+    /// ten-minute timeout, so a GitHub that hangs instead of refusing (a common way of being blocked) kept
+    /// the user without a bypass for minutes after logging on. Past the ceiling the installed engine starts
+    /// and the check finishes in the background; if it then installs, CheckAndUpdateAsync stops and
+    /// restarts the engine itself. A download already under way is waited for: winws2 started while the
+    /// files are being replaced would run a half-new engine.
+    /// </summary>
+    private async Task CheckBeforeAutostartAsync()
+    {
+        Task check = CheckAndUpdateAsync();
+        if (await Task.WhenAny(check, Task.Delay(TimeSpan.FromSeconds(15))) == check) return;
+        if (IsDownloadingEngine) { await check; return; }
+        AppendLog(Loc.T("Проверка обновлений движка не ответила за 15 секунд — обход запускается с установленной " +
+                        "версией, проверка продолжается в фоне."));
+    }
+
+    /// <summary>First launch after the move to Program Files with the download failed: carry the engine over
+    /// from the profile rather than leave the user without a bypass. It is replaced by a verified download at
+    /// the next chance.</summary>
+    private void AdoptLegacyEngineIfNeeded()
+    {
+        if (_updater.IsEngineInstalled || !_updater.AdoptLegacyEngine()) return;
+        EngineVersion = _updater.InstalledVersion ?? "—";
+        UpdateStatus = Loc.T("Движок перенесён из старой папки — скачать новый не удалось. Он будет заменён " +
+                             "проверенной загрузкой при следующей возможности.");
+        AppendLog(UpdateStatus);
+        OnPropertyChanged(nameof(CanStart));
+        RaiseCommandStates();
     }
 
     // ---- helpers -----------------------------------------------------------

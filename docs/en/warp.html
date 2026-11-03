@@ -429,15 +429,17 @@
 
     <h2 id="fayly">Where things live</h2>
 
-    <p>Everything sits in <code>%LOCALAPPDATA%\Zapret2UI\masque</code>: the unpacked
-      <code>usque.exe</code> client and <code>config.json</code> with the device key, its licence and
-      token. The folder is inside your own profile, alongside the program's other data.</p>
+    <p>The <code>usque.exe</code> client is unpacked into <code>C:\Program Files\Zapret2UI\masque</code>: it
+      runs with administrator's rights, so it lives where it cannot be swapped. <code>config.json</code> with
+      the device key, its licence and token is in your own profile, in
+      <code>%LOCALAPPDATA%\Zapret2UI\masque</code>.</p>
 
-    <p>Tor for HMS lives in <code>%LOCALAPPDATA%\Zapret2UI\tor</code>: <code>tor.exe</code>, the
+    <p>Tor for HMS lives in <code>C:\Program Files\Zapret2UI\tor</code>: <code>tor.exe</code>, the
       <code>pt\lyrebird.exe</code> transport with <code>pt_config.json</code>, the <code>geoip</code> and
-      <code>geoip6</code> databases, <code>torrc</code>, and the <code>data</code> folder with the cached
-      consensus — which is also where exits and ordinary relays are picked from. It is downloaded the
-      first time the chain is switched on through Tor.</p>
+      <code>geoip6</code> databases and <code>torrc</code>. The <code>data</code> folder with the cached
+      consensus — which is also where exits and ordinary relays are picked from — is in
+      <code>%LOCALAPPDATA%\Zapret2UI\tor\data</code>. It is downloaded the first time the chain is switched
+      on through Tor.</p>
 
     <div class="note">
       <p>The client runs as a child process of the program. If the program crashes, a proxy left behind

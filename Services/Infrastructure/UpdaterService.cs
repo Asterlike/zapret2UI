@@ -71,6 +71,48 @@ public sealed class UpdaterService
     public bool EngineBinaryVanished =>
         !File.Exists(AppPaths.WinwsExe) && File.Exists(AppPaths.EngineVersionFile);
 
+    // ---- the move to Program Files ----------------------------------------
+
+    /// <summary>Marks an engine carried over from the old profile folder instead of downloaded. Such a
+    /// copy is only as trustworthy as that folder was — anyone could write there — so it is replaced by a
+    /// verified download at the first chance (see <see cref="IsCopiedEngine"/>).</summary>
+    private static string CopiedMarker => Path.Combine(AppPaths.EngineDir, "copied-from-profile.txt");
+
+    /// <summary>The engine in place is a carry-over that still wants replacing by a download.</summary>
+    public bool IsCopiedEngine => File.Exists(CopiedMarker);
+
+    /// <summary>An engine from before the move is still in the profile folder.</summary>
+    public static bool LegacyEngineExists =>
+        File.Exists(Path.Combine(AppPaths.LegacyEngineDir, "winws2.exe"));
+
+    /// <summary>Fallback for the first launch after the move when the download failed: carry the old
+    /// engine over rather than leave the user without a bypass — no worse than before the move, and
+    /// marked so the next check downloads a clean one. Returns whether an engine is now in place.</summary>
+    public bool AdoptLegacyEngine()
+    {
+        if (IsEngineInstalled || !LegacyEngineExists) return IsEngineInstalled;
+        try
+        {
+            AppPaths.EnsureBinCreated();
+            foreach (string src in Directory.EnumerateFiles(AppPaths.LegacyEngineDir, "*", SearchOption.AllDirectories))
+            {
+                string dst = Path.Combine(AppPaths.EngineDir, Path.GetRelativePath(AppPaths.LegacyEngineDir, src));
+                Directory.CreateDirectory(Path.GetDirectoryName(dst)!);
+                File.Copy(src, dst, overwrite: true);
+            }
+            File.WriteAllText(CopiedMarker, "engine carried over from " + AppPaths.LegacyEngineDir);
+            return IsEngineInstalled;
+        }
+        catch { return false; }
+    }
+
+    /// <summary>Remove the profile copy once a real install is in place. Never while it is all the user
+    /// has.</summary>
+    public void DeleteLegacyEngine()
+    {
+        if (IsEngineInstalled) TryDeleteDir(AppPaths.LegacyEngineDir);
+    }
+
     // ---- app (this UI) self-update check ----------------------------------
 
     /// <summary>This app's own version (from the assembly), e.g. "0.1.0".</summary>
@@ -232,10 +274,12 @@ public sealed class UpdaterService
         IProgress<UpdateProgress>? progress = null,
         CancellationToken ct = default)
     {
-        AppPaths.EnsureCreated();
+        AppPaths.EnsureBinCreated();
 
-        string zipPath = Path.Combine(AppPaths.TempDir, $"zapret2-{release.Tag}.zip");
-        string stageDir = Path.Combine(AppPaths.TempDir, $"stage-{Guid.NewGuid():N}");
+        // Both under Program Files: in the profile a staged file could be swapped after its checksum
+        // matched and before it is copied into place.
+        string zipPath = Path.Combine(AppPaths.BinTempDir, $"zapret2-{release.Tag}.zip");
+        string stageDir = Path.Combine(AppPaths.BinTempDir, $"stage-{Guid.NewGuid():N}");
 
         try
         {
@@ -274,6 +318,7 @@ public sealed class UpdaterService
             progress?.Report(new UpdateProgress(0.95, Loc.T("Установка…")));
             InstallStaged(stageDir);
             File.WriteAllText(AppPaths.EngineVersionFile, release.Tag);
+            TryDelete(CopiedMarker);   // a downloaded, verified engine now — no longer a carry-over
 
             progress?.Report(new UpdateProgress(1.0, Loc.T("Готово — {0}", release.Tag)));
         }

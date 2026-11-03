@@ -618,16 +618,19 @@ gateway.discord.gg</code></pre>
 
     <p>Besides the above, the file keeps two housekeeping marks for the interface: whether the support block is collapsed, and whether the first-run walkthrough has been shown. Neither is edited by hand.</p>
 
-    <p>A separate <b>"Add to exclusions"</b> button registers the program and the engine folder with
-      Windows Defender and the firewall in one click. The antivirus remains the most common reason a bypass
-      "does not work".</p>
+    <p>A separate <b>"Add to exclusions"</b> button registers the program and the
+      <code>C:\Program Files\Zapret2UI</code> folder with Windows Defender and the firewall in one click. The
+      antivirus remains the most common reason a bypass "does not work". If the
+      <code>%LOCALAPPDATA%\Zapret2UI</code> folder was excluded before (as versions before the engine moved
+      did), the button takes that exclusion back: a folder any program can write to must not be hidden from
+      the antivirus.</p>
 
     <div class="note">
       <p>After each exclusion the program <b>re-reads the list from Defender and checks that the entry
         really appeared</b>. With Tamper Protection on (enabled by default in Windows 11) or under a
         third-party antivirus, the add command can report success while the exclusion is quietly dropped.
         So the report shows an honest <b>✗</b> with a reason rather than a tick. In that case add the
-        <code>%LOCALAPPDATA%\Zapret2UI</code> folder by hand: Windows Security → Virus and threat
+        <code>C:\Program Files\Zapret2UI</code> folder by hand: Windows Security → Virus and threat
         protection → Exclusions.</p>
     </div>
 
@@ -704,34 +707,47 @@ gateway.discord.gg</code></pre>
 
     <h2 id="fayly">Files on disk</h2>
 
-    <p>The program is portable: it does not install into <code>Program Files</code> and barely touches the
-      system. Everything lives in one folder.</p>
+    <p>The program installs nothing and barely touches the system, but it keeps its files in two folders,
+      split by who may write to them. The program runs with administrator's rights, and so does every
+      process it starts. Were the engine in the profile folder, any program running under your name could
+      swap a file and be started with administrator's rights the next time the bypass is switched on. So
+      everything that runs lives in <code>Program Files</code>, where only administrators can write.</p>
 
-<pre><code>%LOCALAPPDATA%\Zapret2UI\
-├─ engine\                     <span class="t-cmt">the engine and its data</span>
+<pre><code>C:\Program Files\Zapret2UI\
+├─ engine\                     <span class="t-cmt">the engine</span>
 │  ├─ winws2.exe               <span class="t-cmt">the engine itself, needs administrator</span>
 │  ├─ mdig.exe, ip2net.exe     <span class="t-cmt">resolving domains into subnets for ipset</span>
 │  ├─ cygwin1.dll, WinDivert*  <span class="t-cmt">runtime and the network driver</span>
 │  ├─ installed_version.txt    <span class="t-cmt">the installed engine version</span>
-│  ├─ lua\                     <span class="t-cmt">technique libraries</span>
+│  ├─ lua\                     <span class="t-cmt">technique libraries (code too)</span>
 │  ├─ files\                   <span class="t-cmt">blobs: ready-made TLS and QUIC client hellos</span>
 │  └─ windivert.filter\        <span class="t-cmt">pieces of the capture filter</span>
+├─ masque\usque.exe            <span class="t-cmt">the WARP client</span>
+├─ tor\                        <span class="t-cmt">Tor for HMS, downloaded on first use</span>
+│  ├─ tor.exe, torrc          <span class="t-cmt">Tor itself and its config</span>
+│  └─ pt\                     <span class="t-cmt">the obfs4 and webtunnel transports (lyrebird)</span>
+└─ tmp\                        <span class="t-cmt">downloads before their checksum is checked</span></code></pre>
+
+    <p>Your data is in the profile folder:</p>
+
+<pre><code>%LOCALAPPDATA%\Zapret2UI\
 ├─ lists\                      <span class="t-cmt">host lists and ipset</span>
 │  ├─ youtube.txt, discord.txt <span class="t-cmt">built-in domain lists</span>
 │  ├─ exclude.txt              <span class="t-cmt">exclusions: banks, government services</span>
 │  ├─ ipset-discord.txt        <span class="t-cmt">collected subnets</span>
 │  └─ ipset-masque.txt         <span class="t-cmt">WARP entry points, always covered by the engine</span>
 ├─ logs\                       <span class="t-cmt">engine output per session</span>
-├─ masque\                     <span class="t-cmt">the bundled WARP client</span>
-│  ├─ usque.exe               <span class="t-cmt">the MASQUE client</span>
-│  └─ config.json             <span class="t-cmt">the registered device: key, licence, token</span>
-├─ tor\                        <span class="t-cmt">Tor for HMS, downloaded on first use</span>
-│  ├─ tor.exe, torrc          <span class="t-cmt">Tor itself and its config</span>
-│  ├─ pt\                     <span class="t-cmt">the obfs4 and webtunnel transports (lyrebird)</span>
-│  └─ data\                   <span class="t-cmt">the cached consensus: exits and ordinary relays</span>
-├─ tmp\                        <span class="t-cmt">temporary downloads</span>
+├─ masque\config.json          <span class="t-cmt">the WARP device: key, licence, token</span>
+├─ tor\data\                   <span class="t-cmt">Tor's cached consensus: exits and ordinary relays</span>
+├─ tmp\                        <span class="t-cmt">temporary files of the backup</span>
 ├─ presets.json                <span class="t-cmt">your strategies</span>
 └─ settings.json               <span class="t-cmt">settings</span></code></pre>
+
+    <p>On the first launch of the new version after an old one, the engine is downloaded again, into
+      Program Files, with its checksum checked. The old copy in the profile is not carried over: anyone
+      could have swapped it. If the download fails, the old engine is copied after all so the bypass keeps
+      working, and it is replaced by a verified download at the next chance. Then the old program files are
+      deleted from the profile.</p>
 
     <h3 id="udalenie">How to remove it completely</h3>
 
@@ -746,10 +762,10 @@ gateway.discord.gg</code></pre>
 <pre><code>schtasks /delete /tn "Zapret2UI Autostart" /f</code></pre>
       </li>
       <li>
-        <h3>Delete the file and the data folder</h3>
-        <p><code>Zapret2UI.exe</code> itself and the <code>%LOCALAPPDATA%\Zapret2UI\</code> folder. After
-          that nothing is left of the program: it writes nothing to the registry or to
-          <code>Program Files</code>.</p>
+        <h3>Delete the file and both folders</h3>
+        <p><code>Zapret2UI.exe</code> itself, the data folder <code>%LOCALAPPDATA%\Zapret2UI\</code> and the
+          programs folder <code>C:\Program Files\Zapret2UI\</code> (the second asks for administrator's
+          confirmation). After that nothing is left of the program: it writes nothing to the registry.</p>
       </li>
     </ol>
 

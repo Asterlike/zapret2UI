@@ -388,7 +388,8 @@ public sealed partial class MainViewModel
                 return;
             }
 
-            if (!_updater.IsEngineInstalled || !_updater.IsEngineComplete || _updater.IsUpdateAvailable(latest))
+            if (!_updater.IsEngineInstalled || !_updater.IsEngineComplete || _updater.IsUpdateAvailable(latest)
+                || _updater.IsCopiedEngine)
             {
                 bool wasRunning = IsRunning;
                 if (wasRunning)

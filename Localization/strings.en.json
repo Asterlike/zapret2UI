@@ -906,5 +906,9 @@
   "отдаёт эти сайты обычному прокси WARP, если он включён": "hands these sites to the ordinary WARP proxy, if it is on",
   " · найдено: {0}": " · found: {0}",
   "Сразу запускать прокси Telegram при старте приложения": "Start the Telegram proxy as soon as the app launches",
-  "Не удалось включить автозапуск: планировщик заданий Windows отказал.": "Could not turn autostart on: Windows Task Scheduler refused."
+  "Не удалось включить автозапуск: планировщик заданий Windows отказал.": "Could not turn autostart on: Windows Task Scheduler refused.",
+  "[tor] скачать не удалось ({0}) — перенесён бандл из старой папки": "[tor] the download failed ({0}) — the bundle was carried over from the old folder",
+  "Defender · снято старое исключение «{0}»": "Defender · old exclusion removed «{0}»",
+  "Проверка обновлений движка не ответила за 15 секунд — обход запускается с установленной версией, проверка продолжается в фоне.": "The engine update check did not answer within 15 seconds — the bypass starts on the installed version, the check goes on in the background.",
+  "Движок перенесён из старой папки — скачать новый не удалось. Он будет заменён проверенной загрузкой при следующей возможности.": "The engine was carried over from the old folder — downloading a new one failed. It will be replaced by a verified download at the next chance."
 }

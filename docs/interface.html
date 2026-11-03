@@ -604,16 +604,18 @@ gateway.discord.gg</code></pre>
 
     <p>Кроме перечисленного файл хранит две служебные отметки интерфейса: свёрнут ли блок поддержки автора и показана ли вводная при первом запуске. Руками их не трогают.</p>
 
-    <p>Отдельная кнопка <b>«Добавить в исключения»</b> одним нажатием прописывает программу и папку движка
-      в Защитник Windows и брандмауэр. Антивирус остаётся самой частой причиной, по которой обход «не
-      работает».</p>
+    <p>Отдельная кнопка <b>«Добавить в исключения»</b> одним нажатием прописывает программу и папку
+      <code>C:\Program Files\Zapret2UI</code> в Защитник Windows и брандмауэр. Антивирус остаётся самой
+      частой причиной, по которой обход «не работает». Если раньше в исключениях была папка
+      <code>%LOCALAPPDATA%\Zapret2UI</code> (так делали версии до переноса движка), кнопка это исключение
+      снимает: папку, куда может писать любая программа, прятать от антивируса нельзя.</p>
 
     <div class="note">
       <p>После каждого исключения программа <b>перечитывает список у Защитника и проверяет, что запись
         действительно появилась</b>. При включённой «Защите от подделки» (Tamper Protection — по
         умолчанию включена в Windows 11) или под сторонним антивирусом команда добавления умеет
         отчитаться об успехе, а исключение при этом тихо отбрасывается. Поэтому в отчёте будет честный
-        <b>✗</b> с причиной, а не галочка. Тогда добавьте папку <code>%LOCALAPPDATA%\Zapret2UI</code>
+        <b>✗</b> с причиной, а не галочка. Тогда добавьте папку <code>C:\Program Files\Zapret2UI</code>
         вручную: «Безопасность Windows» → «Защита от вирусов и угроз» → «Исключения».</p>
     </div>
 
@@ -689,34 +691,47 @@ gateway.discord.gg</code></pre>
 
     <h2 id="fayly">Файлы на диске</h2>
 
-    <p>Программа портативная: не устанавливается в <code>Program Files</code> и почти не трогает систему.
-      Всё лежит в одной папке.</p>
+    <p>Программа ничего не устанавливает и почти не трогает систему, но файлы держит в двух папках, и
+      разделены они по тому, кто может в них писать. Программа работает с правами администратора, и каждый
+      процесс, который она запускает, тоже. Лежи движок в папке профиля, любая программа, запущенная от
+      вашего имени, могла бы подменить файл и получить права администратора при следующем включении
+      обхода. Поэтому всё, что запускается, лежит в <code>Program Files</code>: туда пишут только
+      администраторы.</p>
 
-<pre><code>%LOCALAPPDATA%\Zapret2UI\
-├─ engine\                     <span class="t-cmt">движок и его данные</span>
+<pre><code>C:\Program Files\Zapret2UI\
+├─ engine\                     <span class="t-cmt">движок</span>
 │  ├─ winws2.exe               <span class="t-cmt">сам движок, нужен администратор</span>
 │  ├─ mdig.exe, ip2net.exe     <span class="t-cmt">резолв доменов в подсети для ipset</span>
 │  ├─ cygwin1.dll, WinDivert*  <span class="t-cmt">рантайм и сетевой драйвер</span>
 │  ├─ installed_version.txt    <span class="t-cmt">установленная версия движка</span>
-│  ├─ lua\                     <span class="t-cmt">библиотеки приёмов</span>
+│  ├─ lua\                     <span class="t-cmt">библиотеки приёмов (это тоже код)</span>
 │  ├─ files\                   <span class="t-cmt">блобы: готовые TLS и QUIC ClientHello</span>
 │  └─ windivert.filter\        <span class="t-cmt">части фильтра перехвата</span>
+├─ masque\usque.exe            <span class="t-cmt">клиент WARP</span>
+├─ tor\                        <span class="t-cmt">Tor для HMS, качается при первом включении</span>
+│  ├─ tor.exe, torrc          <span class="t-cmt">сам Tor и его настройки</span>
+│  └─ pt\                     <span class="t-cmt">транспорты obfs4 и webtunnel (lyrebird)</span>
+└─ tmp\                        <span class="t-cmt">загрузки до проверки контрольной суммы</span></code></pre>
+
+    <p>Ваши данные — в папке профиля:</p>
+
+<pre><code>%LOCALAPPDATA%\Zapret2UI\
 ├─ lists\                      <span class="t-cmt">хостлисты и ipset</span>
 │  ├─ youtube.txt, discord.txt <span class="t-cmt">встроенные списки доменов</span>
 │  ├─ exclude.txt              <span class="t-cmt">исключения: банки, госуслуги</span>
 │  ├─ ipset-discord.txt        <span class="t-cmt">собранные подсети</span>
 │  └─ ipset-masque.txt         <span class="t-cmt">точки входа WARP, движок покрывает их всегда</span>
 ├─ logs\                       <span class="t-cmt">вывод движка по сеансам</span>
-├─ masque\                     <span class="t-cmt">встроенный клиент WARP</span>
-│  ├─ usque.exe               <span class="t-cmt">клиент MASQUE</span>
-│  └─ config.json             <span class="t-cmt">зарегистрированное устройство: ключ, лицензия, токен</span>
-├─ tor\                        <span class="t-cmt">Tor для HMS, качается при первом включении</span>
-│  ├─ tor.exe, torrc          <span class="t-cmt">сам Tor и его настройки</span>
-│  ├─ pt\                     <span class="t-cmt">транспорты obfs4 и webtunnel (lyrebird)</span>
-│  └─ data\                   <span class="t-cmt">кэш консенсуса: выходы и обычные реле</span>
-├─ tmp\                        <span class="t-cmt">временные загрузки</span>
+├─ masque\config.json          <span class="t-cmt">устройство WARP: ключ, лицензия, токен</span>
+├─ tor\data\                   <span class="t-cmt">кэш консенсуса Tor: выходы и обычные реле</span>
+├─ tmp\                        <span class="t-cmt">временные файлы резервной копии</span>
 ├─ presets.json                <span class="t-cmt">ваши стратегии</span>
 └─ settings.json               <span class="t-cmt">настройки</span></code></pre>
+
+    <p>При первом запуске новой версии после старой движок скачивается заново, в Program Files, с проверкой
+      контрольной суммы. Старую копию из профиля программа не переносит: её мог подменить кто угодно. Если
+      скачать не удалось, старый движок всё же копируется, чтобы обход работал, и заменяется проверенной
+      загрузкой при следующей возможности. Затем старые файлы программ удаляются из профиля.</p>
 
     <h3 id="udalenie">Как удалить полностью</h3>
 
@@ -732,9 +747,10 @@ gateway.discord.gg</code></pre>
 <pre><code>schtasks /delete /tn "Zapret2UI Autostart" /f</code></pre>
       </li>
       <li>
-        <h3>Удалите файл и папку данных</h3>
-        <p>Сам <code>Zapret2UI.exe</code> и папку <code>%LOCALAPPDATA%\Zapret2UI\</code>. После этого от
-          программы не остаётся ничего: в реестре и в <code>Program Files</code> она ничего не пишет.</p>
+        <h3>Удалите файл и обе папки</h3>
+        <p>Сам <code>Zapret2UI.exe</code>, папку данных <code>%LOCALAPPDATA%\Zapret2UI\</code> и папку
+          программ <code>C:\Program Files\Zapret2UI\</code> (вторую — с подтверждением администратора).
+          После этого от программы не остаётся ничего: в реестр она ничего не пишет.</p>
       </li>
     </ol>
 

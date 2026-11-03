@@ -35,10 +35,12 @@ public sealed class AutostartService
     public bool Enable()
     {
         if (!IsSupported || ExePath is null) return false;
-        string xmlFile = Path.Combine(AppPaths.TempDir, "autostart-task.xml");
+        // Under Program Files: the XML names the program the task starts with the highest rights, and in
+        // the profile it could be rewritten between our write and schtasks reading it.
+        string xmlFile = Path.Combine(AppPaths.BinTempDir, "autostart-task.xml");
         try
         {
-            AppPaths.EnsureCreated();
+            AppPaths.EnsureBinCreated();
             // UTF-16 with a BOM, as the declaration inside says — the form Task Scheduler exports itself.
             File.WriteAllText(xmlFile, BuildTaskXml(ExePath, WindowsIdentity.GetCurrent().Name), Encoding.Unicode);
             var (code, _) = RunSchtasks($"/Create /TN \"{TaskName}\" /XML \"{xmlFile}\" /F");

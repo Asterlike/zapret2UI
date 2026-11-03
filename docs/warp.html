@@ -421,14 +421,16 @@
 
     <h2 id="fayly">Где что лежит</h2>
 
-    <p>Всё в <code>%LOCALAPPDATA%\Zapret2UI\masque</code>: распакованный клиент
-      <code>usque.exe</code> и <code>config.json</code> с ключом устройства, его лицензией и токеном.
-      Папка лежит в вашем профиле — там же, где остальные данные программы.</p>
+    <p>Клиент <code>usque.exe</code> распаковывается в <code>C:\Program Files\Zapret2UI\masque</code>: он
+      работает с правами администратора, поэтому лежит там, где его не подменить. <code>config.json</code> с
+      ключом устройства, его лицензией и токеном — в вашем профиле, в
+      <code>%LOCALAPPDATA%\Zapret2UI\masque</code>.</p>
 
-    <p>Tor для HMS — в <code>%LOCALAPPDATA%\Zapret2UI\tor</code>: <code>tor.exe</code>, транспорт
+    <p>Tor для HMS — в <code>C:\Program Files\Zapret2UI\tor</code>: <code>tor.exe</code>, транспорт
       <code>pt\lyrebird.exe</code> с <code>pt_config.json</code>, гео-базы <code>geoip</code> и
-      <code>geoip6</code>, <code>torrc</code> и папка <code>data</code> с кэшем консенсуса — из него же
-      берутся выходные узлы и обычные реле. Скачивается при первом включении цепочки через Tor.</p>
+      <code>geoip6</code> и <code>torrc</code>. Папка <code>data</code> с кэшем консенсуса — из него же
+      берутся выходные узлы и обычные реле — в <code>%LOCALAPPDATA%\Zapret2UI\tor\data</code>. Скачивается
+      при первом включении цепочки через Tor.</p>
 
     <div class="note">
       <p>Клиент запускается дочерним процессом программы. Если программа падает, оставшийся прокси

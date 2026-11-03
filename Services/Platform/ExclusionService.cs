@@ -5,8 +5,8 @@ using Zapret2UI.Services.Infrastructure;
 namespace Zapret2UI.Services.Platform;
 
 /// <summary>
-/// One-click "make Windows leave us alone": adds Windows Defender exclusions (for the app, the whole
-/// <c>%LOCALAPPDATA%\Zapret2UI</c> data folder and the engine folder + processes) and Windows Firewall
+/// One-click "make Windows leave us alone": adds Windows Defender exclusions (for the app, the
+/// <c>%ProgramFiles%\Zapret2UI</c> executables folder and the engine process) and Windows Firewall
 /// allow-rules (in/out, all profiles) for the app and <c>winws2.exe</c>. A DPI-bypass engine ships an
 /// unsigned kernel driver (WinDivert) that antivirus loves to quarantine, and a blocking firewall is a
 /// common cause of "logs in but won't connect"; this fixes both in one go.
@@ -27,15 +27,17 @@ public sealed class ExclusionService
         bool ok = true;
 
         string? appExe = AppExePath();
-        string root = AppPaths.Root;
-        string engineDir = AppPaths.EngineDir;
         string winws = AppPaths.WinwsExe;
 
-        // 1) Windows Defender — exclude the data + engine folders and the two executables.
-        ok &= await DefenderExcludePathAsync(root, log);
-        ok &= await DefenderExcludePathAsync(engineDir, log);
+        // 1) Windows Defender — exclude the executables' folder (Program Files, administrators only) and
+        //    the two executables. Before the move the whole profile folder was excluded: a folder any
+        //    program can write to, hidden from the antivirus, with administrator's rights for whatever
+        //    runs out of it. Those old exclusions are taken back here; best-effort and not counted —
+        //    one that is not there is the normal case on a fresh install.
+        ok &= await DefenderExcludePathAsync(AppPaths.BinRoot, log);
         ok &= await DefenderExcludeProcessAsync(winws, log);
         if (appExe is not null) ok &= await DefenderExcludeProcessAsync(appExe, log);
+        await DefenderRemoveStaleAsync(log);
 
         // 2) Windows Firewall — allow the app and the engine through (inbound + outbound, all profiles).
         ok &= await FirewallAllowAsync("Zapret2UI (движок)", winws, log);
@@ -89,6 +91,32 @@ public sealed class ExclusionService
         $"$cur = @((Get-MpPreference -ErrorAction Stop).{kind}); " +
         "if (-not ($cur | Where-Object { $_ -and $_.TrimEnd('\\') -ieq $v.TrimEnd('\\') })) " +
         "{ throw 'Windows не сохранил исключение (Tamper Protection или политика антивируса)' }";
+
+    /// <summary>Take back the exclusions earlier versions added for the profile folder: the whole data
+    /// folder, the engine folder inside it and winws2 as a process from there. Reports only what was
+    /// actually present and removed.</summary>
+    private static async Task DefenderRemoveStaleAsync(List<string> log)
+    {
+        var stale = new[]
+        {
+            ("ExclusionPath", AppPaths.Root),
+            ("ExclusionPath", AppPaths.LegacyEngineDir),
+            ("ExclusionProcess", System.IO.Path.Combine(AppPaths.LegacyEngineDir, "winws2.exe")),
+        };
+        foreach (var (kind, value) in stale)
+        {
+            var (code, output) = await RunAsync("powershell.exe", new[]
+            {
+                "-NoProfile", "-NonInteractive", "-Command",
+                $"$v = '{PsQuote(value)}'; " +
+                $"$cur = @((Get-MpPreference -ErrorAction Stop).{kind}); " +
+                "if ($cur | Where-Object { $_ -and $_.TrimEnd('\\') -ieq $v.TrimEnd('\\') }) " +
+                $"{{ Remove-MpPreference -{kind} $v -ErrorAction Stop; 'removed' }}",
+            });
+            if (output.Contains("removed", StringComparison.Ordinal))
+                Note(log, code == 0, Loc.T("Defender · снято старое исключение «{0}»", value), output);
+        }
+    }
 
     private static async Task<bool> FirewallAllowAsync(string name, string exe, List<string> log)
     {
