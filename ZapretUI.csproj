@@ -87,6 +87,16 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Fake packets from Flowseal/zapret-discord-youtube (commit 176f56dc, 2026-10-20), MIT, LICENSE.txt
+         alongside. Not in the zapret2 release, so they ride in our exe and are unpacked next to the
+         engine's own files/ (FlowsealBlobs). ClientHellos signed with Russian names the TSPU leaves alone
+         (sferum.ru, 5ka.ru, 4pda.to, a mail.ru subdomain) and a STUN packet Flowseal sends as a TLS fake.
+         Their tls_clienthello_max_ru.bin is NOT here: it carries SNI www.onetrust.com, not max.ru. -->
+    <EmbeddedResource Include="Assets\flowseal\*.bin" LogicalName="Zapret2UI.flowseal.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="Assets\flowseal\LICENSE.txt" LogicalName="Zapret2UI.flowseal.LICENSE.txt" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Resource Include="Assets\app.ico" />
     <Resource Include="Assets\app-on.ico" />
     <Resource Include="Assets\donate-qr.png" />

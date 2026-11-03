@@ -1,4 +1,5 @@
 using Zapret2UI.Models;
+using Zapret2UI.Services.Engine;
 
 namespace Zapret2UI.Services.Strategies;
 
@@ -45,6 +46,11 @@ public static class ComboStrategyCatalog
         "--blob=tls_vk:@{FILES}\\fake\\tls_clienthello_vk_com.bin",
         "--blob=tls_sber:@{FILES}\\fake\\tls_clienthello_sberbank_ru.bin",
         "--blob=tls_gos:@{FILES}\\fake\\tls_clienthello_gosuslugi_ru.bin",
+    }
+    // Фейки Flowseal (сферум, sochi_park, 4pda, 5ka, stun2): распаковывает программа (FlowsealBlobs).
+    .Concat(FlowsealBlobs.Declarations)
+    .Concat(new[]
+    {
         "--wf-raw-part=@{WF}\\windivert_part.stun.txt",
         "--wf-raw-part=@{WF}\\windivert_part.quic_initial_ietf.txt",
         // HTTP (shared across variants)
@@ -54,7 +60,7 @@ public static class ComboStrategyCatalog
         // TLS on any high port (covers HTTPS + Discord media) (variant)
         "--new",
         "--filter-tcp=443-65535", "--filter-l7=tls", "--out-range=-d10", "--payload=tls_client_hello",
-    }
+    })
     .Concat(tls)
     .Concat(new[]
     {
@@ -233,6 +239,19 @@ public static class ComboStrategyCatalog
         new("Flowseal ALT11: fake ts → seqovl", Build(
             new[] { "--lua-desync=fake:blob=tls_google:tcp_ts=-1000:repeats=6",
                     "--lua-desync=multisplit:pos=1,midsld:seqovl=681:seqovl_pattern=tls_google:optional" }, QuicFake6)),
+
+        // Flowseal 1.10.x: общий профиль переехал с google на сферум (STUN + ClientHello сферума, разрезка
+        // внахлёст по сферуму), ALT13 — подмена имени под mail.ru после фейка поддомена mail.ru. Фейки в
+        // движок не входят — программа распаковывает их сама (FlowsealBlobs).
+        new("Flowseal ALT11 (сферум): stun2 + сферум → seqovl", Build(
+            new[] { "--lua-desync=fake:blob=stun2:tcp_ts=-1000:repeats=8",
+                    "--lua-desync=fake:blob=tls_sferum:tcp_ts=-1000:repeats=8",
+                    "--lua-desync=multisplit:pos=1,midsld:seqovl=664:seqovl_pattern=tls_sferum:optional" }, QuicFake11)),
+
+        new("Flowseal ALT13 (прибл.): fake mail.ru + hostfakesplit mail.ru", Build(
+            new[] { "--lua-desync=fake:blob=tls_sochi:tcp_ts=-1000:repeats=5",
+                    "--lua-desync=fake:blob=stun2:tcp_ts=-1000:repeats=5",
+                    "--lua-desync=hostfakesplit:host=mail.ru:tcp_ts=-1000:repeats=5:nofake2" }, QuicFake11)),
 
         // --- proven Discord stack (badseq/dupsid + split at sld+1)
         new("DC: fake badseq dupsid → multisplit sld+1", Build(

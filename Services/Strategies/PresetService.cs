@@ -1,6 +1,7 @@
 using System.IO;
 using System.Text.Json;
 using Zapret2UI.Models;
+using Zapret2UI.Services.Engine;
 using Zapret2UI.Services.Infrastructure;
 
 namespace Zapret2UI.Services.Strategies;
@@ -123,6 +124,27 @@ public sealed class PresetService
         "--lua-desync=multidisorder:pos=1,midsld",
     };
 
+    /// <summary>Flowseal's 1.10.x general profile (ALT11/ALT12), translated: two fakes with ts-fooling —
+    /// a STUN packet first (<paramref name="firstFake"/>: their stun2 for ALT11, the engine's stun for
+    /// ALT12), then sferum's ClientHello — and a split overlapping sferum's ClientHello. nfqws1
+    /// <c>--dpi-desync-fooling=ts</c> → <c>tcp_ts=-1000</c>; <c>split-pos=1</c> → <c>pos=1,midsld</c> as in the
+    /// ALT11 the owner runs (pos=1 alone does nothing in zapret2).</summary>
+    private static string[] SferumTls(string firstFake) => new[]
+    {
+        $"--lua-desync=fake:blob={firstFake}:tcp_ts=-1000:repeats=8",
+        "--lua-desync=fake:blob=tls_sferum:tcp_ts=-1000:repeats=8",
+        "--lua-desync=multisplit:pos=1,midsld:seqovl=664:seqovl_pattern=tls_sferum:optional",
+    };
+
+    /// <summary>Flowseal ALT13's general profile, approximated (see the preset): fake mail.ru-subdomain
+    /// ClientHello + STUN, then name substitution under mail.ru without the second fake.</summary>
+    private static readonly string[] MailRuTls =
+    {
+        "--lua-desync=fake:blob=tls_sochi:tcp_ts=-1000:repeats=5",
+        "--lua-desync=fake:blob=stun2:tcp_ts=-1000:repeats=5",
+        "--lua-desync=hostfakesplit:host=mail.ru:tcp_ts=-1000:repeats=5:nofake2",
+    };
+
     public static List<Preset> BuiltIns()
     {
         var list = new List<Preset>
@@ -184,6 +206,52 @@ public sealed class PresetService
                                 "--lua-desync=multisplit:pos=1,midsld:seqovl=681:seqovl_pattern=tls_google:ip_id=zero:optional" },
             fallbackTls: new[] { "--lua-desync=fake:blob=tls_google:tcp_ts=-1000:repeats=6",
                                  "--lua-desync=multisplit:pos=1,midsld:seqovl=664:seqovl_pattern=tls_google:optional" },
+            voiceDesync: new[] { "--lua-desync=fake:blob=quic_vk:repeats=6" }),
+
+        // 4a) Flowseal ALT11 as of 1.10.4 (2026-10-20): the general list (Discord included) moved from a
+        //     google fake to www.sferum.ru — two fakes, a STUN packet then sferum's ClientHello, and sferum
+        //     as the overlap pattern; repeats 6 → 8. The google list keeps the old pipeline with ip_id=zero.
+        //     A NEW entry: the ALT11 above works for the owner and is kept as it was.
+        Combo("Комбо — Flowseal ALT11 (сферум)",
+            "Перевод Flowseal ALT11 из версии 1.10.4 на nfqws2: Discord и остальные сайты — два фейка " +
+            "(STUN-пакет и ClientHello сферума) с ts-fooling и разрезка внахлёст с ClientHello сферума как " +
+            "образцом; YouTube — как в прежнем ALT11, через google-ClientHello. Голос — через отечественный " +
+            "QUIC-блоб (vk). Прежний ALT11 оставлен как был.",
+            recommended: false,
+            discordTls: SferumTls("stun2"),
+            youtubeTls: new[] { "--lua-desync=fake:blob=tls_google:tcp_ts=-1000:ip_id=zero:repeats=8",
+                                "--lua-desync=multisplit:pos=1,midsld:seqovl=681:seqovl_pattern=tls_google:ip_id=zero:optional" },
+            fallbackTls: SferumTls("stun2"),
+            voiceDesync: new[] { "--lua-desync=fake:blob=quic_vk:repeats=6" }),
+
+        // 4b) Flowseal ALT12: the sferum pipeline with the engine's own stun.bin as the first fake (Flowseal's
+        //     stun.bin is byte-identical to it), and the google list by name substitution alone —
+        //     hostfakesplit under www.google.com, ip_id=zero, no fake and no split.
+        Combo("Комбо — Flowseal ALT12 (сферум + hostfakesplit)",
+            "Перевод Flowseal ALT12 на nfqws2: Discord и остальные сайты — как в ALT11 (сферум), но первым " +
+            "фейком идёт STUN-пакет движка; YouTube — подмена имени (hostfakesplit под www.google.com) без " +
+            "разрезки. Голос — через отечественный QUIC-блоб (vk).",
+            recommended: false,
+            discordTls: SferumTls("stun"),
+            youtubeTls: new[] { "--lua-desync=hostfakesplit:host=www.google.com:tcp_ts=-1000:ip_id=zero" },
+            fallbackTls: SferumTls("stun"),
+            voiceDesync: new[] { "--lua-desync=fake:blob=quic_vk:repeats=6" }),
+
+        // 4c) Flowseal ALT13 — an APPROXIMATION. Its general profile is fake (a mail.ru-subdomain ClientHello
+        //     + STUN) then hostfakesplit host=mail.ru with altorder=1. Read in zapret1's desync.c: altorder=1
+        //     sends before-host, fake host, AFTER-host, then the real host, and no second fake. zapret2's
+        //     hostfakesplit has a fixed order (before, fake, real, fake, after); nofake2 drops the second fake
+        //     but nothing sends the tail before the real host. So: the same packets, the real host earlier.
+        Combo("Комбо — Flowseal ALT13 (mail.ru, приближение)",
+            "Приближённый перевод Flowseal ALT13 на nfqws2: Discord и остальные сайты — два фейка " +
+            "(ClientHello поддомена mail.ru и STUN-пакет) и подмена имени под mail.ru; YouTube — подмена " +
+            "имени под www.google.com. Точно повторить ALT13 нельзя: в nfqws2 нет режима altorder, который " +
+            "шлёт хвост запроса раньше настоящего имени, — используется ближайший вариант без второго фейка. " +
+            "Голос — через отечественный QUIC-блоб (vk).",
+            recommended: false,
+            discordTls: MailRuTls,
+            youtubeTls: new[] { "--lua-desync=hostfakesplit:host=www.google.com:tcp_ts=-1000" },
+            fallbackTls: MailRuTls,
             voiceDesync: new[] { "--lua-desync=fake:blob=quic_vk:repeats=6" }),
 
         // NB: Telegram is intentionally NOT covered by any preset — the native built-in tg-ws-proxy
@@ -335,6 +403,9 @@ public sealed class PresetService
         "Комбо — отечественный (VK, целевой)" => "Маскировка под VK",
         "Комбо — Flowseal ALT10 (двойной fake + ts)" => "Когда не работают голос и медиа",
         "Комбо — Flowseal ALT11 (fake+ts → seqovl)" => "Фейк + разрезка внахлёст",
+        "Комбо — Flowseal ALT11 (сферум)" => "Маскировка под Сферум",
+        "Комбо — Flowseal ALT12 (сферум + hostfakesplit)" => "Сферум + подмена имени",
+        "Комбо — Flowseal ALT13 (mail.ru, приближение)" => "Маскировка под Mail.ru",
         "Комбо — Flowseal (multisplit seqovl)" => "Разрезка запроса",
         "Комбо — Flowseal ALT (fake+fakedsplit)" => "Фейк + ложная разрезка",
         "Комбо — окно (wssize)" => "Дробит ответ сервера",
@@ -385,11 +456,19 @@ public sealed class PresetService
             "--blob=tls_gos:@{FILES}\\fake\\tls_clienthello_gosuslugi_ru.bin",
             // Отечественный QUIC-блоб для голоса Discord (аналог dbankcloud_ru из Flowseal ALT10/11).
             "--blob=quic_vk:@{FILES}\\fake\\quic_initial_vk_com.bin",
+            // STUN-пакет движка: Flowseal ALT12 шлёт его как TLS-фейк.
+            "--blob=stun:@{FILES}\\fake\\stun.bin",
+        };
+        // Фейки Flowseal (сферум, sochi_park, 4pda, 5ka, stun2) — в поставке движка их нет, программа
+        // распаковывает их сама (FlowsealBlobs). Глобальные объявления — до первого профиля.
+        a.AddRange(FlowsealBlobs.Declarations);
+        a.AddRange(new[]
+        {
             "--wf-raw-part=@{WF}\\windivert_part.stun.txt",
             "--wf-raw-part=@{WF}\\windivert_part.quic_initial_ietf.txt",
             // 1) Discord web/login/media (по SNI).
             "--filter-tcp=443-65535", "--filter-l7=tls", discordFilter, "--out-range=-d10", "--payload=tls_client_hello",
-        };
+        });
         a.AddRange(discordTls);
         // 2) YouTube / Google (по SNI).
         a.Add("--new");

@@ -510,6 +510,9 @@ public sealed partial class EngineService : IDisposable
             if (!File.Exists(AppPaths.WinwsExe))
                 throw new FileNotFoundException(Loc.T("winws2.exe не найден. Дождитесь загрузки движка."));
 
+            // Every strategy declares these blobs; winws2 refuses to start on a declared file it cannot read.
+            FlowsealBlobs.EnsureExtracted();
+
             SetState(EngineState.Starting);
 
             var psi = new ProcessStartInfo

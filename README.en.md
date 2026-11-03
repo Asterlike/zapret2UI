@@ -254,7 +254,7 @@ More in the documentation: [Interface → Telegram](https://asterlike.github.io/
 - **What the bypass does.** The `winws2` engine alters the first packets slightly so the DPI **does not
   recognise the site name** while the server understands everything correctly. A set of such techniques
   is what a **strategy** is.
-- **Why there are nine strategies.** Providers filter differently: a technique that punches through for
+- **Why there are twelve strategies.** Providers filter differently: a technique that punches through for
   one is useless with another. Hence selection and generation.
 - **What the bypass cannot do.** It lifts blocking **by name**. If a resource is cut off **by IP**, only
   a VPN helps (or the built-in proxy, if it is Telegram).

@@ -80,6 +80,9 @@
       <li><a href="#vk">Domestic (VK)</a></li>
       <li><a href="#alt10">Flowseal ALT10</a></li>
       <li><a href="#alt11">Flowseal ALT11</a></li>
+      <li><a href="#alt11-sferum">Flowseal ALT11 (sferum)</a></li>
+      <li><a href="#alt12">Flowseal ALT12</a></li>
+      <li><a href="#alt13">Flowseal ALT13</a></li>
       <li><a href="#seqovl">Flowseal (multisplit)</a></li>
       <li><a href="#alt">Flowseal ALT</a></li>
       <li><a href="#wssize">Window (wssize)</a></li>
@@ -112,7 +115,7 @@
 
     <h2 id="skelet">The shared skeleton</h2>
 
-    <p>The seven strategies prefixed "Combo" are built the same way and differ <b>only in the techniques
+    <p>The ten strategies prefixed "Combo" are built the same way and differ <b>only in the techniques
       used for TLS</b>. Everything else is shared: the same capture width, the same blobs, the same
       profiles for QUIC and voice. Understanding the skeleton once saves you from taking each one apart
       again.</p>
@@ -138,6 +141,12 @@
 <span class="t-flag">--blob</span>=tls_gos:@{FILES}\fake\tls_clienthello_gosuslugi_ru.bin
 <span class="t-flag">--blob</span>=quic_google:@{FILES}\fake\quic_initial_www_google_com.bin
 <span class="t-flag">--blob</span>=quic_vk:@{FILES}\fake\quic_initial_vk_com.bin
+<span class="t-flag">--blob</span>=stun:@{FILES}\fake\stun.bin
+<span class="t-flag">--blob</span>=tls_sferum:@{FILES}\flowseal\tls_clienthello_www_sferum_ru.bin
+<span class="t-flag">--blob</span>=tls_sochi:@{FILES}\flowseal\tls_clienthello_sochi_park.bin
+<span class="t-flag">--blob</span>=tls_4pda:@{FILES}\flowseal\tls_clienthello_4pda_to.bin
+<span class="t-flag">--blob</span>=tls_5ka:@{FILES}\flowseal\tls_clienthello_5ka_ru.bin
+<span class="t-flag">--blob</span>=stun2:@{FILES}\flowseal\stun2.bin
 <span class="t-flag">--wf-raw-part</span>=@{WF}\windivert_part.stun.txt
 <span class="t-flag">--wf-raw-part</span>=@{WF}\windivert_part.quic_initial_ietf.txt</code></pre>
 
@@ -161,6 +170,14 @@
         write <code>blob=tls_google</code>. The <code>tls_vk</code> and <code>quic_vk</code> blobs are real
         client hellos from <code>vk.com</code>. The point is that TSPU lets domestic traffic through more
         freely, so a "VK-flavoured" fake sometimes survives where a "Google-flavoured" one is cut.</dd>
+
+      <dt>--blob in the flowseal folder</dt>
+      <dd>Fakes from Flowseal's set that the engine release does not ship: the client hellos of
+        <code>www.sferum.ru</code>, a <code>mail.ru</code> subdomain, <code>4pda.to</code>, <code>5ka.ru</code>
+        and the STUN packet <code>stun2</code>. The program carries them inside itself and, before every
+        engine start, puts them in <code>files\flowseal\</code>, a folder of its own that an engine update
+        never touches. They are declared in every strategy: since zapret2 1.0.4 a blob that is used but not
+        declared silently stops all processing.</dd>
 
       <dt>--wf-raw-part</dt>
       <dd>Attaches ready-made pieces of the capture filter for STUN and for the first QUIC packet. Without
@@ -441,6 +458,104 @@
       </div>
     </div>
 
+    <div class="anatomy" id="alt11-sferum">
+      <header>
+        <h3>Combo, Flowseal ALT11 (sferum)</h3>
+        <span class="tagline">Disguised as Sferum</span>
+      </header>
+      <div class="anatomy-body">
+<pre><code><span class="t-cmt"># Discord and other TLS</span>
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">fake</span>:blob=stun2:tcp_ts=<span class="t-num">-1000</span>:repeats=<span class="t-num">8</span>
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">fake</span>:blob=tls_sferum:tcp_ts=<span class="t-num">-1000</span>:repeats=<span class="t-num">8</span>
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">multisplit</span>:pos=<span class="t-num">1,midsld</span>:seqovl=<span class="t-num">664</span>:seqovl_pattern=tls_sferum:optional
+
+<span class="t-cmt"># YouTube: as in ALT11, but 8 repeats and ip_id=zero</span>
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">fake</span>:blob=tls_google:tcp_ts=<span class="t-num">-1000</span>:ip_id=zero:repeats=<span class="t-num">8</span>
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">multisplit</span>:pos=<span class="t-num">1,midsld</span>:seqovl=<span class="t-num">681</span>:seqovl_pattern=tls_google:ip_id=zero:optional
+
+<span class="t-cmt"># voice: quic_vk, as in ALT10</span></code></pre>
+
+        <dl class="why">
+          <dt>What changed at Flowseal</dt>
+          <dd>In version 1.10.4 (20 October 2026) Flowseal changed the default fake: for Discord and every
+            other site the client hello of <code>www.sferum.ru</code> now goes out instead of Google's. The
+            earlier ALT11 is kept as a strategy of its own: it works for some people, and there is no reason
+            to change its behaviour quietly.</dd>
+
+          <dt>Two fakes in a row</dt>
+          <dd>First a STUN packet, then sferum's client hello. To the DPI the STUN looks like a foreign
+            protocol and sferum like a domestic site the TSPU lets through. Both carry a negative timestamp:
+            the server will drop them.</dd>
+
+          <dt>seqovl_pattern=tls_sferum</dt>
+          <dd>The overlap is filled with sferum's client hello rather than Google's. The file is shorter than
+            the overlap (661 bytes against 664), and the engine repeats it to the length needed.</dd>
+        </dl>
+
+        <p><b>When to use it.</b> If the earlier ALT11 worked and stopped, or never landed at all.</p>
+      </div>
+    </div>
+
+    <div class="anatomy" id="alt12">
+      <header>
+        <h3>Combo, Flowseal ALT12 (sferum + hostfakesplit)</h3>
+        <span class="tagline">Sferum + name substitution</span>
+      </header>
+      <div class="anatomy-body">
+<pre><code><span class="t-cmt"># Discord and other TLS: as in ALT11 (sferum), the first fake is the engine's STUN packet</span>
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">fake</span>:blob=stun:tcp_ts=<span class="t-num">-1000</span>:repeats=<span class="t-num">8</span>
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">fake</span>:blob=tls_sferum:tcp_ts=<span class="t-num">-1000</span>:repeats=<span class="t-num">8</span>
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">multisplit</span>:pos=<span class="t-num">1,midsld</span>:seqovl=<span class="t-num">664</span>:seqovl_pattern=tls_sferum:optional
+
+<span class="t-cmt"># YouTube: name substitution alone</span>
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">hostfakesplit</span>:host=www.google.com:tcp_ts=<span class="t-num">-1000</span>:ip_id=zero</code></pre>
+
+        <dl class="why">
+          <dt>blob=stun</dt>
+          <dd>The STUN packet that ships with the engine. Flowseal's set holds the same file, byte for byte.</dd>
+
+          <dt>YouTube without a fake or a split</dt>
+          <dd><code>hostfakesplit</code> cuts the client hello around the site name and slips in a fake name
+            resembling <code>www.google.com</code>. A separate fake and an overlap are not needed here.</dd>
+        </dl>
+
+        <p><b>When to use it.</b> If ALT11 (sferum) opens Discord but YouTube works badly.</p>
+      </div>
+    </div>
+
+    <div class="anatomy" id="alt13">
+      <header>
+        <h3>Combo, Flowseal ALT13 (mail.ru, approximation)</h3>
+        <span class="tagline">Disguised as Mail.ru</span>
+      </header>
+      <div class="anatomy-body">
+<pre><code><span class="t-cmt"># Discord and other TLS</span>
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">fake</span>:blob=tls_sochi:tcp_ts=<span class="t-num">-1000</span>:repeats=<span class="t-num">5</span>
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">fake</span>:blob=stun2:tcp_ts=<span class="t-num">-1000</span>:repeats=<span class="t-num">5</span>
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">hostfakesplit</span>:host=mail.ru:tcp_ts=<span class="t-num">-1000</span>:repeats=<span class="t-num">5</span>:nofake2
+
+<span class="t-cmt"># YouTube</span>
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">hostfakesplit</span>:host=www.google.com:tcp_ts=<span class="t-num">-1000</span></code></pre>
+
+        <dl class="why">
+          <dt>tls_sochi</dt>
+          <dd>The client hello of the subdomain <code>staging-sochi-park.predict.mail.ru</code>. Together with
+            name substitution under <code>mail.ru</code>, the whole connection looks to the DPI like a visit to
+            Mail.ru.</dd>
+
+          <dt>Why "approximation"</dt>
+          <dd>The original gives <code>hostfakesplit</code> <code>altorder=1</code>. Per the zapret1 sources
+            that means: the part before the name, the fake name, <b>the tail of the request</b>, and only then
+            the real name, with no second fake. In zapret2 the packet order of <code>hostfakesplit</code> is
+            fixed: before the name, fake, real name, second fake, tail. <code>nofake2</code> removes the second
+            fake, but nothing sends the tail before the real name. The same packets, a different order.</dd>
+        </dl>
+
+        <p><b>When to use it.</b> If sferum does not help: a different disguise and a different technique for
+          Discord.</p>
+      </div>
+    </div>
+
     <!-- 5 -->
     <div class="anatomy" id="seqovl">
       <header>
@@ -645,6 +760,10 @@
           <tr>
             <td>Login works, but it will not connect to servers and attachments will not load</td>
             <td><b>ALT10</b>, then <b>ALT11</b></td>
+          </tr>
+          <tr>
+            <td>ALT10 and ALT11 do not help or stopped working</td>
+            <td><b>ALT11 (sferum)</b>, <b>ALT12</b>, then <b>ALT13</b></td>
           </tr>
           <tr>
             <td>Text works, voice is silent or the ping is 5000</td>

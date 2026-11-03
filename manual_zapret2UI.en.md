@@ -12,7 +12,7 @@ wants to understand the program as a whole and tune it finely.
 
 > 🌐 **The same material as a website:** [asterlike.github.io/zapret2UI/en](https://asterlike.github.io/zapret2UI/en/) —
 > with search, section navigation and screenshots that open full size. It also carries a
-> [line-by-line breakdown of all nine built-in strategies](https://asterlike.github.io/zapret2UI/en/strategies.html),
+> [line-by-line breakdown of all twelve built-in strategies](https://asterlike.github.io/zapret2UI/en/strategies.html),
 > which is not in this file. This file is the offline version, as one document.
 
 > 🌐 **The program is available in Russian and English.** Switch with the **RU | EN** toggle at the top
@@ -332,6 +332,9 @@ backup, settings reset and the log files. The full list is in [§15](#15-setting
 | **Комбо — отечественный (VK, целевой)** — domestic (VK, targeted) | For Russia: the fakes for Discord are disguised as `vk.com` (TSPU does not drop domestic traffic). Like the recommended one it uses `hostfakesplit` on the SNI marker, so it gets you into login and to the servers. Use it if the google variants are "green but Discord will not open". |
 | **Комбо — Flowseal ALT10 (двойной fake + ts)** — double fake + ts | A translation of the Flowseal general (ALT10) strategy to nfqws2: no splitting — a double fake packet (google plus a vk ClientHello) with ts fooling, and voice through a domestic QUIC blob. For many people "everything just works". |
 | **Комбо — Flowseal ALT11 (fake+ts → seqovl)** | The second Flowseal variant: a fake prime with ts plus `multisplit` with a large `seqovl` (a real google ClientHello as the pattern). If ALT10 did not land, try this one. |
+| **Комбо — Flowseal ALT11 (сферум)** — ALT11 (sferum) | ALT11 from Flowseal 1.10.4: for Discord and other sites the google fake is replaced with sferum — two fakes (a STUN packet and the `www.sferum.ru` ClientHello) and an overlapping split on sferum's ClientHello. YouTube as in the earlier ALT11. The earlier ALT11 stays as its own row. |
+| **Комбо — Flowseal ALT12 (сферум + hostfakesplit)** — ALT12 (sferum + hostfakesplit) | Discord and other sites as in ALT11 (sferum), with the engine's STUN packet as the first fake. YouTube by name substitution under `www.google.com` alone, no fake and no split. |
+| **Комбо — Flowseal ALT13 (mail.ru, приближение)** — ALT13 (mail.ru, approximation) | A fake ClientHello of a mail.ru subdomain plus a STUN packet, then name substitution under `mail.ru`. **An approximation:** the original has `altorder=1`, which sends the tail of the request before the real name. nfqws2 has no such mode, so the closest variant (without the second fake) is used. |
 | **Комбо — Flowseal (multisplit seqovl)** | A working profile based on splitting the packet with `seqovl`. |
 | **Комбо — Flowseal ALT (fake+fakedsplit)** | Another Flowseal one: `fake` with `tcp_ts` plus `fakedsplit`. Try it if the `multisplit` variant did not punch through. |
 | **Комбо — окно (wssize)** — window | Bypass by shrinking the TCP window (`wssize`) — helps with some providers. |
@@ -343,7 +346,7 @@ The order to try them by hand is top to bottom, as in the table. Voice is separa
 
 ### How a combo is built
 
-The seven strategies prefixed "Комбо" are assembled from one skeleton and differ **only in the techniques
+The ten strategies prefixed "Комбо" are assembled from one skeleton and differ **only in the techniques
 used for TLS**. Everything else is shared, so there is no need to take each one apart again.
 
 The key idea is **routing by site name**: Discord, YouTube and all other traffic go through different
@@ -352,7 +355,8 @@ YouTube, and the other way round.
 
 The shared part before the first `--new`: the capture width (`{WF_TCP}`/`{WF_UDP}`), the name cache
 (`--ipcache-hostname=1`, required by `wssize`), the blobs (`tls_google`, `tls_vk`, `tls_sber`, `tls_gos`,
-`quic_google`, `quic_vk`) and the filter fragments for STUN and QUIC. Then seven profiles, in this order:
+`quic_google`, `quic_vk`, `stun` and the Flowseal fakes — see below) and the filter fragments for STUN and
+QUIC. Then seven profiles, in this order:
 
 | Profile | What it catches | What it does |
 |---|---|---|
@@ -374,7 +378,26 @@ parsing, so the voice stream's numbering is not corrupted, and the fake exists p
 port range is taken as the whole high range rather than a narrow `50000-50100`: the narrow one missed half
 the voice servers, which produced a permanent ping of 5000.
 
-> 📖 **A line-by-line breakdown of all nine strategies** — what each argument does and why it was chosen —
+### The Flowseal fakes
+
+The zapret2 release lacks some of the fakes Flowseal's recent strategies rest on. The program carries them
+inside itself and, before every engine start, puts them in `engine\files\flowseal\` — a folder of its own
+that an engine update never touches. Taken from
+[Flowseal/zapret-discord-youtube](https://github.com/Flowseal/zapret-discord-youtube) (MIT licence, commit
+`176f56dc`, 20 October 2026).
+
+| Blob name | What is inside |
+|---|---|
+| `tls_sferum` | the `www.sferum.ru` ClientHello |
+| `tls_sochi` | the `staging-sochi-park.predict.mail.ru` ClientHello (a mail.ru subdomain) |
+| `tls_5ka` | the `5ka.ru` ClientHello |
+| `tls_4pda` | the `4pda.to` ClientHello |
+| `stun2` | a STUN request; Flowseal sends it as a fake in place of TLS |
+
+What each file holds was checked by parsing it, not taken from its name. Flowseal's
+`tls_clienthello_max_ru.bin` was left out: it carries the name `www.onetrust.com`, not max.ru.
+
+> 📖 **A line-by-line breakdown of all twelve strategies** — what each argument does and why it was chosen —
 > is on the site:
 > [Strategies explained](https://asterlike.github.io/zapret2UI/en/strategies.html). It also carries a
 > "symptom → which strategy to try" table.

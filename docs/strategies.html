@@ -80,6 +80,9 @@
       <li><a href="#vk">Отечественный (VK)</a></li>
       <li><a href="#alt10">Flowseal ALT10</a></li>
       <li><a href="#alt11">Flowseal ALT11</a></li>
+      <li><a href="#alt11-sferum">Flowseal ALT11 (сферум)</a></li>
+      <li><a href="#alt12">Flowseal ALT12</a></li>
+      <li><a href="#alt13">Flowseal ALT13</a></li>
       <li><a href="#seqovl">Flowseal (multisplit)</a></li>
       <li><a href="#alt">Flowseal ALT</a></li>
       <li><a href="#wssize">Окно (wssize)</a></li>
@@ -111,7 +114,7 @@
 
     <h2 id="skelet">Общий скелет</h2>
 
-    <p>Семь стратегий с приставкой «Комбо» устроены одинаково и отличаются <b>только приёмами для
+    <p>Десять стратегий с приставкой «Комбо» устроены одинаково и отличаются <b>только приёмами для
       TLS</b>. Всё остальное у них общее: та же ширина перехвата, те же блобы, те же профили для QUIC и
       голоса. Понимание скелета один раз избавляет от необходимости разбирать каждую заново.</p>
 
@@ -136,6 +139,12 @@
 <span class="t-flag">--blob</span>=tls_gos:@{FILES}\fake\tls_clienthello_gosuslugi_ru.bin
 <span class="t-flag">--blob</span>=quic_google:@{FILES}\fake\quic_initial_www_google_com.bin
 <span class="t-flag">--blob</span>=quic_vk:@{FILES}\fake\quic_initial_vk_com.bin
+<span class="t-flag">--blob</span>=stun:@{FILES}\fake\stun.bin
+<span class="t-flag">--blob</span>=tls_sferum:@{FILES}\flowseal\tls_clienthello_www_sferum_ru.bin
+<span class="t-flag">--blob</span>=tls_sochi:@{FILES}\flowseal\tls_clienthello_sochi_park.bin
+<span class="t-flag">--blob</span>=tls_4pda:@{FILES}\flowseal\tls_clienthello_4pda_to.bin
+<span class="t-flag">--blob</span>=tls_5ka:@{FILES}\flowseal\tls_clienthello_5ka_ru.bin
+<span class="t-flag">--blob</span>=stun2:@{FILES}\flowseal\stun2.bin
 <span class="t-flag">--wf-raw-part</span>=@{WF}\windivert_part.stun.txt
 <span class="t-flag">--wf-raw-part</span>=@{WF}\windivert_part.quic_initial_ietf.txt</code></pre>
 
@@ -159,6 +168,14 @@
         <code>blob=tls_google</code>. Блобы <code>tls_vk</code> и <code>quic_vk</code>: настоящие
         приветствия от <code>vk.com</code>. Смысл в том, что ТСПУ пропускает отечественный трафик
         свободнее, поэтому фейк «под VK» иногда выживает там, где фейк «под Google» режут.</dd>
+
+      <dt>--blob в папке flowseal</dt>
+      <dd>Фейки из набора Flowseal, которых нет в поставке движка: приветствия <code>www.sferum.ru</code>,
+        поддомена <code>mail.ru</code>, <code>4pda.to</code>, <code>5ka.ru</code> и STUN-пакет
+        <code>stun2</code>. Программа носит их в себе и перед каждым запуском движка раскладывает в
+        <code>files\flowseal\</code>, свою папку, которую обновление движка не трогает. Объявлены во всех
+        стратегиях: блоб, который используется, но не объявлен, с версии zapret2 1.0.4 молча останавливает
+        всю обработку.</dd>
 
       <dt>--wf-raw-part</dt>
       <dd>Подключает готовые куски фильтра перехвата для STUN и для первого пакета QUIC. Без них голос
@@ -438,6 +455,102 @@
       </div>
     </div>
 
+    <div class="anatomy" id="alt11-sferum">
+      <header>
+        <h3>Комбо, Flowseal ALT11 (сферум)</h3>
+        <span class="tagline">Маскировка под Сферум</span>
+      </header>
+      <div class="anatomy-body">
+<pre><code><span class="t-cmt"># Discord и остальной TLS</span>
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">fake</span>:blob=stun2:tcp_ts=<span class="t-num">-1000</span>:repeats=<span class="t-num">8</span>
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">fake</span>:blob=tls_sferum:tcp_ts=<span class="t-num">-1000</span>:repeats=<span class="t-num">8</span>
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">multisplit</span>:pos=<span class="t-num">1,midsld</span>:seqovl=<span class="t-num">664</span>:seqovl_pattern=tls_sferum:optional
+
+<span class="t-cmt"># YouTube: как в ALT11, но 8 повторов и ip_id=zero</span>
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">fake</span>:blob=tls_google:tcp_ts=<span class="t-num">-1000</span>:ip_id=zero:repeats=<span class="t-num">8</span>
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">multisplit</span>:pos=<span class="t-num">1,midsld</span>:seqovl=<span class="t-num">681</span>:seqovl_pattern=tls_google:ip_id=zero:optional
+
+<span class="t-cmt"># голос: quic_vk, как в ALT10</span></code></pre>
+
+        <dl class="why">
+          <dt>Что изменилось у Flowseal</dt>
+          <dd>В версии 1.10.4 (20 октября 2026) Flowseal сменил фейк по умолчанию: для Discord и всех
+            остальных сайтов вместо приветствия Google теперь идёт приветствие <code>www.sferum.ru</code>.
+            Прежний ALT11 оставлен отдельной стратегией: у части пользователей он работает, и молча менять
+            его поведение незачем.</dd>
+
+          <dt>Два фейка подряд</dt>
+          <dd>Сначала STUN-пакет, потом приветствие сферума. STUN для DPI выглядит как чужой протокол, а
+            сферум — как отечественный сайт, который ТСПУ пропускает. Оба с отрицательной временной меткой:
+            сервер их отбросит.</dd>
+
+          <dt>seqovl_pattern=tls_sferum</dt>
+          <dd>Перекрытие заполняется приветствием сферума, а не Google. Файл короче перекрытия (661 байт против
+            664), и движок повторяет его до нужной длины.</dd>
+        </dl>
+
+        <p><b>Когда брать.</b> Если прежний ALT11 работал и перестал, или с самого начала не заходил.</p>
+      </div>
+    </div>
+
+    <div class="anatomy" id="alt12">
+      <header>
+        <h3>Комбо, Flowseal ALT12 (сферум + hostfakesplit)</h3>
+        <span class="tagline">Сферум + подмена имени</span>
+      </header>
+      <div class="anatomy-body">
+<pre><code><span class="t-cmt"># Discord и остальной TLS: как в ALT11 (сферум), первый фейк — STUN-пакет движка</span>
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">fake</span>:blob=stun:tcp_ts=<span class="t-num">-1000</span>:repeats=<span class="t-num">8</span>
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">fake</span>:blob=tls_sferum:tcp_ts=<span class="t-num">-1000</span>:repeats=<span class="t-num">8</span>
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">multisplit</span>:pos=<span class="t-num">1,midsld</span>:seqovl=<span class="t-num">664</span>:seqovl_pattern=tls_sferum:optional
+
+<span class="t-cmt"># YouTube: только подмена имени</span>
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">hostfakesplit</span>:host=www.google.com:tcp_ts=<span class="t-num">-1000</span>:ip_id=zero</code></pre>
+
+        <dl class="why">
+          <dt>blob=stun</dt>
+          <dd>STUN-пакет из поставки движка. В наборе Flowseal лежит такой же файл, байт в байт.</dd>
+
+          <dt>YouTube без фейка и разрезки</dt>
+          <dd><code>hostfakesplit</code> режет приветствие вокруг имени сайта и подсовывает поддельное имя,
+            похожее на <code>www.google.com</code>. Отдельный фейк и перекрытие здесь не нужны.</dd>
+        </dl>
+
+        <p><b>Когда брать.</b> Если ALT11 (сферум) открывает Discord, но YouTube работает плохо.</p>
+      </div>
+    </div>
+
+    <div class="anatomy" id="alt13">
+      <header>
+        <h3>Комбо, Flowseal ALT13 (mail.ru, приближение)</h3>
+        <span class="tagline">Маскировка под Mail.ru</span>
+      </header>
+      <div class="anatomy-body">
+<pre><code><span class="t-cmt"># Discord и остальной TLS</span>
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">fake</span>:blob=tls_sochi:tcp_ts=<span class="t-num">-1000</span>:repeats=<span class="t-num">5</span>
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">fake</span>:blob=stun2:tcp_ts=<span class="t-num">-1000</span>:repeats=<span class="t-num">5</span>
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">hostfakesplit</span>:host=mail.ru:tcp_ts=<span class="t-num">-1000</span>:repeats=<span class="t-num">5</span>:nofake2
+
+<span class="t-cmt"># YouTube</span>
+<span class="t-flag">--lua-desync</span>=<span class="t-verb">hostfakesplit</span>:host=www.google.com:tcp_ts=<span class="t-num">-1000</span></code></pre>
+
+        <dl class="why">
+          <dt>tls_sochi</dt>
+          <dd>Приветствие поддомена <code>staging-sochi-park.predict.mail.ru</code>. Вместе с подменой имени под
+            <code>mail.ru</code> всё соединение выглядит для DPI как обращение к Mail.ru.</dd>
+
+          <dt>Почему «приближение»</dt>
+          <dd>В оригинале у <code>hostfakesplit</code> стоит <code>altorder=1</code>. По исходникам zapret1
+            это значит: часть до имени, поддельное имя, <b>хвост запроса</b>, и только потом настоящее имя,
+            без второго фейка. В zapret2 порядок пакетов у <code>hostfakesplit</code> жёсткий: до имени,
+            фейк, настоящее имя, второй фейк, хвост. Второй фейк убирает <code>nofake2</code>, а отправить
+            хвост раньше настоящего имени нельзя. Пакеты те же, порядок другой.</dd>
+        </dl>
+
+        <p><b>Когда брать.</b> Если сферум не помогает: другая маскировка и другой приём для Discord.</p>
+      </div>
+    </div>
+
     <!-- 5 -->
     <div class="anatomy" id="seqovl">
       <header>
@@ -639,6 +752,10 @@
           <tr>
             <td>Вход проходит, но не подключает к серверам, не грузятся вложения</td>
             <td><b>ALT10</b>, затем <b>ALT11</b></td>
+          </tr>
+          <tr>
+            <td>ALT10 и ALT11 не помогают или перестали работать</td>
+            <td><b>ALT11 (сферум)</b>, <b>ALT12</b>, затем <b>ALT13</b></td>
           </tr>
           <tr>
             <td>Текст работает, голос молчит или пинг 5000</td>

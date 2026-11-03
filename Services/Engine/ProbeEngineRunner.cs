@@ -62,6 +62,7 @@ internal sealed class ProbeEngineRunner : IDisposable
     {
         Stop(); // defensive: never leave a previous candidate's winws2 alive (two engines would fight
                 // over WinDivert and poison every subsequent probe).
+        if (_exeOverride is null) FlowsealBlobs.EnsureExtracted();   // the candidates declare them too
         var psi = new ProcessStartInfo
         {
             // Resolved per Start (not cached in the ctor) so the paths keep the same late binding they

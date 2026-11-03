@@ -110,6 +110,22 @@ public sealed class StrategyGeneratorService : IDisposable
         new("Flowseal ALT10: двойной fake + ts", new[] {
             "--lua-desync=fake:blob=tls_google:tcp_ts=-1000:repeats=6",
             "--lua-desync=fake:blob=tls_vk:tcp_ts=-1000:repeats=6" }),
+        // Flowseal 1.10.x: фейки под отечественные имена, которых нет в поставке движка (распаковывает
+        // FlowsealBlobs): сферум (общий профиль ALT11/12), поддомен mail.ru (ALT13), 5ka.ru, 4pda.to
+        // (образец разрезки в general.bat). Все gateway-friendly: fake:tcp_ts прайм или hostfakesplit.
+        new("Flowseal ALT11 (сферум): stun2 + сферум → seqovl", new[] {
+            "--lua-desync=fake:blob=stun2:tcp_ts=-1000:repeats=8",
+            "--lua-desync=fake:blob=tls_sferum:tcp_ts=-1000:repeats=8",
+            "--lua-desync=multisplit:pos=1,midsld:seqovl=664:seqovl_pattern=tls_sferum:optional" }),
+        new("Отеч.: fake mail.ru-CH + hostfakesplit mail.ru", new[] {
+            "--lua-desync=fake:blob=tls_sochi:tcp_ts=-1000:repeats=5",
+            "--lua-desync=hostfakesplit:host=mail.ru:tcp_ts=-1000:repeats=5:nofake2" }),
+        new("Отеч.: двойной fake сферум + 5ka ts", new[] {
+            "--lua-desync=fake:blob=tls_sferum:tcp_ts=-1000:repeats=6",
+            "--lua-desync=fake:blob=tls_5ka:tcp_ts=-1000:repeats=6" }),
+        new("Отеч.: fake 4pda ts → seqovl 4pda", new[] {
+            "--lua-desync=fake:blob=tls_4pda:tcp_ts=-1000:repeats=6",
+            "--lua-desync=multisplit:pos=1,midsld:seqovl=568:seqovl_pattern=tls_4pda:optional" }),
         // badseq (дефолт sonicdpi) + ip_id=zero (Flowseal): фейк с «плохим» seq + обнулённый IP-ID сплита.
         new("badseq + ip_id=zero сплит", new[] {
             "--lua-desync=fake:blob=tls_google:tcp_seq=-10000:ip_autottl=-2,3-20:repeats=6",
