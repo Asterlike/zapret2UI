@@ -204,14 +204,9 @@ public sealed partial class EngineService : IDisposable
         if (firstProfileArg < 0) firstProfileArg = args.Count;
         args.Insert(firstProfileArg, $"--blob={MasqueBlob}:@{blob}");
 
-        args.Add("--new");
-        args.Add("--filter-tcp=443-65535");
-        args.Add("--filter-l7=tls");
-        args.Add($"--ipset={ipset}");
-        args.Add("--out-range=-d10");
-        args.Add("--payload=tls_client_hello");
-        args.Add($"--lua-desync=fake:blob={MasqueBlob}:tcp_ts=-1000:repeats=8");
-        args.Add($"--lua-desync=multisplit:pos=1,midsld:seqovl=681:seqovl_pattern={MasqueBlob}:optional");
+        AppendTlsProfile(args, $"--ipset={ipset}",
+            $"--lua-desync=fake:blob={MasqueBlob}:tcp_ts=-1000:repeats=8",
+            $"--lua-desync=multisplit:pos=1,midsld:seqovl=681:seqovl_pattern={MasqueBlob}:optional");
     }
 
     /// <summary>Name this profile declares its fake ClientHello under. Deliberately not one of the
@@ -237,14 +232,22 @@ public sealed partial class EngineService : IDisposable
     private static void AppendWarpApiCoverage(List<string> args)
     {
         string list = AppPaths.WarpApiFile;
-        if (!File.Exists(list)) return;
-        args.Add("--new");
-        args.Add("--filter-tcp=443-65535");
-        args.Add("--filter-l7=tls");
-        args.Add($"--hostlist={list}");
-        args.Add("--out-range=-d10");
-        args.Add("--payload=tls_client_hello");
-        args.Add("--lua-desync=hostfakesplit:host=www.google.com:tcp_ts=-1000:tcp_md5:repeats=4");
+        if (File.Exists(list)) AppendTlsProfile(args, $"--hostlist={list}", GatewaySafeDesync);
+    }
+
+    /// <summary>The recommended combo's gateway- and home-NAT-safe pipeline: the fake host segment dies at the
+    /// real server (negative timestamp, unkeyed TCP-MD5) while the real ClientHello arrives intact, so it is
+    /// transparent on an uncensored network. Used by the always-on coverage profiles.</summary>
+    private const string GatewaySafeDesync =
+        "--lua-desync=hostfakesplit:host=www.google.com:tcp_ts=-1000:tcp_md5:repeats=4";
+
+    /// <summary>Append one TLS profile, scoped by <paramref name="scope"/> (a hostlist or an ipset), with the
+    /// head every coverage profile shares: TLS on any high port, the ClientHello only.</summary>
+    private static void AppendTlsProfile(List<string> args, string scope, params string[] desync)
+    {
+        args.AddRange(new[] { "--new", "--filter-tcp=443-65535", "--filter-l7=tls", scope,
+                              "--out-range=-d10", "--payload=tls_client_hello" });
+        args.AddRange(desync);
     }
 
     /// <summary>True for an argument that belongs to a profile rather than the global preamble. Used to
@@ -273,14 +276,7 @@ public sealed partial class EngineService : IDisposable
     private static void AppendTgProxyCoverage(List<string> args)
     {
         string fronts = AppPaths.TgProxyFrontsFile;
-        if (!File.Exists(fronts)) return;
-        args.Add("--new");
-        args.Add("--filter-tcp=443-65535");
-        args.Add("--filter-l7=tls");
-        args.Add($"--hostlist={fronts}");
-        args.Add("--out-range=-d10");
-        args.Add("--payload=tls_client_hello");
-        args.Add("--lua-desync=hostfakesplit:host=www.google.com:tcp_ts=-1000:tcp_md5:repeats=4");
+        if (File.Exists(fronts)) AppendTlsProfile(args, $"--hostlist={fronts}", GatewaySafeDesync);
     }
 
     /// <summary>

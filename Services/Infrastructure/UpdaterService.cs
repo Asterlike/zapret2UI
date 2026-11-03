@@ -110,7 +110,7 @@ public sealed class UpdaterService
     /// has.</summary>
     public void DeleteLegacyEngine()
     {
-        if (IsEngineInstalled) TryDeleteDir(AppPaths.LegacyEngineDir);
+        if (IsEngineInstalled) SafeDelete.Directory(AppPaths.LegacyEngineDir);
     }
 
     // ---- app (this UI) self-update check ----------------------------------
@@ -318,14 +318,14 @@ public sealed class UpdaterService
             progress?.Report(new UpdateProgress(0.95, Loc.T("Установка…")));
             InstallStaged(stageDir);
             File.WriteAllText(AppPaths.EngineVersionFile, release.Tag);
-            TryDelete(CopiedMarker);   // a downloaded, verified engine now — no longer a carry-over
+            SafeDelete.File(CopiedMarker);   // a downloaded, verified engine now — no longer a carry-over
 
             progress?.Report(new UpdateProgress(1.0, Loc.T("Готово — {0}", release.Tag)));
         }
         finally
         {
-            TryDelete(zipPath);
-            TryDeleteDir(stageDir);
+            SafeDelete.File(zipPath);
+            SafeDelete.Directory(stageDir);
         }
     }
 
@@ -489,18 +489,7 @@ public sealed class UpdaterService
 
     private static string ComputeSha256(string path)
     {
-        using var sha = SHA256.Create();
         using var fs = File.OpenRead(path);
-        return Convert.ToHexString(sha.ComputeHash(fs));
-    }
-
-    private static void TryDelete(string path)
-    {
-        try { if (File.Exists(path)) File.Delete(path); } catch { }
-    }
-
-    private static void TryDeleteDir(string path)
-    {
-        try { if (Directory.Exists(path)) Directory.Delete(path, recursive: true); } catch { }
+        return Convert.ToHexString(SHA256.HashData(fs));
     }
 }

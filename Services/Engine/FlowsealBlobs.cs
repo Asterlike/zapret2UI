@@ -1,5 +1,4 @@
 using System.IO;
-using System.Reflection;
 using Zapret2UI.Services.Infrastructure;
 
 namespace Zapret2UI.Services.Engine;
@@ -44,18 +43,7 @@ internal static class FlowsealBlobs
     {
         string dir = Path.Combine(AppPaths.FilesDir, Folder);
         Directory.CreateDirectory(dir);
-        var asm = Assembly.GetExecutingAssembly();
         foreach (var (_, file) in All)
-        {
-            using Stream src = asm.GetManifestResourceStream("Zapret2UI.flowseal." + file)
-                ?? throw new FileNotFoundException("embedded resource missing: " + file);
-            var bytes = new byte[src.Length];
-            src.ReadExactly(bytes);
-
-            string path = Path.Combine(dir, file);
-            if (File.Exists(path) && File.ReadAllBytes(path).AsSpan().SequenceEqual(bytes)) continue;
-            File.WriteAllBytes(path + ".new", bytes);
-            File.Move(path + ".new", path, overwrite: true);
-        }
+            EmbeddedFile.Extract("Zapret2UI.flowseal." + file, Path.Combine(dir, file));
     }
 }

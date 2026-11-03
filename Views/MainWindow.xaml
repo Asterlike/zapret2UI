@@ -801,12 +801,8 @@
                                                 <Border Width="28" Height="28" CornerRadius="12" VerticalAlignment="Center"
                                                         Background="{StaticResource AccentSoftBrush}"
                                                         BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1">
-                                                    <Viewbox Width="13" Height="13" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                                        <Canvas Width="24" Height="24">
-                                                            <Path Data="{StaticResource Icon.FileText}" Stroke="{StaticResource FgBrush}"
-                                                                  StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
-                                                        </Canvas>
-                                                    </Viewbox>
+                                                    <ctl:IconText Icon="{StaticResource Icon.FileText}" IconSize="13"
+                                                                  Foreground="{StaticResource FgBrush}" HorizontalAlignment="Center"/>
                                                 </Border>
                                                 <TextBlock Text="{Binding}" FontFamily="{StaticResource MonoFont}"
                                                            FontSize="13" VerticalAlignment="Center" Margin="10,0,0,0"/>

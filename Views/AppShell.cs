@@ -7,7 +7,6 @@ using Forms = System.Windows.Forms;
 using Zapret2UI.Localization;
 using Zapret2UI.Services.Engine;
 using Zapret2UI.Services.Platform;
-using Zapret2UI.Startup;
 using Zapret2UI.ViewModels;
 
 namespace Zapret2UI.Views;

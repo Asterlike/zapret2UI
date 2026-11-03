@@ -164,7 +164,7 @@ internal sealed class TorRuntime : IDisposable
             string actual = await Task.Run(() => Sha256(archive), ct).ConfigureAwait(false);
             if (!string.Equals(actual, ArchiveSha256, StringComparison.OrdinalIgnoreCase))
             {
-                TryDelete(archive);
+                SafeDelete.File(archive);
                 return WarpResult.Fail(Loc.T(
                     "Скачанный Tor не совпал с контрольной суммой — файл удалён, ничего не установлено. "
                     + "Повторите попытку позже."));
@@ -192,7 +192,7 @@ internal sealed class TorRuntime : IDisposable
                 : Loc.T("Не удалось скачать Tor: {0}. Сайт Tor Project в России блокируют — включите "
                         + "обход на «Главной» и попробуйте снова.", ex.Message));
         }
-        finally { TryDelete(archive); }
+        finally { SafeDelete.File(archive); }
     }
 
     private async Task DownloadAsync(HttpClient http, string path, CancellationToken ct)
@@ -254,15 +254,10 @@ internal sealed class TorRuntime : IDisposable
     internal static void DeleteLegacyBundle()
     {
         if (!IsInstalled) return;
-        foreach (var (_, target) in Wanted) TryDelete(LegacyPath(target));
-        TryDelete(Path.Combine(AppPaths.LegacyTorDir, TorrcName));
-        TryDelete(Path.Combine(AppPaths.LegacyTorDir, "installed_version.txt"));
-        try
-        {
-            string pt = Path.Combine(AppPaths.LegacyTorDir, "pt");
-            if (Directory.Exists(pt)) Directory.Delete(pt, recursive: true);
-        }
-        catch { /* a leftover we could not remove does no harm */ }
+        foreach (var (_, target) in Wanted) SafeDelete.File(LegacyPath(target));
+        SafeDelete.File(Path.Combine(AppPaths.LegacyTorDir, TorrcName));
+        SafeDelete.File(Path.Combine(AppPaths.LegacyTorDir, "installed_version.txt"));
+        SafeDelete.Directory(Path.Combine(AppPaths.LegacyTorDir, "pt"));
     }
 
     /// <summary>Pull the five files we need straight out of the .tar.gz — no shelling out, no temporary
@@ -752,10 +747,5 @@ internal sealed class TorRuntime : IDisposable
     {
         using FileStream stream = File.OpenRead(path);
         return Convert.ToHexString(SHA256.HashData(stream)).ToLowerInvariant();
-    }
-
-    private static void TryDelete(string path)
-    {
-        try { if (File.Exists(path)) File.Delete(path); } catch { /* a temp file is not worth failing over */ }
     }
 }

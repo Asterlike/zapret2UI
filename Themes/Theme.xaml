@@ -85,22 +85,31 @@
         <Setter Property="FontFamily" Value="{StaticResource UiFont}"/>
         <Setter Property="FontSize" Value="13"/>
         <Setter Property="VerticalAlignment" Value="Center"/>
+        <!-- The outline follows the text colour unless IconBrush is set on the element itself. -->
+        <Setter Property="IconBrush" Value="{Binding Foreground, RelativeSource={RelativeSource Self}}"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type ctl:IconText}">
                     <StackPanel Orientation="Horizontal">
-                        <Viewbox Width="{TemplateBinding IconSize}" Height="{TemplateBinding IconSize}"
+                        <Viewbox x:Name="icon" Width="{TemplateBinding IconSize}" Height="{TemplateBinding IconSize}"
                                  VerticalAlignment="Center" Margin="0,0,8,0">
                             <Canvas Width="24" Height="24">
-                                <Path Data="{TemplateBinding Icon}" Stroke="{TemplateBinding Foreground}"
+                                <Path Data="{TemplateBinding Icon}" Stroke="{TemplateBinding IconBrush}"
                                       StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
                                       StrokeLineJoin="Round"/>
                             </Canvas>
                         </Viewbox>
-                        <TextBlock Text="{TemplateBinding Text}" VerticalAlignment="Center"
+                        <TextBlock x:Name="label" Text="{TemplateBinding Text}" VerticalAlignment="Center"
                                    Foreground="{TemplateBinding Foreground}" FontFamily="{TemplateBinding FontFamily}"
                                    FontSize="{TemplateBinding FontSize}" FontWeight="{TemplateBinding FontWeight}"/>
                     </StackPanel>
+                    <ControlTemplate.Triggers>
+                        <!-- No label: the icon alone, without the gap reserved for text. -->
+                        <Trigger Property="Text" Value="">
+                            <Setter TargetName="icon" Property="Margin" Value="0"/>
+                            <Setter TargetName="label" Property="Visibility" Value="Collapsed"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>

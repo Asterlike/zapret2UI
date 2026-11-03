@@ -28,6 +28,11 @@ public sealed class IconText : Control
     public static readonly DependencyProperty IconSizeProperty = DependencyProperty.Register(
         nameof(IconSize), typeof(double), typeof(IconText), new PropertyMetadata(14.0));
 
+    /// <summary>The outline's colour. The default style binds it to <see cref="Control.Foreground"/>; set it
+    /// for an icon in its own colour (the green heart beside the purple «Поддержать автора»).</summary>
+    public static readonly DependencyProperty IconBrushProperty = DependencyProperty.Register(
+        nameof(IconBrush), typeof(Brush), typeof(IconText), new PropertyMetadata(null));
+
     static IconText()
     {
         DefaultStyleKeyProperty.OverrideMetadata(typeof(IconText), new FrameworkPropertyMetadata(typeof(IconText)));
@@ -52,5 +57,11 @@ public sealed class IconText : Control
     {
         get => (double)GetValue(IconSizeProperty);
         set => SetValue(IconSizeProperty, value);
+    }
+
+    public Brush? IconBrush
+    {
+        get => (Brush?)GetValue(IconBrushProperty);
+        set => SetValue(IconBrushProperty, value);
     }
 }

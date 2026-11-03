@@ -1,7 +1,8 @@
 <UserControl x:Class="Zapret2UI.Controls.DonateBlock"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:loc="clr-namespace:Zapret2UI.Localization">
+             xmlns:loc="clr-namespace:Zapret2UI.Localization"
+             xmlns:ctl="clr-namespace:Zapret2UI.Controls">
     <UserControl.Resources>
         <!-- Borderless chevron button for the COLLAPSED pill (expand). Transparent until hover — looks
              great inline next to the pill text. -->
@@ -69,16 +70,9 @@
             <StackPanel Orientation="Horizontal">
                 <Border Background="Transparent" Cursor="Hand" MouseLeftButtonUp="OnOpen"
                         Padding="10,6" ToolTip="{loc:Loc 'Открыть страницу поддержки'}">
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <Viewbox Width="13" Height="13" VerticalAlignment="Center" Margin="0,0,7,0">
-                            <Canvas Width="24" Height="24">
-                                <Path Data="{StaticResource Icon.Heart}" Stroke="{StaticResource SuccessBrush}"
-                                      StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
-                            </Canvas>
-                        </Viewbox>
-                        <TextBlock Text="{loc:Loc 'Поддержать автора'}" FontSize="12.5" FontWeight="SemiBold"
-                                   Foreground="{StaticResource AccentBrush}" VerticalAlignment="Center"/>
-                    </StackPanel>
+                    <ctl:IconText Icon="{StaticResource Icon.Heart}" IconBrush="{StaticResource SuccessBrush}" IconSize="13"
+                                  Text="{loc:Loc 'Поддержать автора'}" FontSize="12.5" FontWeight="SemiBold"
+                                  Foreground="{StaticResource AccentBrush}"/>
                 </Border>
                 <Button Style="{StaticResource DonateGlyph}" Command="{Binding ToggleDonateCommand}"
                         VerticalAlignment="Center" ToolTip="{loc:Loc 'Показать QR-код'}">
@@ -137,12 +131,8 @@
                                 <Run Text="{loc:Loc 'Поддержать автора'}"/>
                             </Hyperlink>
                         </TextBlock>
-                        <Viewbox Width="13" Height="13" VerticalAlignment="Center" Margin="6,0,0,0">
-                            <Canvas Width="24" Height="24">
-                                <Path Data="{StaticResource Icon.Heart}" Stroke="{StaticResource SuccessBrush}"
-                                      StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
-                            </Canvas>
-                        </Viewbox>
+                        <ctl:IconText Icon="{StaticResource Icon.Heart}" IconBrush="{StaticResource SuccessBrush}"
+                                      IconSize="13" Margin="6,0,0,0"/>
                     </StackPanel>
                 </StackPanel>
 

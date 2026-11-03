@@ -16,16 +16,10 @@ internal static class LegacyCleanup
         updater.DeleteLegacyEngine();
         MasqueRuntime.DeleteLegacyClient();
         TorRuntime.DeleteLegacyBundle();
-        TryDeleteDir(Path.Combine(AppPaths.Root, "wireguard"));
+        SafeDelete.Directory(Path.Combine(AppPaths.Root, "wireguard"));
 
         // The rename's move ran only when the new folder did not exist; where both exist, the old one is
         // a copy nobody reads.
-        if (Directory.Exists(AppPaths.Root)) TryDeleteDir(AppPaths.LegacyRoot);
-    }
-
-    private static void TryDeleteDir(string path)
-    {
-        try { if (Directory.Exists(path)) Directory.Delete(path, recursive: true); }
-        catch { /* best effort */ }
+        if (Directory.Exists(AppPaths.Root)) SafeDelete.Directory(AppPaths.LegacyRoot);
     }
 }

@@ -1,5 +1,4 @@
 using Zapret2UI.Models;
-using Zapret2UI.Services.Engine;
 
 namespace Zapret2UI.Services.Strategies;
 
@@ -39,16 +38,8 @@ public static class ComboStrategyCatalog
         "--ipcache-lifetime=8400",
         "--ipcache-hostname=1",
         "--lua-init=fake_default_tls = tls_mod(fake_default_tls,'rnd,rndsni')",
-        "--blob=quic_google:@{FILES}\\fake\\quic_initial_www_google_com.bin",
-        "--blob=tls_google:@{FILES}\\fake\\tls_clienthello_www_google_com.bin",
-        // Отечественные фейк-блобы (ClientHello vk.com / sberbank.ru) — ТСПУ вайтлистит домашний
-        // трафик, поэтому фейк «под vk/сбер» выживает там, где google-фейк режется (тренд 2026).
-        "--blob=tls_vk:@{FILES}\\fake\\tls_clienthello_vk_com.bin",
-        "--blob=tls_sber:@{FILES}\\fake\\tls_clienthello_sberbank_ru.bin",
-        "--blob=tls_gos:@{FILES}\\fake\\tls_clienthello_gosuslugi_ru.bin",
     }
-    // Фейки Flowseal (сферум, sochi_park, 4pda, 5ka, stun2): распаковывает программа (FlowsealBlobs).
-    .Concat(FlowsealBlobs.Declarations)
+    .Concat(StrategyBlobs.Declarations)   // global — before the first profile
     .Concat(new[]
     {
         "--wf-raw-part=@{WF}\\windivert_part.stun.txt",

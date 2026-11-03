@@ -1,7 +1,6 @@
 using System.IO;
 using System.Text.Json;
 using Zapret2UI.Models;
-using Zapret2UI.Services.Engine;
 using Zapret2UI.Services.Infrastructure;
 
 namespace Zapret2UI.Services.Strategies;
@@ -446,22 +445,8 @@ public sealed class PresetService
             "--ipcache-lifetime=8400",
             "--ipcache-hostname=1",
             "--lua-init=fake_default_tls = tls_mod(fake_default_tls,'rnd,rndsni')",
-            "--blob=tls_google:@{FILES}\\fake\\tls_clienthello_www_google_com.bin",
-            "--blob=quic_google:@{FILES}\\fake\\quic_initial_www_google_com.bin",
-            // Отечественные фейк-блобы (ClientHello vk.com / sberbank.ru) — ТСПУ вайтлистит домашний
-            // трафик, поэтому фейк «под vk/сбер» выживает там, где google-фейк режется (тренд 2026:
-            // sonicdpi → ozon.ru, Flowseal → dbankcloud_ru). Входят в стандартную поставку движка.
-            "--blob=tls_vk:@{FILES}\\fake\\tls_clienthello_vk_com.bin",
-            "--blob=tls_sber:@{FILES}\\fake\\tls_clienthello_sberbank_ru.bin",
-            "--blob=tls_gos:@{FILES}\\fake\\tls_clienthello_gosuslugi_ru.bin",
-            // Отечественный QUIC-блоб для голоса Discord (аналог dbankcloud_ru из Flowseal ALT10/11).
-            "--blob=quic_vk:@{FILES}\\fake\\quic_initial_vk_com.bin",
-            // STUN-пакет движка: Flowseal ALT12 шлёт его как TLS-фейк.
-            "--blob=stun:@{FILES}\\fake\\stun.bin",
         };
-        // Фейки Flowseal (сферум, sochi_park, 4pda, 5ka, stun2) — в поставке движка их нет, программа
-        // распаковывает их сама (FlowsealBlobs). Глобальные объявления — до первого профиля.
-        a.AddRange(FlowsealBlobs.Declarations);
+        a.AddRange(StrategyBlobs.Declarations);   // global — before the first profile
         a.AddRange(new[]
         {
             "--wf-raw-part=@{WF}\\windivert_part.stun.txt",

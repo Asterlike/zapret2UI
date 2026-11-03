@@ -163,8 +163,7 @@ public sealed class MasqueService : IDisposable
     public void Reset()
     {
         Stop();
-        try { if (File.Exists(AppPaths.MasqueConfigFile)) File.Delete(AppPaths.MasqueConfigFile); }
-        catch { /* a config we cannot delete is re-registered over anyway */ }
+        SafeDelete.File(AppPaths.MasqueConfigFile);   // one we cannot delete is re-registered over anyway
     }
 
     // ---- the proxy ---------------------------------------------------------

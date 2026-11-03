@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.IO;
-using System.Reflection;
 using System.Text;
 using System.Text.Json.Nodes;
 using Zapret2UI.Localization;
@@ -97,30 +96,16 @@ internal sealed class MasqueRuntime : IDisposable
     {
         Directory.CreateDirectory(AppPaths.MasqueDir);
         Directory.CreateDirectory(AppPaths.MasqueBinDir);
-        Extract(ExeResource, AppPaths.MasqueExe);
-        Extract(LicenseResource, Path.Combine(AppPaths.MasqueBinDir, LicenseName));
+        EmbeddedFile.Extract(ExeResource, AppPaths.MasqueExe);
+        EmbeddedFile.Extract(LicenseResource, Path.Combine(AppPaths.MasqueBinDir, LicenseName));
     }
 
     /// <summary>The client and its licence as unpacked before the move to Program Files. They are in our
     /// exe, so nothing is lost by deleting them.</summary>
     internal static void DeleteLegacyClient()
     {
-        foreach (string f in new[] { AppPaths.LegacyMasqueExe, Path.Combine(AppPaths.MasqueDir, LicenseName) })
-            try { if (File.Exists(f)) File.Delete(f); } catch { /* a leftover does no harm */ }
-    }
-
-    /// <summary>Write an embedded binary out, skipping the copy when it is already byte-count identical.
-    /// A half-written executable would be worse than none, so it lands under a temporary name first.</summary>
-    private static void Extract(string resource, string path)
-    {
-        using Stream? src = Assembly.GetExecutingAssembly().GetManifestResourceStream(resource)
-            ?? throw new FileNotFoundException($"embedded resource missing: {resource}");
-
-        if (File.Exists(path) && new FileInfo(path).Length == src.Length) return;
-
-        string tmp = path + ".new";
-        using (var dst = File.Create(tmp)) src.CopyTo(dst);
-        File.Move(tmp, path, overwrite: true);
+        SafeDelete.File(AppPaths.LegacyMasqueExe);
+        SafeDelete.File(Path.Combine(AppPaths.MasqueDir, LicenseName));
     }
 
     /// <summary>True once a device has been registered and its config is on disk.</summary>
